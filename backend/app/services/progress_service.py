@@ -1,4 +1,4 @@
-from app.services.neo4j_service import neo4j_db
+from app.db.neo4j_connection import neo4j_db
 from datetime import datetime
 
 def update_student_progress(student_id: str, concept: str, score: int, total: int):

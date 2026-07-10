@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.api import struggle, quiz
-from app.services.neo4j_service import neo4j_db  
+from app.db.neo4j_connection import neo4j_db  
 from app.api import struggle, quiz, progress
 
 app = FastAPI(

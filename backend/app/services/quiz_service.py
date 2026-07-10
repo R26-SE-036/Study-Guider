@@ -13,13 +13,13 @@ api_key = os.getenv("GEMINI_API_KEY")
 model_name = "gemini-flash-latest"
 
 try:
-    # FIX: Fail fast configurations for Langchain
+    # FIX: Updated timeout to 10 seconds
     llm = ChatGoogleGenerativeAI(
         model=model_name, 
         temperature=0.3,
         google_api_key=api_key,
         max_retries=0,
-        timeout=5
+        timeout=10
     )
 except Exception as e:
     llm = None
@@ -122,8 +122,8 @@ def generate_validation_quiz(student_id: str, error_type: str, code_snippet: str
             url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent?key={api_key}"
             headers = {'Content-Type': 'application/json'}
             data = {"contents": [{"parts": [{"text": formatted_prompt}]}], "generationConfig": {"temperature": 0.3}}
-            # FIX: Added timeout=5s to prevent hanging
-            res = requests.post(url, headers=headers, json=data, timeout=5)
+            # FIX: Updated timeout to 10 seconds
+            res = requests.post(url, headers=headers, json=data, timeout=10)
             if res.status_code == 200:
                 content = res.json()['candidates'][0]['content']['parts'][0]['text']
             else:

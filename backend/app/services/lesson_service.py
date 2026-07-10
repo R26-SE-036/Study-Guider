@@ -15,14 +15,13 @@ api_key = os.getenv("GEMINI_API_KEY")
 model_name = "gemini-flash-latest"
 
 try:
-    # FIX: Added max_retries=0 and timeout=5. 
-    # If API is busy, it fails fast instead of getting stuck for 60+ seconds.
+    # FIX: Updated timeout to 10 seconds as required by Google API
     llm = ChatGoogleGenerativeAI(
         model=model_name, 
         temperature=0.3, 
         google_api_key=api_key,
         max_retries=0, 
-        timeout=5 
+        timeout=10 
     )
 except Exception as e:
     llm = None
@@ -110,8 +109,8 @@ def generate_real_lesson(student_id: str, error_type: str, code_snippet: str):
         try:
             url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent?key={api_key}"
             data = {"contents": [{"parts": [{"text": formatted_prompt}]}], "generationConfig": {"temperature": 0.3}}
-            # FIX: Added timeout=5s to prevent requests library from hanging forever
-            res = requests.post(url, headers={'Content-Type': 'application/json'}, json=data, timeout=5)
+            # FIX: Updated timeout to 10 seconds for fallback API as well
+            res = requests.post(url, headers={'Content-Type': 'application/json'}, json=data, timeout=10)
             if res.status_code == 200:
                 content = res.json()['candidates'][0]['content']['parts'][0]['text']
             else:

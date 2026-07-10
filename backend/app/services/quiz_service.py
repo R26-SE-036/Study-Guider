@@ -1,23 +1,15 @@
-import os
 import json
 import requests
-from dotenv import load_dotenv
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_core.prompts import PromptTemplate
-
-base_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-env_path = os.path.join(base_dir, '.env')
-load_dotenv(env_path)
-
-api_key = os.getenv("GEMINI_API_KEY")
-model_name = "gemini-flash-latest"
+from app.core.config import settings
 
 try:
-    # FIX: Updated timeout to 10 seconds
+    # Initialize the language model using central settings
     llm = ChatGoogleGenerativeAI(
-        model=model_name, 
+        model=settings.MODEL_NAME, 
         temperature=0.3,
-        google_api_key=api_key,
+        google_api_key=settings.GEMINI_API_KEY,
         max_retries=0,
         timeout=10
     )
@@ -83,7 +75,7 @@ def validate_and_format_quiz(data, error_type):
         return get_smart_quiz_fallback(error_type)
 
 def generate_validation_quiz(student_id: str, error_type: str, code_snippet: str):
-    if not api_key:
+    if not settings.GEMINI_API_KEY:
         return get_smart_quiz_fallback(error_type)
 
     prompt_template = """
@@ -119,10 +111,9 @@ def generate_validation_quiz(student_id: str, error_type: str, code_snippet: str
     except Exception as e:
         print(f"⚠️ Quiz LangChain Failed: {e}. Switching to Mock Data API...")
         try:
-            url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent?key={api_key}"
+            url = f"https://generativelanguage.googleapis.com/v1beta/models/{settings.MODEL_NAME}:generateContent?key={settings.GEMINI_API_KEY}"
             headers = {'Content-Type': 'application/json'}
             data = {"contents": [{"parts": [{"text": formatted_prompt}]}], "generationConfig": {"temperature": 0.3}}
-            # FIX: Updated timeout to 10 seconds
             res = requests.post(url, headers=headers, json=data, timeout=10)
             if res.status_code == 200:
                 content = res.json()['candidates'][0]['content']['parts'][0]['text']

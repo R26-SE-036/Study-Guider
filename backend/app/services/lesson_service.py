@@ -1,25 +1,17 @@
-import os
 import json
 import requests
-from dotenv import load_dotenv
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_core.prompts import PromptTemplate
 from app.services.rag_service import retrieve_context
 from app.services.ml_service import predict_cognitive_state
-
-base_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-env_path = os.path.join(base_dir, '.env')
-load_dotenv(env_path)
-
-api_key = os.getenv("GEMINI_API_KEY")
-model_name = "gemini-flash-latest"
+from app.core.config import settings
 
 try:
-    # FIX: Updated timeout to 10 seconds as required by Google API
+    # Initialize the language model using central settings
     llm = ChatGoogleGenerativeAI(
-        model=model_name, 
+        model=settings.MODEL_NAME, 
         temperature=0.3, 
-        google_api_key=api_key,
+        google_api_key=settings.GEMINI_API_KEY,
         max_retries=0, 
         timeout=10 
     )
@@ -38,7 +30,7 @@ def get_smart_fallback(student_id, error_type, code_snippet):
     }
 
 def generate_real_lesson(student_id: str, error_type: str, code_snippet: str):
-    if not api_key:
+    if not settings.GEMINI_API_KEY:
         return get_smart_fallback(student_id, error_type, code_snippet)
 
     # --- DYNAMIC METRICS ---
@@ -107,9 +99,8 @@ def generate_real_lesson(student_id: str, error_type: str, code_snippet: str):
     except Exception as e:
         print(f"\n⚠️ LangChain Failed: {e}. Switching to Smart Fallback API...")
         try:
-            url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent?key={api_key}"
+            url = f"https://generativelanguage.googleapis.com/v1beta/models/{settings.MODEL_NAME}:generateContent?key={settings.GEMINI_API_KEY}"
             data = {"contents": [{"parts": [{"text": formatted_prompt}]}], "generationConfig": {"temperature": 0.3}}
-            # FIX: Updated timeout to 10 seconds for fallback API as well
             res = requests.post(url, headers={'Content-Type': 'application/json'}, json=data, timeout=10)
             if res.status_code == 200:
                 content = res.json()['candidates'][0]['content']['parts'][0]['text']

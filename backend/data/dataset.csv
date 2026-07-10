@@ -1,0 +1,11 @@
+error_count,past_score,code_snippet,cognitive_state
+4,40,"for(int i=0; i<=arr.length; i++){ sum += arr[i]; }","High Cognitive Load"
+1,85,"if(marks = 100) { System.out.println('Pass'); }","Minor Syntax Error"
+6,20,"while(true){ if(x>5) break; else x++; }","Needs Simple Basics"
+2,75,"int[] arr = new int[5]; arr[5] = 10;","Minor Syntax Error"
+5,30,"for(int i=0; i<10; i++){ for(int j=0; j<5; j++){ if(i==j) break; } }","High Cognitive Load"
+3,55,"if(ready == true){ start(); }","Needs Simple Basics"
+7,15,"int x = 0; while(x < 10) { System.out.println(x); }","Needs Simple Basics"
+1,90,"for(int i=0; i<arr.length; i++){ System.out.println(arr[i]); }","Minor Syntax Error"
+4,45,"if(a > b && b > c || c == 0) { doSomething(); }","High Cognitive Load"
+2,80,"System.out.println(arr[arr.length]);","Minor Syntax Error"

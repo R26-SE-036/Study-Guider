@@ -13,10 +13,18 @@ password = os.getenv("NEO4J_PASSWORD")
 
 class Neo4jConnection:
     def __init__(self):
+        self.driver = None
+        self.connect()
+
+    def connect(self):
+        """Creates a new connection to Neo4j with connection pooling to prevent SSLEOFError"""
         try:
-            # Connect to the Neo4j Aura Database
-            self.driver = GraphDatabase.driver(uri, auth=(user, password))
-            # Verify connection
+            # FIX: Added max_connection_lifetime=200s to avoid AuraDB idle timeouts
+            self.driver = GraphDatabase.driver(
+                uri, 
+                auth=(user, password),
+                max_connection_lifetime=200 
+            )
             self.driver.verify_connectivity()
             print("\n" + "="*40)
             print("🟢 NEO4J GRAPH DATABASE CONNECTED SUCCESSFULLY!")
@@ -30,12 +38,30 @@ class Neo4jConnection:
             self.driver.close()
 
     def execute_query(self, query, parameters=None):
+        """Executes a query with Auto-Reconnect logic if the connection was dropped"""
         if not self.driver:
-            print("Cannot execute query. No database connection.")
+            print("⚠️ No database connection. Attempting to reconnect...")
+            self.connect()
+            
+        if not self.driver:
             return None
-        with self.driver.session() as session:
-            result = session.run(query, parameters)
-            return [record.data() for record in result]
+            
+        try:
+            with self.driver.session() as session:
+                result = session.run(query, parameters)
+                return [record.data() for record in result]
+        except Exception as e:
+            # FIX: If SSLEOFError occurs during query, reconnect and try exactly once more
+            print(f"⚠️ Neo4j query failed (Connection lost). Reconnecting... Error: {e}")
+            self.connect()
+            if self.driver:
+                try:
+                    with self.driver.session() as session:
+                        result = session.run(query, parameters)
+                        return [record.data() for record in result]
+                except Exception as retry_error:
+                    print(f"❌ Neo4j query retry failed: {retry_error}")
+            return None
 
 # Create a global instance to be used across the app
 neo4j_db = Neo4jConnection()

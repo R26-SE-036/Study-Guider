@@ -1,12 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
+
 export default function StudentDashboard({ studentId, onBack }) {
   const [progressData, setProgressData] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    axios.get(`http://127.0.0.1:8000/api/progress/${studentId}`)
+    axios.get(`${API_BASE_URL}/api/progress/${studentId}`)
       .then(response => {
         if (response.data.success && response.data.data) {
           setProgressData(response.data.data);

@@ -13,10 +13,13 @@ api_key = os.getenv("GEMINI_API_KEY")
 model_name = "gemini-flash-latest"
 
 try:
+    # FIX: Fail fast configurations for Langchain
     llm = ChatGoogleGenerativeAI(
         model=model_name, 
         temperature=0.3,
-        google_api_key=api_key
+        google_api_key=api_key,
+        max_retries=0,
+        timeout=5
     )
 except Exception as e:
     llm = None
@@ -114,20 +117,21 @@ def generate_validation_quiz(student_id: str, error_type: str, code_snippet: str
         content = response.content
         print("✅ Quiz Generation: Using LangChain")
     except Exception as e:
-        print(f"⚠️ Quiz LangChain Failed: {e}")
+        print(f"⚠️ Quiz LangChain Failed: {e}. Switching to Mock Data API...")
         try:
             url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent?key={api_key}"
             headers = {'Content-Type': 'application/json'}
             data = {"contents": [{"parts": [{"text": formatted_prompt}]}], "generationConfig": {"temperature": 0.3}}
-            res = requests.post(url, headers=headers, json=data)
+            # FIX: Added timeout=5s to prevent hanging
+            res = requests.post(url, headers=headers, json=data, timeout=5)
             if res.status_code == 200:
                 content = res.json()['candidates'][0]['content']['parts'][0]['text']
             else:
                 raise Exception("API Request Failed")
         except Exception as fallback_error:
+            print(f"⚠️ Quiz Fallback API Failed: {fallback_error}. Serving Mock Data.")
             return get_smart_quiz_fallback(error_type)
 
-    # 🚀 THE FIX: Extract text if LangChain returned a List of blocks
     if isinstance(content, list) and len(content) > 0 and isinstance(content[0], dict) and 'text' in content[0]:
         content = content[0]['text']
 

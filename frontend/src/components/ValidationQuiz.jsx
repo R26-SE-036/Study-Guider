@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
+
 export default function ValidationQuiz({ studentId, errorType, codeSnippet }) {
   const [quizData, setQuizData] = useState(null);
   const [quizLoading, setQuizLoading] = useState(true);
@@ -13,7 +15,7 @@ export default function ValidationQuiz({ studentId, errorType, codeSnippet }) {
 
   useEffect(() => {
     const payload = { student_id: studentId, error_type: errorType, code_snippet: codeSnippet };
-    axios.post('http://127.0.0.1:8000/api/quiz/generate', payload)
+    axios.post(`${API_BASE_URL}/api/quiz/generate`, payload)
       .then(response => {
         if (response.data.quiz_data && response.data.quiz_data.length > 0) {
           setQuizData(response.data.quiz_data);
@@ -37,9 +39,14 @@ export default function ValidationQuiz({ studentId, errorType, codeSnippet }) {
     setQuizFinished(true);
     setGraphStatus("updating");
 
-    const payload = { student_id: studentId, concept: errorType, score: score, total_questions: quizData.length };
+    const payload = { 
+        student_id: studentId, 
+        concept: errorType, 
+        score: score, 
+        total_questions: quizData.length 
+    };
 
-    axios.post('http://127.0.0.1:8000/api/progress/update', payload)
+    axios.post(`${API_BASE_URL}/api/progress/update`, payload)
       .then(response => { setGraphStatus(response.data.success ? "success" : "error"); })
       .catch(error => { console.error("Neo4j Update Error:", error); setGraphStatus("error"); });
   };
@@ -62,7 +69,7 @@ export default function ValidationQuiz({ studentId, errorType, codeSnippet }) {
         <div style={{ margin: '30px 0' }}>
           <span className="cg-text-muted" style={{ fontSize: '1.2rem', textTransform: 'uppercase', letterSpacing: '1px' }}>Final Score</span>
           <h1 style={{ fontSize: '4rem', margin: '10px 0', color: passed ? '#34D399' : '#F87171' }}>
-            {score}<span style={{color: '#475569'}}>/</span>{quizData?.length || 2}
+            {score}<span style={{color: '#475569'}}>/</span>{quizData?.length || 4}
           </h1>
         </div>
 
@@ -91,7 +98,7 @@ export default function ValidationQuiz({ studentId, errorType, codeSnippet }) {
           </div>
           
           <h3 className="cg-title-section" style={{ fontSize: '1.3rem', marginBottom: '30px', lineHeight: '1.5' }}>
-            {quizData[currentQIndex]?.question || "Question could not be loaded."}
+            {quizData[currentQIndex]?.question}
           </h3>
           
           <div className="cg-flex-col" style={{ gap: '15px', marginBottom: '30px' }}>

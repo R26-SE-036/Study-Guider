@@ -12,14 +12,17 @@ env_path = os.path.join(base_dir, '.env')
 load_dotenv(env_path)
 
 api_key = os.getenv("GEMINI_API_KEY")
-
 model_name = "gemini-flash-latest"
 
 try:
+    # FIX: Added max_retries=0 and timeout=5. 
+    # If API is busy, it fails fast instead of getting stuck for 60+ seconds.
     llm = ChatGoogleGenerativeAI(
         model=model_name, 
         temperature=0.3, 
-        google_api_key=api_key
+        google_api_key=api_key,
+        max_retries=0, 
+        timeout=5 
     )
 except Exception as e:
     llm = None
@@ -39,7 +42,7 @@ def generate_real_lesson(student_id: str, error_type: str, code_snippet: str):
     if not api_key:
         return get_smart_fallback(student_id, error_type, code_snippet)
 
-    # --- 🧪 DYNAMIC METRICS FOR PP1 PRESENTATION ---
+    # --- DYNAMIC METRICS ---
     if "LOOP" in error_type:
         error_count = 6
         past_score = 30
@@ -49,7 +52,6 @@ def generate_real_lesson(student_id: str, error_type: str, code_snippet: str):
     else:
         error_count = 3
         past_score = 80
-    # -----------------------------------------------
 
     search_query = f"Explain {error_type} and how to fix {code_snippet}"
     retrieved_context = retrieve_context(search_query)
@@ -104,21 +106,22 @@ def generate_real_lesson(student_id: str, error_type: str, code_snippet: str):
         content = response.content
         print("✅ Graph RAG + ML Customization Success: Using LangChain")
     except Exception as e:
-        print(f"\n⚠️ LangChain Failed: {e}")
+        print(f"\n⚠️ LangChain Failed: {e}. Switching to Smart Fallback API...")
         try:
             url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent?key={api_key}"
             data = {"contents": [{"parts": [{"text": formatted_prompt}]}], "generationConfig": {"temperature": 0.3}}
-            res = requests.post(url, headers={'Content-Type': 'application/json'}, json=data)
+            # FIX: Added timeout=5s to prevent requests library from hanging forever
+            res = requests.post(url, headers={'Content-Type': 'application/json'}, json=data, timeout=5)
             if res.status_code == 200:
                 content = res.json()['candidates'][0]['content']['parts'][0]['text']
             else:
-                raise Exception("API Error")
-        except Exception:
+                raise Exception(f"API Error {res.status_code}")
+        except Exception as fallback_error:
+            print(f"⚠️ Fallback API Failed: {fallback_error}. Serving Mock Data.")
             return get_smart_fallback(student_id, error_type, code_snippet)
 
     print(f"\n--- RAW AI LESSON OUTPUT ---\n{str(content)[:500]}...\n----------------------------\n")
 
-    # 🚀 THE FIX: Extract text if LangChain returned a List of blocks
     if isinstance(content, list) and len(content) > 0 and isinstance(content[0], dict) and 'text' in content[0]:
         content = content[0]['text']
 

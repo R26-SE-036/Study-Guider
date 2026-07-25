@@ -1,3 +1,4 @@
+import os
 import json
 import requests
 from langchain_google_genai import ChatGoogleGenerativeAI
@@ -5,6 +6,7 @@ from langchain_core.prompts import PromptTemplate
 from app.services.rag_service import retrieve_context
 from app.services.ml_service import predict_cognitive_state
 from app.core.config import settings
+from app.db.neo4j_connection import neo4j_db # 🚀 IMPORTING NEO4J DB
 
 try:
     # Initialize the language model using central settings
@@ -13,7 +15,7 @@ try:
         temperature=0.3, 
         google_api_key=settings.GEMINI_API_KEY,
         max_retries=0, 
-        timeout=10 
+        timeout=5 # Strict 5s fail-fast timeout
     )
 except Exception as e:
     llm = None
@@ -32,6 +34,25 @@ def get_smart_fallback(student_id, error_type, code_snippet):
 def generate_real_lesson(student_id: str, error_type: str, code_snippet: str):
     if not settings.GEMINI_API_KEY:
         return get_smart_fallback(student_id, error_type, code_snippet)
+
+    # =====================================================================
+    # 🚀 STEP 1: NEO4J SEMANTIC CACHING - CHECK CACHE FIRST (0 API Calls)
+    # =====================================================================
+    cache_query = """
+    MATCH (e:ErrorType {name: $error_type})-[:HAS_LESSON]->(l:Lesson)
+    RETURN l.issue AS issue, l.explanation AS explanation, l.exampleCode AS exampleCode,
+           l.mermaidDiagram AS mermaidDiagram, l.videoUrl AS videoUrl, l.referenceLink AS referenceLink, l.hint AS hint
+    """
+    try:
+        cached_result = neo4j_db.execute_query(cache_query, {"error_type": error_type})
+        if cached_result and len(cached_result) > 0:
+            print(f"\n⚡ CACHE HIT! Serving lesson for '{error_type}' directly from Neo4j DB (0 API Calls, 0 Latency).")
+            return cached_result[0]
+    except Exception as cache_err:
+        print(f"⚠️ Cache read error: {cache_err}")
+
+    print(f"\n⚠️ CACHE MISS! Generating new lesson for '{error_type}' via Gemini API...")
+    # =====================================================================
 
     # --- DYNAMIC METRICS ---
     if "LOOP" in error_type:
@@ -97,35 +118,56 @@ def generate_real_lesson(student_id: str, error_type: str, code_snippet: str):
         content = response.content
         print("✅ Graph RAG + ML Customization Success: Using LangChain")
     except Exception as e:
-        print(f"\n⚠️ LangChain Failed: {e}. Switching to Smart Fallback API...")
-        try:
-            url = f"https://generativelanguage.googleapis.com/v1beta/models/{settings.MODEL_NAME}:generateContent?key={settings.GEMINI_API_KEY}"
-            data = {"contents": [{"parts": [{"text": formatted_prompt}]}], "generationConfig": {"temperature": 0.3}}
-            res = requests.post(url, headers={'Content-Type': 'application/json'}, json=data, timeout=10)
-            if res.status_code == 200:
-                content = res.json()['candidates'][0]['content']['parts'][0]['text']
-            else:
-                raise Exception(f"API Error {res.status_code}")
-        except Exception as fallback_error:
-            print(f"⚠️ Fallback API Failed: {fallback_error}. Serving Mock Data.")
-            return get_smart_fallback(student_id, error_type, code_snippet)
-
-    print(f"\n--- RAW AI LESSON OUTPUT ---\n{str(content)[:500]}...\n----------------------------\n")
+        print(f"\n⚠️ LangChain Failed (API Limit/Timeout): {e}. Failing fast to Mock Data...")
+        return get_smart_fallback(student_id, error_type, code_snippet)
 
     if isinstance(content, list) and len(content) > 0 and isinstance(content[0], dict) and 'text' in content[0]:
         content = content[0]['text']
 
     try:
+        parsed_lesson = None
         if isinstance(content, dict):
-            return content
+            parsed_lesson = content
         elif isinstance(content, str):
             content = content.replace("```json", "").replace("```", "").strip()
             start_index = content.find('{')
             end_index = content.rfind('}')
             if start_index != -1 and end_index != -1:
                 clean_json = content[start_index:end_index+1].replace("\\n", "\\\\n")
-                return json.loads(clean_json)
-        return get_smart_fallback(student_id, error_type, code_snippet)
+                parsed_lesson = json.loads(clean_json)
+        
+        if parsed_lesson is None:
+            return get_smart_fallback(student_id, error_type, code_snippet)
+
+        # =====================================================================
+        #     STEP 2: NEO4J SEMANTIC CACHING - SAVE NEW LESSON TO CACHE
+        # =====================================================================
+        save_cache_query = """
+        MERGE (e:ErrorType {name: $error_type})
+        MERGE (l:Lesson {
+            issue: $issue, explanation: $explanation, exampleCode: $exampleCode,
+            mermaidDiagram: $mermaidDiagram, videoUrl: $videoUrl, referenceLink: $referenceLink, hint: $hint
+        })
+        MERGE (e)-[:HAS_LESSON]->(l)
+        """
+        try:
+            neo4j_db.execute_query(save_cache_query, {
+                "error_type": error_type,
+                "issue": parsed_lesson.get("issue", ""),
+                "explanation": parsed_lesson.get("explanation", ""),
+                "exampleCode": parsed_lesson.get("exampleCode", ""),
+                "mermaidDiagram": parsed_lesson.get("mermaidDiagram", ""),
+                "videoUrl": parsed_lesson.get("videoUrl", ""),
+                "referenceLink": parsed_lesson.get("referenceLink", ""),
+                "hint": parsed_lesson.get("hint", "")
+            })
+            print(f"💾 CACHE SAVED! Lesson for '{error_type}' successfully stored in Neo4j.")
+        except Exception as cache_save_err:
+            print(f"⚠️ Cache save error: {cache_save_err}")
+        # =====================================================================
+
+        return parsed_lesson
+
     except Exception as parse_error:
         print(f"❌ JSON Parsing Error: {parse_error}")
         return get_smart_fallback(student_id, error_type, code_snippet)

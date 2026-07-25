@@ -5,13 +5,13 @@ from langchain_core.prompts import PromptTemplate
 from app.core.config import settings
 
 try:
-    # Initialize the language model using central settings
+    # Initialize the language model with a strict 5-second timeout to fail fast
     llm = ChatGoogleGenerativeAI(
         model=settings.MODEL_NAME, 
         temperature=0.3,
         google_api_key=settings.GEMINI_API_KEY,
         max_retries=0,
-        timeout=10
+        timeout=5
     )
 except Exception as e:
     llm = None
@@ -109,19 +109,9 @@ def generate_validation_quiz(student_id: str, error_type: str, code_snippet: str
         content = response.content
         print("✅ Quiz Generation: Using LangChain")
     except Exception as e:
-        print(f"⚠️ Quiz LangChain Failed: {e}. Switching to Mock Data API...")
-        try:
-            url = f"https://generativelanguage.googleapis.com/v1beta/models/{settings.MODEL_NAME}:generateContent?key={settings.GEMINI_API_KEY}"
-            headers = {'Content-Type': 'application/json'}
-            data = {"contents": [{"parts": [{"text": formatted_prompt}]}], "generationConfig": {"temperature": 0.3}}
-            res = requests.post(url, headers=headers, json=data, timeout=10)
-            if res.status_code == 200:
-                content = res.json()['candidates'][0]['content']['parts'][0]['text']
-            else:
-                raise Exception("API Request Failed")
-        except Exception as fallback_error:
-            print(f"⚠️ Quiz Fallback API Failed: {fallback_error}. Serving Mock Data.")
-            return get_smart_quiz_fallback(error_type)
+        # If LangChain fails, fail fast to avoid UI hanging
+        print(f"⚠️ Quiz LangChain Failed (API Limit/Timeout): {e}. Failing fast to Mock Data...")
+        return get_smart_quiz_fallback(error_type)
 
     if isinstance(content, list) and len(content) > 0 and isinstance(content[0], dict) and 'text' in content[0]:
         content = content[0]['text']

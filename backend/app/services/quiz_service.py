@@ -1,17 +1,18 @@
 import json
 import requests
-from langchain_google_genai import ChatGoogleGenerativeAI
+from langchain_openai import ChatOpenAI
 from langchain_core.prompts import PromptTemplate
 from app.core.config import settings
 
 try:
-    # Initialize the language model with a strict 5-second timeout to fail fast
-    llm = ChatGoogleGenerativeAI(
+    # Initialize OpenRouter using OpenAI compatible endpoint
+    llm = ChatOpenAI(
         model=settings.MODEL_NAME, 
         temperature=0.3,
-        google_api_key=settings.GEMINI_API_KEY,
+        api_key=settings.OPENROUTER_API_KEY,
+        base_url="https://openrouter.ai/api/v1",
         max_retries=0,
-        timeout=5
+        timeout=10
     )
 except Exception as e:
     llm = None
@@ -75,7 +76,7 @@ def validate_and_format_quiz(data, error_type):
         return get_smart_quiz_fallback(error_type)
 
 def generate_validation_quiz(student_id: str, error_type: str, code_snippet: str):
-    if not settings.GEMINI_API_KEY:
+    if not settings.OPENROUTER_API_KEY:
         return get_smart_quiz_fallback(error_type)
 
     prompt_template = """
@@ -107,11 +108,28 @@ def generate_validation_quiz(student_id: str, error_type: str, code_snippet: str
     try:
         response = llm.invoke(formatted_prompt)
         content = response.content
-        print("✅ Quiz Generation: Using LangChain")
+        print("✅ Quiz Generation: Using LangChain (OpenRouter)")
     except Exception as e:
-        # If LangChain fails, fail fast to avoid UI hanging
-        print(f"⚠️ Quiz LangChain Failed (API Limit/Timeout): {e}. Failing fast to Mock Data...")
-        return get_smart_quiz_fallback(error_type)
+        print(f"⚠️ Quiz LangChain Failed: {e}. Switching to OpenRouter Fallback API...")
+        try:
+            url = "https://openrouter.ai/api/v1/chat/completions"
+            headers = {
+                "Authorization": f"Bearer {settings.OPENROUTER_API_KEY}",
+                "Content-Type": "application/json"
+            }
+            data = {
+                "model": settings.MODEL_NAME,
+                "messages": [{"role": "user", "content": formatted_prompt}],
+                "temperature": 0.3
+            }
+            res = requests.post(url, headers=headers, json=data, timeout=10)
+            if res.status_code == 200:
+                content = res.json()['choices'][0]['message']['content']
+            else:
+                raise Exception("API Request Failed")
+        except Exception as fallback_error:
+            print(f"⚠️ Quiz Fallback API Failed: {fallback_error}. Serving Mock Data.")
+            return get_smart_quiz_fallback(error_type)
 
     if isinstance(content, list) and len(content) > 0 and isinstance(content[0], dict) and 'text' in content[0]:
         content = content[0]['text']

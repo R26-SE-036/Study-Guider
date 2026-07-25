@@ -1,21 +1,22 @@
 import os
 import json
 import requests
-from langchain_google_genai import ChatGoogleGenerativeAI
+from langchain_openai import ChatOpenAI
 from langchain_core.prompts import PromptTemplate
 from app.services.rag_service import retrieve_context
 from app.services.ml_service import predict_cognitive_state
 from app.core.config import settings
-from app.db.neo4j_connection import neo4j_db # 🚀 IMPORTING NEO4J DB
+from app.db.neo4j_connection import neo4j_db
 
 try:
-    # Initialize the language model using central settings
-    llm = ChatGoogleGenerativeAI(
+    # Initialize OpenRouter using OpenAI compatible endpoint
+    llm = ChatOpenAI(
         model=settings.MODEL_NAME, 
         temperature=0.3, 
-        google_api_key=settings.GEMINI_API_KEY,
+        api_key=settings.OPENROUTER_API_KEY,
+        base_url="https://openrouter.ai/api/v1",
         max_retries=0, 
-        timeout=5 # Strict 5s fail-fast timeout
+        timeout=10 
     )
 except Exception as e:
     llm = None
@@ -32,11 +33,11 @@ def get_smart_fallback(student_id, error_type, code_snippet):
     }
 
 def generate_real_lesson(student_id: str, error_type: str, code_snippet: str):
-    if not settings.GEMINI_API_KEY:
+    if not settings.OPENROUTER_API_KEY:
         return get_smart_fallback(student_id, error_type, code_snippet)
 
     # =====================================================================
-    # 🚀 STEP 1: NEO4J SEMANTIC CACHING - CHECK CACHE FIRST (0 API Calls)
+    # 🚀 STEP 1: NEO4J SEMANTIC CACHING - CHECK CACHE FIRST
     # =====================================================================
     cache_query = """
     MATCH (e:ErrorType {name: $error_type})-[:HAS_LESSON]->(l:Lesson)
@@ -51,7 +52,7 @@ def generate_real_lesson(student_id: str, error_type: str, code_snippet: str):
     except Exception as cache_err:
         print(f"⚠️ Cache read error: {cache_err}")
 
-    print(f"\n⚠️ CACHE MISS! Generating new lesson for '{error_type}' via Gemini API...")
+    print(f"\n⚠️ CACHE MISS! Generating new lesson for '{error_type}' via OpenRouter API...")
     # =====================================================================
 
     # --- DYNAMIC METRICS ---
@@ -116,10 +117,29 @@ def generate_real_lesson(student_id: str, error_type: str, code_snippet: str):
     try:
         response = llm.invoke(formatted_prompt)
         content = response.content
-        print("✅ Graph RAG + ML Customization Success: Using LangChain")
+        print("✅ Generation Success: Using LangChain (OpenRouter)")
     except Exception as e:
-        print(f"\n⚠️ LangChain Failed (API Limit/Timeout): {e}. Failing fast to Mock Data...")
-        return get_smart_fallback(student_id, error_type, code_snippet)
+        print(f"\n⚠️ LangChain Failed: {e}. Switching to OpenRouter Fallback API...")
+        try:
+            # Updated fallback request for OpenAI/OpenRouter format
+            url = "https://openrouter.ai/api/v1/chat/completions"
+            headers = {
+                "Authorization": f"Bearer {settings.OPENROUTER_API_KEY}",
+                "Content-Type": "application/json"
+            }
+            data = {
+                "model": settings.MODEL_NAME,
+                "messages": [{"role": "user", "content": formatted_prompt}],
+                "temperature": 0.3
+            }
+            res = requests.post(url, headers=headers, json=data, timeout=10)
+            if res.status_code == 200:
+                content = res.json()['choices'][0]['message']['content']
+            else:
+                raise Exception(f"API Error {res.status_code}")
+        except Exception as fallback_error:
+            print(f"⚠️ Fallback API Failed: {fallback_error}. Serving Mock Data.")
+            return get_smart_fallback(student_id, error_type, code_snippet)
 
     if isinstance(content, list) and len(content) > 0 and isinstance(content[0], dict) and 'text' in content[0]:
         content = content[0]['text']
@@ -140,7 +160,7 @@ def generate_real_lesson(student_id: str, error_type: str, code_snippet: str):
             return get_smart_fallback(student_id, error_type, code_snippet)
 
         # =====================================================================
-        #     STEP 2: NEO4J SEMANTIC CACHING - SAVE NEW LESSON TO CACHE
+        # 🚀 STEP 2: NEO4J SEMANTIC CACHING - SAVE NEW LESSON TO CACHE
         # =====================================================================
         save_cache_query = """
         MERGE (e:ErrorType {name: $error_type})

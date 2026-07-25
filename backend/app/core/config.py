@@ -10,11 +10,17 @@ load_dotenv(ENV_PATH)
 
 class Settings:
     """Application configuration settings loaded from environment variables."""
-    GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+    # API Keys
+    OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY") 
+    GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")         
+    
+    # Neo4j Database
     NEO4J_URI = os.getenv("NEO4J_URI")
     NEO4J_USERNAME = os.getenv("NEO4J_USERNAME")
     NEO4J_PASSWORD = os.getenv("NEO4J_PASSWORD")
-    MODEL_NAME = "gemini-flash-latest"
+    
+    # 🚀 EXACT OPENROUTER MODEL ID
+    MODEL_NAME = "openai/gpt-oss-20b:free" 
     
     # Directory paths
     DATA_DIR = os.path.join(BASE_DIR, "data")

@@ -145,3 +145,92 @@
   text-decoration: line-through;
   opacity: 0.8 !important;
 }
+
+/* =========================================
+   🚀 ENTERPRISE PREMIUM DASHBOARD UI
+   ========================================= */
+
+/* Glassmorphism Base for Cards */
+.cg-card {
+  background: rgba(30, 41, 59, 0.7) !important;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+}
+
+/* Stat Cards Premium Hover */
+.cg-stat-card {
+  background: linear-gradient(145deg, #0F172A, #1E293B) !important;
+  border: 1px solid rgba(59, 130, 246, 0.2) !important;
+  transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.27);
+  position: relative;
+  overflow: hidden;
+}
+
+.cg-stat-card::before {
+  content: '';
+  position: absolute;
+  top: -50%; left: -50%; width: 200%; height: 200%;
+  background: radial-gradient(circle, rgba(59, 130, 246, 0.1) 0%, transparent 70%);
+  opacity: 0;
+  transition: opacity 0.4s ease;
+}
+
+.cg-stat-card:hover {
+  transform: translateY(-10px) scale(1.02);
+  border-color: rgba(59, 130, 246, 0.8) !important;
+  box-shadow: 0 20px 40px -10px rgba(59, 130, 246, 0.3);
+}
+
+.cg-stat-card:hover::before {
+  opacity: 1;
+}
+
+.cg-stat-card h1 {
+  background: linear-gradient(to right, #60A5FA, #A78BFA);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  transition: all 0.3s ease;
+}
+
+/* Radar Chart Container Glow */
+.cg-chart-container {
+  position: relative;
+  transition: all 0.5s ease;
+  border: 1px solid rgba(167, 139, 250, 0.2) !important;
+}
+
+.cg-chart-container:hover {
+  box-shadow: 0 0 30px rgba(167, 139, 250, 0.15), inset 0 0 20px rgba(167, 139, 250, 0.05);
+  border-color: rgba(167, 139, 250, 0.6) !important;
+}
+
+/* History Timeline Interactive Cards */
+.cg-history-card {
+  background: linear-gradient(90deg, rgba(15, 23, 42, 1) 0%, rgba(30, 41, 59, 0.6) 100%) !important;
+  transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+  border-right: 2px solid transparent;
+}
+
+.cg-history-card:hover {
+  transform: translateX(12px);
+  background: linear-gradient(90deg, rgba(30, 41, 59, 1) 0%, rgba(51, 65, 85, 0.8) 100%) !important;
+  border-right: 2px solid #3B82F6;
+  box-shadow: -8px 8px 20px rgba(0, 0, 0, 0.4);
+}
+
+/* Smooth Scrollbar for Content */
+::-webkit-scrollbar {
+  width: 8px;
+}
+::-webkit-scrollbar-track {
+  background: #0F172A; 
+}
+::-webkit-scrollbar-thumb {
+  background: #334155; 
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #475569; 
+}

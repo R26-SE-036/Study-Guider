@@ -8,7 +8,7 @@ export default function MicroLesson({ lessonData, onStartQuiz }) {
     if (lessonData && lessonData.mermaidDiagram && mermaidRef.current) {
       mermaid.initialize({
         startOnLoad: false,
-        theme: 'dark', // Changed back to dark to match Slate theme
+        theme: 'dark', 
         securityLevel: 'loose',
       });
 
@@ -25,40 +25,47 @@ export default function MicroLesson({ lessonData, onStartQuiz }) {
 
   return (
     <div className="fadeIn MicroLesson">
-      <div className="cg-card" style={{ padding: '0', overflow: 'hidden' }}>
+      <div className="cg-card cg-glass-panel" style={{ padding: '0', overflow: 'hidden' }}>
         
-        <div style={{ backgroundColor: '#0F172A', padding: '20px 30px', borderBottom: '1px solid #334155' }}>
-          <h3 className="cg-title-content" style={{ color: '#3B82F6', margin: 0, fontSize: '1.3rem' }}>
-            {lessonData.title || "Understanding Your Logic Error"}
-          </h3>
+        <div style={{ background: 'linear-gradient(90deg, rgba(15, 23, 42, 1) 0%, rgba(30, 41, 59, 1) 100%)', padding: '25px 40px', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
+            <span style={{ fontSize: '1.8rem' }}>🧠</span>
+            <h3 className="cg-title-content cg-text-gradient-primary" style={{ margin: 0, fontSize: '1.5rem', fontWeight: '700' }}>
+              {lessonData.title || "Understanding Your Logic Error"}
+            </h3>
+          </div>
         </div>
 
-        <div style={{ padding: '40px 30px', display: 'flex', flexDirection: 'column', gap: '30px' }}>
+        <div style={{ padding: '40px', display: 'flex', flexDirection: 'column', gap: '35px' }}>
           
-          <div>
-            <h4 className="cg-title-content cg-text-danger">The Core Issue</h4>
-            <p className="cg-text-muted">{lessonData.issue}</p>
+          <div className="cg-lesson-section cg-hover-lift">
+            <h4 className="cg-title-content" style={{ color: '#F87171', display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <span>🎯</span> The Core Issue
+            </h4>
+            <p className="cg-text-muted" style={{ fontSize: '1.05rem', lineHeight: '1.7' }}>{lessonData.issue}</p>
           </div>
 
-          <div>
-            <h4 className="cg-title-content" style={{ color: '#A78BFA' }}>Concept Breakdown</h4>
-            <p className="cg-text-muted">{lessonData.explanation}</p>
+          <div className="cg-lesson-section cg-hover-lift">
+            <h4 className="cg-title-content" style={{ color: '#A78BFA', display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <span>💡</span> Concept Breakdown
+            </h4>
+            <p className="cg-text-muted" style={{ fontSize: '1.05rem', lineHeight: '1.7' }}>{lessonData.explanation}</p>
           </div>
 
           {/* DYNAMIC AI GENERATED DIAGRAM */}
           {lessonData.mermaidDiagram && (
-            <div>
-              <h4 className="cg-title-content" style={{ color: '#34D399' }}>Visual Concept Model</h4>
+            <div className="cg-lesson-section cg-hover-lift">
+              <h4 className="cg-title-content" style={{ color: '#34D399', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <span>📊</span> Visual Concept Model
+              </h4>
               <div 
-                className="mermaid" 
+                className="mermaid cg-glass-inner" 
                 ref={mermaidRef} 
                 style={{ 
-                  backgroundColor: '#0F172A', 
-                  padding: '20px', 
-                  borderRadius: '8px', 
-                  border: '1px solid #334155',
+                  padding: '25px', 
+                  borderRadius: '12px', 
                   textAlign: 'center',
-                  marginTop: '10px',
+                  marginTop: '15px',
                   overflowX: 'auto'
                 }}
               >
@@ -68,43 +75,48 @@ export default function MicroLesson({ lessonData, onStartQuiz }) {
           )}
 
           {lessonData.exampleCode && (
-            <div>
-              <h4 className="cg-title-content">Implementation Guide</h4>
-              <div className="cg-code-block">
+            <div className="cg-lesson-section cg-hover-lift">
+              <h4 className="cg-title-content" style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <span>💻</span> Implementation Guide
+              </h4>
+              <div className="cg-code-block cg-glass-inner">
                 {lessonData.exampleCode}
               </div>
             </div>
           )}
 
           {(lessonData.videoUrl || lessonData.referenceLink) && (
-            <div style={{ backgroundColor: '#0F172A', padding: '20px', borderRadius: '8px', border: '1px solid #334155' }}>
-              <h4 className="cg-title-content" style={{ color: '#F8FAFC', marginBottom: '15px' }}>📚 Recommended Resources</h4>
+            <div className="cg-lesson-section cg-glass-inner" style={{ padding: '25px' }}>
+              <h4 className="cg-title-content" style={{ color: '#F8FAFC', marginBottom: '20px' }}>📚 Recommended Resources</h4>
               <div style={{ display: 'flex', gap: '15px', flexWrap: 'wrap' }}>
                 {lessonData.videoUrl && (
                   <a href={lessonData.videoUrl} target="_blank" rel="noopener noreferrer" className="cg-resource-link">
-                    ▶️ Watch Video Tutorial
+                    <span style={{ fontSize: '1.2rem' }}>▶️</span> Watch Video Tutorial
                   </a>
                 )}
                 {lessonData.referenceLink && (
                   <a href={lessonData.referenceLink} target="_blank" rel="noopener noreferrer" className="cg-resource-link">
-                    🌐 Read Documentation
+                    <span style={{ fontSize: '1.2rem' }}>🌐</span> Read Documentation
                   </a>
                 )}
               </div>
             </div>
           )}
 
-          <div style={{ backgroundColor: 'rgba(245, 158, 11, 0.1)', padding: '20px', borderRadius: '8px', borderLeft: '4px solid #F59E0B' }}>
-            <h4 className="cg-title-content cg-text-warning" style={{ fontSize: '1rem', color: '#FBBF24' }}>Code Guru Pro Tip</h4>
-            <p className="cg-text-muted" style={{ margin: 0, fontStyle: 'italic', fontSize: '0.95rem', color: '#FDE68A' }}>{lessonData.hint}</p>
+          <div className="cg-pro-tip-box">
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '8px' }}>
+              <span style={{ fontSize: '1.2rem' }}>⚡</span>
+              <h4 className="cg-title-content" style={{ fontSize: '1.1rem', color: '#FBBF24', margin: 0 }}>Code Guru Pro Tip</h4>
+            </div>
+            <p style={{ margin: 0, fontStyle: 'italic', fontSize: '1rem', color: '#FDE68A', lineHeight: '1.6' }}>"{lessonData.hint}"</p>
           </div>
           
         </div>
       </div>
 
-      <div style={{ marginTop: '30px', textAlign: 'right' }}>
-        <button onClick={onStartQuiz} className="cg-btn cg-btn-primary">
-          Verify Knowledge →
+      <div style={{ marginTop: '35px', textAlign: 'right' }}>
+        <button onClick={onStartQuiz} className="cg-btn cg-btn-premium-primary" style={{ padding: '14px 30px', fontSize: '1.05rem' }}>
+          Verify Knowledge <span style={{marginLeft: '8px'}}>→</span>
         </button>
       </div>
     </div>

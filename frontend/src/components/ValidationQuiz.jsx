@@ -40,7 +40,6 @@ export default function ValidationQuiz({ studentId, errorType, codeSnippet }) {
     }
   }, [studentId, errorType, codeSnippet]);
 
-  // 🚀 Helper function for smart string matching (handles AI inconsistencies)
   const isMatch = (opt1, opt2) => {
     if (!opt1 || !opt2) return false;
     const s1 = String(opt1).toLowerCase().trim();
@@ -96,55 +95,64 @@ export default function ValidationQuiz({ studentId, errorType, codeSnippet }) {
   if (quizState.quizFinished) {
     const passed = quizState.score >= (quizState.quizData?.length / 2);
     return (
-      <div className="cg-card ValidationQuiz fadeIn" style={{ textAlign: 'center', padding: '50px 30px' }}>
-        <h2 className="cg-title-section" style={{ fontSize: '2rem' }}>Assessment Complete</h2>
-        <div style={{ margin: '30px 0' }}>
-          <span className="cg-text-muted" style={{ fontSize: '1.2rem', textTransform: 'uppercase', letterSpacing: '1px' }}>Final Score</span>
-          <h1 style={{ fontSize: '4rem', margin: '10px 0', color: passed ? '#34D399' : '#F87171' }}>
-            {quizState.score}<span style={{color: '#475569'}}>/</span>{quizState.quizData?.length || 4}
+      <div className="cg-card ValidationQuiz fadeIn cg-glass-panel" style={{ textAlign: 'center', padding: '60px 40px' }}>
+        <div style={{ fontSize: '4rem', marginBottom: '20px' }}>{passed ? '🏆' : '📚'}</div>
+        <h2 className="cg-title-section" style={{ fontSize: '2.5rem', background: passed ? 'linear-gradient(to right, #34D399, #10B981)' : 'linear-gradient(to right, #F87171, #EF4444)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
+          Assessment Complete
+        </h2>
+        
+        <div style={{ margin: '40px 0', padding: '30px', background: 'rgba(15, 23, 42, 0.5)', borderRadius: '16px', border: '1px solid rgba(255,255,255,0.05)' }}>
+          <span className="cg-text-muted" style={{ fontSize: '1.2rem', textTransform: 'uppercase', letterSpacing: '2px', fontWeight: '600' }}>Final Score</span>
+          <h1 style={{ fontSize: '5rem', margin: '15px 0', color: passed ? '#34D399' : '#F87171', textShadow: `0 0 30px ${passed ? 'rgba(52, 211, 153, 0.3)' : 'rgba(248, 113, 113, 0.3)'}` }}>
+            {quizState.score}<span style={{color: '#475569', fontSize: '4rem'}}>/</span>{quizState.quizData?.length || 4}
           </h1>
         </div>
 
-        <div style={{ marginTop: '40px', paddingTop: '30px', borderTop: '1px solid #334155', textAlign: 'left' }}>
-          <h4 className="cg-title-content">Database Sync Status</h4>
-          {quizState.graphStatus === "updating" && <div className="cg-feedback-box" style={{backgroundColor: 'rgba(245, 158, 11, 0.1)', color: '#FBBF24'}}>⏳ Committing results to Neo4j Knowledge Graph...</div>}
-          {quizState.graphStatus === "success" && <div className="cg-feedback-box cg-feedback-success">✅ Neo4j Database Sync Successful! Relationship updated.</div>}
-          {quizState.graphStatus === "error" && <div className="cg-feedback-box cg-feedback-error">❌ Database Connection Failed. Please check Backend configurations.</div>}
+        <div style={{ marginTop: '40px', paddingTop: '30px', borderTop: '1px solid rgba(255,255,255,0.1)', textAlign: 'left' }}>
+          <h4 className="cg-title-content" style={{ display: 'flex', alignItems: 'center', gap: '10px' }}><span>🔄</span> Database Sync Status</h4>
+          {quizState.graphStatus === "updating" && <div className="cg-feedback-box" style={{background: 'linear-gradient(90deg, rgba(245, 158, 11, 0.1) 0%, transparent 100%)', borderLeft: '4px solid #FBBF24', color: '#FCD34D'}}>⏳ Committing results to Neo4j Knowledge Graph...</div>}
+          {quizState.graphStatus === "success" && <div className="cg-feedback-box" style={{background: 'linear-gradient(90deg, rgba(16, 185, 129, 0.1) 0%, transparent 100%)', borderLeft: '4px solid #10B981', color: '#6EE7B7'}}>✅ Neo4j Database Sync Successful! Relationship updated.</div>}
+          {quizState.graphStatus === "error" && <div className="cg-feedback-box" style={{background: 'linear-gradient(90deg, rgba(239, 68, 68, 0.1) 0%, transparent 100%)', borderLeft: '4px solid #EF4444', color: '#FCA5A5'}}>❌ Database Connection Failed. Please check Backend configurations.</div>}
         </div>
       </div>
     );
   }
 
-  // 🚀 Determine if user got it right for the feedback box
   const currentCorrectAnswer = quizState.quizData?.[quizState.currentQIndex]?.correct_answer;
   const isUserCorrect = isMatch(quizState.selectedOption, currentCorrectAnswer);
+  const progressPercentage = quizState.quizData ? ((quizState.currentQIndex + 1) / quizState.quizData.length) * 100 : 0;
 
   return (
-    <div className="cg-card ValidationQuiz fadeIn">
+    <div className="cg-card ValidationQuiz fadeIn cg-glass-panel">
       {quizLoading || !quizState.quizData ? (
-        <div style={{ textAlign: 'center', padding: '60px 0' }}>
-          <h3 className="cg-title-section" style={{ color: '#3B82F6' }}>Generating AI Assessment...</h3>
-          <p className="cg-text-muted">Analyzing your code context to build relevant questions.</p>
+        <div style={{ textAlign: 'center', padding: '80px 0' }}>
+          <div className="spinner" style={{ fontSize: '3rem', display: 'inline-block', marginBottom: '20px' }}>🧠</div>
+          <h3 className="cg-title-section cg-text-gradient-primary" style={{ fontSize: '1.8rem' }}>Generating AI Assessment...</h3>
+          <p className="cg-text-muted" style={{ fontSize: '1.1rem' }}>Analyzing your code context to build highly relevant questions.</p>
         </div>
       ) : (
         <div>
+          {/* Progress Bar */}
+          <div style={{ width: '100%', height: '6px', background: '#1E293B', borderRadius: '10px', marginBottom: '30px', overflow: 'hidden' }}>
+            <div style={{ width: `${progressPercentage}%`, height: '100%', background: 'linear-gradient(90deg, #3B82F6, #8B5CF6)', transition: 'width 0.5s ease' }}></div>
+          </div>
+
           <div className="cg-flex-between" style={{ marginBottom: '30px' }}>
-            <span className="cg-text-muted" style={{fontFamily: 'Fira Code', fontSize: '0.9rem'}}>
-              QUESTION {quizState.currentQIndex + 1}/{quizState.quizData.length}
-            </span>
-            <span style={{ padding: '4px 10px', backgroundColor: '#0F172A', borderRadius: '4px', fontSize: '0.8rem', color: '#94A3B8', border: '1px solid #334155' }}>
-              {errorType}
-            </span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <span style={{ padding: '6px 12px', background: 'rgba(59, 130, 246, 0.1)', borderRadius: '6px', fontSize: '0.85rem', color: '#60A5FA', fontWeight: '600', letterSpacing: '1px' }}>
+                Q {quizState.currentQIndex + 1} OF {quizState.quizData.length}
+              </span>
+            </div>
+            <span className="cg-badge-outline">{errorType}</span>
           </div>
           
-          <h3 className="cg-title-section" style={{ fontSize: '1.3rem', marginBottom: '30px', lineHeight: '1.5' }}>
+          <h3 className="cg-title-section" style={{ fontSize: '1.4rem', marginBottom: '35px', lineHeight: '1.6', fontWeight: '500' }}>
             {quizState.quizData[quizState.currentQIndex]?.question}
           </h3>
           
-          <div className="cg-flex-col" style={{ gap: '15px', marginBottom: '30px' }}>
+          <div className="cg-flex-col" style={{ gap: '16px', marginBottom: '35px' }}>
             {quizState.quizData[quizState.currentQIndex]?.options?.map((option, idx) => {
               
-              // 🚀 Smart logic to determine highlight colors
               const isCorrectAnswer = isMatch(option, currentCorrectAnswer);
               const isSelected = quizState.selectedOption === option;
               const isSelectedWrong = isSelected && !isCorrectAnswer;
@@ -161,29 +169,38 @@ export default function ValidationQuiz({ studentId, errorType, codeSnippet }) {
                   disabled={quizState.isAnswerChecked}
                   className={buttonClass.trim()}
                 >
-                  {option}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
+                    <div className="cg-option-circle">
+                      {quizState.isAnswerChecked && isCorrectAnswer ? '✓' : (quizState.isAnswerChecked && isSelectedWrong ? '✕' : String.fromCharCode(65 + idx))}
+                    </div>
+                    <span>{option}</span>
+                  </div>
                 </button>
               );
             })}
           </div>
 
-          {/* 🚀 Dynamic Feedback Box */}
           {quizState.isAnswerChecked && (
-            <div className={`cg-feedback-box ${isUserCorrect ? 'cg-feedback-success' : 'cg-feedback-error'}`}>
-              <h4 style={{ margin: '0 0 8px 0', color: isUserCorrect ? '#34D399' : '#F87171' }}>
-                {isUserCorrect ? "Correct!" : "Incorrect"}
+            <div className={`cg-feedback-box fadeIn ${isUserCorrect ? 'cg-feedback-success' : 'cg-feedback-error'}`} style={{ padding: '25px' }}>
+              <h4 style={{ margin: '0 0 10px 0', fontSize: '1.2rem', display: 'flex', alignItems: 'center', gap: '10px', color: isUserCorrect ? '#34D399' : '#F87171' }}>
+                {isUserCorrect ? '✅ Outstanding!' : '❌ Let\'s Review'}
               </h4>
-              <p style={{ margin: 0, color: '#E2E8F0' }}>{quizState.quizData[quizState.currentQIndex]?.explanation}</p>
+              <p style={{ margin: 0, color: '#F1F5F9', lineHeight: '1.6', fontSize: '1.05rem' }}>{quizState.quizData[quizState.currentQIndex]?.explanation}</p>
             </div>
           )}
 
-          <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '20px' }}>
+          <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '25px', paddingTop: '25px', borderTop: '1px solid rgba(255,255,255,0.05)' }}>
             {!quizState.isAnswerChecked ? (
-              <button onClick={checkAnswer} disabled={!quizState.selectedOption} className="cg-btn cg-btn-outline" style={{backgroundColor: quizState.selectedOption ? '#3B82F6' : 'transparent', color: quizState.selectedOption ? '#FFF' : '', borderColor: quizState.selectedOption ? '#3B82F6' : '#475569'}}>
+              <button 
+                onClick={checkAnswer} 
+                disabled={!quizState.selectedOption} 
+                className={`cg-btn ${quizState.selectedOption ? 'cg-btn-premium-primary' : 'cg-btn-outline'}`}
+                style={{ padding: '14px 30px', fontSize: '1.05rem' }}
+              >
                 Submit Answer
               </button>
             ) : (
-              <button onClick={nextQuestion} className="cg-btn cg-btn-primary">
+              <button onClick={nextQuestion} className="cg-btn cg-btn-premium-primary" style={{ padding: '14px 30px', fontSize: '1.05rem' }}>
                 {quizState.currentQIndex < quizState.quizData.length - 1 ? "Next Question →" : "Complete Assessment →"}
               </button>
             )}

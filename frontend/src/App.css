@@ -127,3 +127,21 @@
 }
 .cg-feedback-success { background-color: rgba(16, 185, 129, 0.1); border: 1px solid #10B981; color: #34D399; }
 .cg-feedback-error { background-color: rgba(239, 68, 68, 0.1); border: 1px solid #EF4444; color: #F87171; }
+
+
+/* Quiz Feedback Highlights */
+.cg-quiz-option.correct {
+  border-color: #10B981 !important;
+  background-color: rgba(16, 185, 129, 0.1) !important;
+  color: #34D399 !important;
+  font-weight: 600;
+  opacity: 1 !important;
+}
+
+.cg-quiz-option.incorrect {
+  border-color: #EF4444 !important;
+  background-color: rgba(239, 68, 68, 0.1) !important;
+  color: #F87171 !important;
+  text-decoration: line-through;
+  opacity: 0.8 !important;
+}

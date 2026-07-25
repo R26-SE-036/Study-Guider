@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import axios from 'axios';
 import TriggerCard from './components/TriggerCard';
 import MicroLesson from './components/MicroLesson';
@@ -6,12 +6,19 @@ import ValidationQuiz from './components/ValidationQuiz';
 import StudentDashboard from './components/StudentDashboard';
 import './App.css';
 
-// Using Vite environment variable
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
 function App() {
-  const [currentPhase, setCurrentPhase] = useState("trigger");
-  const [lessonData, setLessonData] = useState(null);
+  // 🚀 Initialize state from localStorage if available
+  const [currentPhase, setCurrentPhase] = useState(() => {
+    return localStorage.getItem('cg_currentPhase') || "trigger";
+  });
+  
+  const [lessonData, setLessonData] = useState(() => {
+    const savedLesson = localStorage.getItem('cg_lessonData');
+    return savedLesson ? JSON.parse(savedLesson) : null;
+  });
+  
   const [loading, setLoading] = useState(false);
 
   const studentId = "user_0bcc693e70f0";
@@ -19,6 +26,19 @@ function App() {
   const conceptTag = "arrays";
   const codeSnippet = "int[] arr = new int[5]; arr[5] = 10;"; 
   const errorCount = 4; 
+
+  // 🚀 Save state to localStorage whenever it changes
+  useEffect(() => {
+    localStorage.setItem('cg_currentPhase', currentPhase);
+  }, [currentPhase]);
+
+  useEffect(() => {
+    if (lessonData) {
+      localStorage.setItem('cg_lessonData', JSON.stringify(lessonData));
+    } else {
+      localStorage.removeItem('cg_lessonData');
+    }
+  }, [lessonData]);
 
   const generatePersonalizedLesson = () => {
     setLoading(true);
@@ -56,6 +76,10 @@ function App() {
   const goHome = () => {
     setCurrentPhase("trigger");
     setLessonData(null);
+    // 🚀 Clear all saved progress when going back to home
+    localStorage.removeItem('cg_currentPhase');
+    localStorage.removeItem('cg_lessonData');
+    localStorage.removeItem('cg_quizState'); 
   };
 
   return (

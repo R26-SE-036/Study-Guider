@@ -7,7 +7,7 @@ import {
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
-export default function StudentDashboard({ studentId, onBack }) {
+export default function StudentDashboard({ studentId, cognitiveState, onBack }) {
   const [progressData, setProgressData] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -79,22 +79,32 @@ export default function StudentDashboard({ studentId, onBack }) {
       ) : (
         <div className="cg-flex-col" style={{ gap: '40px' }}>
           
-          {/* 🌟 1. OVERALL PROGRESS SUMMARY CARDS */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '25px' }}>
-            <div className="cg-stat-card cg-glass-inner" style={{ padding: '30px 20px', textAlign: 'center' }}>
-              <div style={{ fontSize: '2rem', marginBottom: '10px' }}>📝</div>
-              <p className="cg-text-muted" style={{ margin: '0 0 10px 0', fontSize: '0.95rem', fontWeight: '600', letterSpacing: '1px' }}>Assessments Taken</p>
-              <h1 style={{ margin: 0, color: '#60A5FA', fontSize: '3rem', textShadow: '0 0 20px rgba(96, 165, 250, 0.4)' }}>{totalAssessments}</h1>
+          {/* 🌟 1. OVERALL PROGRESS SUMMARY CARDS (Now with 4 Cards including Resilience) */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))', gap: '20px' }}>
+            <div className="cg-stat-card cg-glass-inner" style={{ padding: '25px 20px', textAlign: 'center' }}>
+              <div style={{ fontSize: '1.8rem', marginBottom: '8px' }}>📝</div>
+              <p className="cg-text-muted" style={{ margin: '0 0 8px 0', fontSize: '0.9rem', fontWeight: '600', letterSpacing: '1px' }}>Assessments</p>
+              <h1 style={{ margin: 0, color: '#60A5FA', fontSize: '2.4rem', textShadow: '0 0 20px rgba(96, 165, 250, 0.4)' }}>{totalAssessments}</h1>
             </div>
-            <div className="cg-stat-card cg-glass-inner" style={{ padding: '30px 20px', textAlign: 'center' }}>
-              <div style={{ fontSize: '2rem', marginBottom: '10px' }}>🎯</div>
-              <p className="cg-text-muted" style={{ margin: '0 0 10px 0', fontSize: '0.95rem', fontWeight: '600', letterSpacing: '1px' }}>Average Accuracy</p>
-              <h1 style={{ margin: 0, color: avgAccuracy >= 50 ? '#34D399' : '#FBBF24', fontSize: '3rem', textShadow: `0 0 20px ${avgAccuracy >= 50 ? 'rgba(52, 211, 153, 0.4)' : 'rgba(251, 191, 36, 0.4)'}` }}>{avgAccuracy}%</h1>
+
+            <div className="cg-stat-card cg-glass-inner" style={{ padding: '25px 20px', textAlign: 'center' }}>
+              <div style={{ fontSize: '1.8rem', marginBottom: '8px' }}>🎯</div>
+              <p className="cg-text-muted" style={{ margin: '0 0 8px 0', fontSize: '0.9rem', fontWeight: '600', letterSpacing: '1px' }}>Avg Accuracy</p>
+              <h1 style={{ margin: 0, color: avgAccuracy >= 50 ? '#34D399' : '#FBBF24', fontSize: '2.4rem', textShadow: `0 0 20px ${avgAccuracy >= 50 ? 'rgba(52, 211, 153, 0.4)' : 'rgba(251, 191, 36, 0.4)'}` }}>{avgAccuracy}%</h1>
             </div>
-            <div className="cg-stat-card cg-glass-inner" style={{ padding: '30px 20px', textAlign: 'center' }}>
-              <div style={{ fontSize: '2rem', marginBottom: '10px' }}>🎓</div>
-              <p className="cg-text-muted" style={{ margin: '0 0 10px 0', fontSize: '0.95rem', fontWeight: '600', letterSpacing: '1px' }}>Concepts Mastered</p>
-              <h1 style={{ margin: 0, color: '#A78BFA', fontSize: '3rem', textShadow: '0 0 20px rgba(167, 139, 250, 0.4)' }}>{masteredCount}</h1>
+
+            <div className="cg-stat-card cg-glass-inner" style={{ padding: '25px 20px', textAlign: 'center' }}>
+              <div style={{ fontSize: '1.8rem', marginBottom: '8px' }}>🎓</div>
+              <p className="cg-text-muted" style={{ margin: '0 0 8px 0', fontSize: '0.9rem', fontWeight: '600', letterSpacing: '1px' }}>Mastered</p>
+              <h1 style={{ margin: 0, color: '#A78BFA', fontSize: '2.4rem', textShadow: '0 0 20px rgba(167, 139, 250, 0.4)' }}>{masteredCount}</h1>
+            </div>
+
+            <div className="cg-stat-card cg-glass-inner" style={{ padding: '25px 20px', textAlign: 'center' }}>
+              <div style={{ fontSize: '1.8rem', marginBottom: '8px' }}>🔥</div>
+              <p className="cg-text-muted" style={{ margin: '0 0 8px 0', fontSize: '0.9rem', fontWeight: '600', letterSpacing: '1px' }}>Resilience Streak</p>
+              <h1 style={{ margin: 0, color: '#F472B6', fontSize: '2.4rem', textShadow: '0 0 20px rgba(244, 114, 182, 0.4)' }}>
+                {totalAssessments > 0 ? `${totalAssessments}x` : '0x'}
+              </h1>
             </div>
           </div>
 

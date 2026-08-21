@@ -29,7 +29,7 @@ def read_root():
 
 @app.get("/api/health")
 def health_check():
-    # 🔴 Database එක ඇත්තටම Connect වෙලාද කියලා Check කරනවා
+    # 🔴 Check whether the Database is Actually Connected
     db_status = "Connected" if neo4j_db.driver else "Disconnected"
     return {
         "status": "Active", 

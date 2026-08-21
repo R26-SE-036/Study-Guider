@@ -9,7 +9,7 @@ import './App.css';
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
 function App() {
-  // 🚀 Initialize state from localStorage if available
+  // 🚀 State from localStorage to survive reloads
   const [currentPhase, setCurrentPhase] = useState(() => {
     return localStorage.getItem('cg_currentPhase') || "trigger";
   });
@@ -17,6 +17,10 @@ function App() {
   const [lessonData, setLessonData] = useState(() => {
     const savedLesson = localStorage.getItem('cg_lessonData');
     return savedLesson ? JSON.parse(savedLesson) : null;
+  });
+
+  const [cognitiveState, setCognitiveState] = useState(() => {
+    return localStorage.getItem('cg_cognitiveState') || "High Cognitive Load";
   });
   
   const [loading, setLoading] = useState(false);
@@ -27,7 +31,7 @@ function App() {
   const codeSnippet = "int[] arr = new int[5]; arr[5] = 10;"; 
   const errorCount = 4; 
 
-  // 🚀 Save state to localStorage whenever it changes
+  // 🚀 Save state to localStorage whenever changed
   useEffect(() => {
     localStorage.setItem('cg_currentPhase', currentPhase);
   }, [currentPhase]);
@@ -39,6 +43,10 @@ function App() {
       localStorage.removeItem('cg_lessonData');
     }
   }, [lessonData]);
+
+  useEffect(() => {
+    localStorage.setItem('cg_cognitiveState', cognitiveState);
+  }, [cognitiveState]);
 
   const generatePersonalizedLesson = () => {
     setLoading(true);
@@ -63,6 +71,9 @@ function App() {
             referenceLink: response.data.lesson_content.referenceLink,
             mermaidDiagram: response.data.lesson_content.mermaidDiagram
           });
+          if (response.data.cognitive_state) {
+            setCognitiveState(response.data.cognitive_state);
+          }
           setCurrentPhase("lesson");
         }
         setLoading(false);
@@ -76,10 +87,11 @@ function App() {
   const goHome = () => {
     setCurrentPhase("trigger");
     setLessonData(null);
-    // 🚀 Clear all saved progress when going back to home
+    // Clear all saved progress when going back to home
     localStorage.removeItem('cg_currentPhase');
     localStorage.removeItem('cg_lessonData');
     localStorage.removeItem('cg_quizState'); 
+    localStorage.removeItem('cg_cognitiveState');
   };
 
   return (
@@ -98,10 +110,35 @@ function App() {
         </div>
       </header>
       <div className="cg-content-wrapper">
-        {currentPhase === "trigger" && (<TriggerCard errorType={errorType} loading={loading} onGenerateLesson={generatePersonalizedLesson} />)}
-        {currentPhase === "lesson" && lessonData && (<MicroLesson lessonData={lessonData} onStartQuiz={() => setCurrentPhase("quiz")} />)}
-        {currentPhase === "quiz" && (<ValidationQuiz studentId={studentId} errorType={errorType} codeSnippet={codeSnippet} />)}
-        {currentPhase === "dashboard" && (<StudentDashboard studentId={studentId} onBack={goHome} />)}
+        {currentPhase === "trigger" && (
+          <TriggerCard 
+            errorType={errorType} 
+            loading={loading} 
+            onGenerateLesson={generatePersonalizedLesson} 
+          />
+        )}
+        {currentPhase === "lesson" && lessonData && (
+          <MicroLesson 
+            lessonData={lessonData} 
+            studentCode={codeSnippet}
+            cognitiveState={cognitiveState}
+            onStartQuiz={() => setCurrentPhase("quiz")} 
+          />
+        )}
+        {currentPhase === "quiz" && (
+          <ValidationQuiz 
+            studentId={studentId} 
+            errorType={errorType} 
+            codeSnippet={codeSnippet} 
+          />
+        )}
+        {currentPhase === "dashboard" && (
+          <StudentDashboard 
+            studentId={studentId} 
+            cognitiveState={cognitiveState}
+            onBack={goHome} 
+          />
+        )}
       </div>
     </div>
   );

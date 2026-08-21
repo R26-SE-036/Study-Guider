@@ -10,6 +10,7 @@ export default function ValidationQuiz({ studentId, errorType, codeSnippet }) {
       quizData: null,
       currentQIndex: 0,
       selectedOption: null,
+      confidenceLevel: "medium", // 🤔 New Metacognition State: 'low', 'medium', 'high'
       isAnswerChecked: false,
       score: 0,
       quizFinished: false,
@@ -85,6 +86,7 @@ export default function ValidationQuiz({ studentId, errorType, codeSnippet }) {
         ...prev,
         currentQIndex: prev.currentQIndex + 1,
         selectedOption: null,
+        confidenceLevel: "medium",
         isAnswerChecked: false
       }));
     } else {
@@ -122,6 +124,22 @@ export default function ValidationQuiz({ studentId, errorType, codeSnippet }) {
   const isUserCorrect = isMatch(quizState.selectedOption, currentCorrectAnswer);
   const progressPercentage = quizState.quizData ? ((quizState.currentQIndex + 1) / quizState.quizData.length) * 100 : 0;
 
+  // 🤔 Metacognitive Feedback Analysis
+  const getMetacognitiveMessage = () => {
+    if (isUserCorrect && quizState.confidenceLevel === "high") {
+      return { tag: "🌟 Mastery Confirmed", text: "You were fully confident and applied the correct logical principle perfectly!" };
+    }
+    if (isUserCorrect && quizState.confidenceLevel === "low") {
+      return { tag: "💡 Knowledge Solidifier", text: "You got it right! Review the explanation below to turn your intuition into confident mastery." };
+    }
+    if (!isUserCorrect && quizState.confidenceLevel === "high") {
+      return { tag: "⚠️ Misconception Alert", text: "You were confident, but this reveals a common conceptual blind spot. Study the breakdown carefully!" };
+    }
+    return { tag: "🛠️ Normal Learning Step", text: "Good attempt. Practice and conceptual reflection are the keys to mastering Java logic." };
+  };
+
+  const metaInsight = getMetacognitiveMessage();
+
   return (
     <div className="cg-card ValidationQuiz fadeIn cg-glass-panel">
       {quizLoading || !quizState.quizData ? (
@@ -150,7 +168,7 @@ export default function ValidationQuiz({ studentId, errorType, codeSnippet }) {
             {quizState.quizData[quizState.currentQIndex]?.question}
           </h3>
           
-          <div className="cg-flex-col" style={{ gap: '16px', marginBottom: '35px' }}>
+          <div className="cg-flex-col" style={{ gap: '16px', marginBottom: '25px' }}>
             {quizState.quizData[quizState.currentQIndex]?.options?.map((option, idx) => {
               
               const isCorrectAnswer = isMatch(option, currentCorrectAnswer);
@@ -180,12 +198,55 @@ export default function ValidationQuiz({ studentId, errorType, codeSnippet }) {
             })}
           </div>
 
+          {/* 🤔 Metacognition Confidence Selector (Before Submit) */}
+          {!quizState.isAnswerChecked && quizState.selectedOption && (
+            <div className="fadeIn" style={{ background: 'rgba(15, 23, 42, 0.6)', padding: '16px 20px', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.05)', marginBottom: '25px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px' }}>
+              <span style={{ fontSize: '0.9rem', color: '#94A3B8', fontWeight: '500' }}>
+                How confident are you in this answer?
+              </span>
+              <div style={{ display: 'flex', gap: '8px' }}>
+                {[
+                  { id: 'low', label: 'Guessing 🤔' },
+                  { id: 'medium', label: 'Fairly Sure 👍' },
+                  { id: 'high', label: '100% Confident 🚀' }
+                ].map(item => (
+                  <button
+                    key={item.id}
+                    onClick={() => setQuizState(prev => ({ ...prev, confidenceLevel: item.id }))}
+                    style={{
+                      padding: '6px 12px',
+                      borderRadius: '8px',
+                      fontSize: '0.8rem',
+                      cursor: 'pointer',
+                      border: quizState.confidenceLevel === item.id ? '1px solid #3B82F6' : '1px solid rgba(255,255,255,0.1)',
+                      backgroundColor: quizState.confidenceLevel === item.id ? 'rgba(59, 130, 246, 0.2)' : 'transparent',
+                      color: quizState.confidenceLevel === item.id ? '#60A5FA' : '#94A3B8'
+                    }}
+                  >
+                    {item.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Dynamic Feedback + Metacognitive Insight Box */}
           {quizState.isAnswerChecked && (
             <div className={`cg-feedback-box fadeIn ${isUserCorrect ? 'cg-feedback-success' : 'cg-feedback-error'}`} style={{ padding: '25px' }}>
-              <h4 style={{ margin: '0 0 10px 0', fontSize: '1.2rem', display: 'flex', alignItems: 'center', gap: '10px', color: isUserCorrect ? '#34D399' : '#F87171' }}>
-                {isUserCorrect ? '✅ Outstanding!' : '❌ Let\'s Review'}
-              </h4>
-              <p style={{ margin: 0, color: '#F1F5F9', lineHeight: '1.6', fontSize: '1.05rem' }}>{quizState.quizData[quizState.currentQIndex]?.explanation}</p>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                <h4 style={{ margin: 0, fontSize: '1.2rem', display: 'flex', alignItems: 'center', gap: '10px', color: isUserCorrect ? '#34D399' : '#F87171' }}>
+                  {isUserCorrect ? '✅ Outstanding!' : '❌ Let\'s Review'}
+                </h4>
+                <span style={{ fontSize: '0.8rem', fontWeight: 'bold', padding: '4px 10px', borderRadius: '6px', background: 'rgba(255,255,255,0.1)', color: '#F8FAFC' }}>
+                  {metaInsight.tag}
+                </span>
+              </div>
+              <p style={{ margin: '0 0 10px 0', color: '#CBD5E1', fontSize: '0.9rem', fontStyle: 'italic' }}>
+                {metaInsight.text}
+              </p>
+              <p style={{ margin: 0, color: '#F1F5F9', lineHeight: '1.6', fontSize: '1.05rem', borderTop: '1px solid rgba(255,255,255,0.1)', paddingTop: '10px' }}>
+                {quizState.quizData[quizState.currentQIndex]?.explanation}
+              </p>
             </div>
           )}
 

@@ -37,22 +37,25 @@ def generate_real_lesson(student_id: str, error_type: str, code_snippet: str):
         return get_smart_fallback(student_id, error_type, code_snippet)
 
     # =====================================================================
-    # 🚀 STEP 1: NEO4J SEMANTIC CACHING - CHECK CACHE FIRST
+    # 🚀 STEP 1: NEO4J SEMANTIC CACHING - TEMPORARILY DISABLED FOR TESTING
     # =====================================================================
-    cache_query = """
-    MATCH (e:ErrorType {name: $error_type})-[:HAS_LESSON]->(l:Lesson)
-    RETURN l.issue AS issue, l.explanation AS explanation, l.exampleCode AS exampleCode,
-           l.mermaidDiagram AS mermaidDiagram, l.videoUrl AS videoUrl, l.referenceLink AS referenceLink, l.hint AS hint
-    """
-    try:
-        cached_result = neo4j_db.execute_query(cache_query, {"error_type": error_type})
-        if cached_result and len(cached_result) > 0:
-            print(f"\n⚡ CACHE HIT! Serving lesson for '{error_type}' directly from Neo4j DB (0 API Calls, 0 Latency).")
-            return cached_result[0]
-    except Exception as cache_err:
-        print(f"⚠️ Cache read error: {cache_err}")
+    # අපි මේ ටික comment කරලා තියෙන්නේ පරණ පාඩම එන එක නවත්තලා, හැමපාරම 
+    # අලුත්ම දිග පාඩමක් AI එකෙන් generate කරගන්න ඕන නිසයි.
+    
+    # cache_query = """
+    # MATCH (e:ErrorType {name: $error_type})-[:HAS_LESSON]->(l:Lesson)
+    # RETURN l.issue AS issue, l.explanation AS explanation, l.exampleCode AS exampleCode,
+    #        l.mermaidDiagram AS mermaidDiagram, l.videoUrl AS videoUrl, l.referenceLink AS referenceLink, l.hint AS hint
+    # """
+    # try:
+    #     cached_result = neo4j_db.execute_query(cache_query, {"error_type": error_type})
+    #     if cached_result and len(cached_result) > 0:
+    #         print(f"\n⚡ CACHE HIT! Serving lesson for '{error_type}' directly from Neo4j DB (0 API Calls, 0 Latency).")
+    #         return cached_result[0]
+    # except Exception as cache_err:
+    #     print(f"⚠️ Cache read error: {cache_err}")
 
-    print(f"\n⚠️ CACHE MISS! Generating new lesson for '{error_type}' via OpenRouter API...")
+    print(f"\n⚠️ CACHE BYPASSED! Generating a brand new, detailed lesson for '{error_type}' via OpenRouter API...")
     # =====================================================================
 
     # --- DYNAMIC METRICS ---
@@ -72,6 +75,7 @@ def generate_real_lesson(student_id: str, error_type: str, code_snippet: str):
     cognitive_state = predict_cognitive_state(error_count, code_snippet, past_score)
     print(f"🎯 Guiding AI based on ML Prediction: {cognitive_state}")
 
+    # 🛠️ UPDATED PROMPT: Forcing a detailed, longer response (Min 150 words)
     prompt_template = """
     You are 'Code Guru', an expert computer science tutor for first-year IT students.
     
@@ -86,14 +90,15 @@ def generate_real_lesson(student_id: str, error_type: str, code_snippet: str):
     {context}
     ======================
 
-    Generate a micro-lesson specifically addressing the "{error_type}". 
+    Generate a DETAILED, COMPREHENSIVE micro-lesson specifically addressing the "{error_type}". 
+    The "explanation" field MUST be at least 150-200 words long. It should be highly educational, breaking down exactly why the error happens and how to think about the logic correctly. 
     Do NOT give a generic lesson. It must be specific to the code provided.
-    Also, generate a simple 'Mermaid.js' chart (graph TD) showing the visual breakdown of THIS specific error.
+    Also, generate a simple 'Mermaid.js' chart (graph TD) showing the visual breakdown of THIS specific error. Ensure the mermaid code is clean, without markdown backticks.
     
     Provide the response EXACTLY in this JSON format:
     {{
         "issue": "A specific 1-sentence title about {error_type}",
-        "explanation": "A pedagogical explanation adapted to the ML Cognitive State and the specific error.",
+        "explanation": "A detailed, step-by-step pedagogical explanation (MINIMUM 150 words) adapted to the ML Cognitive State and the specific error.",
         "exampleCode": "Show the student's incorrect code as a comment, and the correct way underneath.",
         "mermaidDiagram": "graph TD\\n A[Step 1] --> B[Step 2]",
         "videoUrl": "Provide YouTube URL relevant to {error_type}",
@@ -121,7 +126,6 @@ def generate_real_lesson(student_id: str, error_type: str, code_snippet: str):
     except Exception as e:
         print(f"\n⚠️ LangChain Failed: {e}. Switching to OpenRouter Fallback API...")
         try:
-            # Updated fallback request for OpenAI/OpenRouter format
             url = "https://openrouter.ai/api/v1/chat/completions"
             headers = {
                 "Authorization": f"Bearer {settings.OPENROUTER_API_KEY}",
@@ -162,6 +166,7 @@ def generate_real_lesson(student_id: str, error_type: str, code_snippet: str):
         # =====================================================================
         # 🚀 STEP 2: NEO4J SEMANTIC CACHING - SAVE NEW LESSON TO CACHE
         # =====================================================================
+        # අලුතින් හැදෙන දිග පාඩම ආයෙත් Database එකේ save වෙනවා.
         save_cache_query = """
         MERGE (e:ErrorType {name: $error_type})
         MERGE (l:Lesson {
@@ -181,7 +186,7 @@ def generate_real_lesson(student_id: str, error_type: str, code_snippet: str):
                 "referenceLink": parsed_lesson.get("referenceLink", ""),
                 "hint": parsed_lesson.get("hint", "")
             })
-            print(f"💾 CACHE SAVED! Lesson for '{error_type}' successfully stored in Neo4j.")
+            print(f"💾 NEW CACHE SAVED! Detailed Lesson for '{error_type}' successfully stored in Neo4j.")
         except Exception as cache_save_err:
             print(f"⚠️ Cache save error: {cache_save_err}")
         # =====================================================================

@@ -1,25 +1,40 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import mermaid from 'mermaid';
 
 export default function MicroLesson({ lessonData, studentCode, cognitiveState, onStartQuiz }) {
   const mermaidRef = useRef(null);
+  const [mermaidError, setMermaidError] = useState(false);
 
   useEffect(() => {
     if (lessonData && lessonData.mermaidDiagram && mermaidRef.current) {
+      // Initialize mermaid settings
       mermaid.initialize({
         startOnLoad: false,
         theme: 'dark', 
         securityLevel: 'loose',
       });
 
-      setTimeout(() => {
+      // 🛠️ Deep Sanitize the Mermaid String from AI
+      const cleanMermaid = lessonData.mermaidDiagram
+        .replace(/```mermaid\s*/gi, '') // Remove opening markdown
+        .replace(/```\s*/g, '')         // Remove closing markdown
+        .replace(/\\n/g, '\n')          // Fix literal \n to actual line breaks
+        .trim();
+
+      const renderDiagram = async () => {
         try {
+          setMermaidError(false);
           mermaidRef.current.removeAttribute('data-processed');
-          mermaid.run({ nodes: [mermaidRef.current] });
+          mermaidRef.current.innerHTML = cleanMermaid; // Inject clean text
+          await mermaid.run({ nodes: [mermaidRef.current] });
         } catch (error) {
-          console.error("Mermaid Render Error:", error);
+          console.error("Mermaid Render Error Caught:", error);
+          setMermaidError(true);
         }
-      }, 100);
+      };
+
+      // Slight delay to ensure DOM is ready
+      setTimeout(renderDiagram, 150);
     }
   }, [lessonData]);
 
@@ -94,7 +109,7 @@ export default function MicroLesson({ lessonData, studentCode, cognitiveState, o
                   <span>✕</span> Problematic Logic (Active Code)
                 </div>
                 <pre style={{ margin: 0, padding: '16px', color: '#FCA5A5', fontFamily: 'Fira Code', fontSize: '0.9rem', overflowX: 'auto', lineHeight: '1.5' }}>
-                  <code>{studentCode || "int[] arr = new int[5];\narr[5] = 10; // Index 5 is out of bounds!"}</code>
+                  <code>{studentCode ? studentCode.replace(/\\n/g, '\n') : "int[] arr = new int[5];\narr[5] = 10; // Index 5 is out of bounds!"}</code>
                 </pre>
               </div>
 
@@ -104,7 +119,7 @@ export default function MicroLesson({ lessonData, studentCode, cognitiveState, o
                   <span>✓</span> Remediated Implementation
                 </div>
                 <pre style={{ margin: 0, padding: '16px', color: '#6EE7B7', fontFamily: 'Fira Code', fontSize: '0.9rem', overflowX: 'auto', lineHeight: '1.5' }}>
-                  <code>{lessonData.exampleCode || "int[] arr = new int[5];\narr[4] = 10; // Valid indices: 0 to 4"}</code>
+                  <code>{lessonData.exampleCode ? lessonData.exampleCode.replace(/\\n/g, '\n') : "int[] arr = new int[5];\narr[4] = 10; // Valid indices: 0 to 4"}</code>
                 </pre>
               </div>
             </div>
@@ -116,19 +131,29 @@ export default function MicroLesson({ lessonData, studentCode, cognitiveState, o
               <h4 className="cg-title-content" style={{ color: '#34D399', display: 'flex', alignItems: 'center', gap: '10px' }}>
                 <span>📊</span> Visual Concept Model
               </h4>
-              <div 
-                className="mermaid cg-glass-inner" 
-                ref={mermaidRef} 
-                style={{ 
-                  padding: '25px', 
-                  borderRadius: '12px', 
-                  textAlign: 'center', 
-                  marginTop: '15px', 
-                  overflowX: 'auto' 
-                }}
-              >
-                {lessonData.mermaidDiagram.replace(/\\n/g, '\n')}
-              </div>
+              
+              {/* 🛠️ Fallback UI if AI sends broken Mermaid syntax */}
+              {mermaidError ? (
+                <div style={{ background: 'rgba(239, 68, 68, 0.1)', border: '1px dashed rgba(239, 68, 68, 0.4)', borderRadius: '12px', padding: '20px', textAlign: 'center', marginTop: '15px' }}>
+                  <span style={{ fontSize: '2rem', display: 'block', marginBottom: '10px' }}>🧩</span>
+                  <h5 style={{ color: '#FCA5A5', margin: '0 0 5px 0', fontSize: '1rem' }}>Diagram Generation Skipped</h5>
+                  <p style={{ color: '#94A3B8', margin: 0, fontSize: '0.85rem' }}>The AI generated an overly complex structure that couldn't be rendered visually. Please rely on the code analysis above.</p>
+                </div>
+              ) : (
+                <div 
+                  className="mermaid cg-glass-inner" 
+                  ref={mermaidRef} 
+                  style={{ 
+                    padding: '25px', 
+                    borderRadius: '12px', 
+                    textAlign: 'center', 
+                    marginTop: '15px', 
+                    overflowX: 'auto' 
+                  }}
+                >
+                  {/* Content is injected via JS ref above */}
+                </div>
+              )}
             </div>
           )}
 

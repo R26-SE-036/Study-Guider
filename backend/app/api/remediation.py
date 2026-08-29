@@ -51,27 +51,70 @@ class QuizCompletedRequest(BaseModel):
     passed: bool | None = None
 
 
+# Fields worth pulling off the raw trigger and onto the recommendation. Code
+# Coach splits them across two endpoints: /recommendations carries the lesson
+# and quiz to run, /triggers carries the evidence for why. The UI needs both —
+# it shows the student how many times this actually happened — and without the
+# merge the frontend would have to invent a number, which is the hardcoding
+# this whole change exists to remove.
+_TRIGGER_DETAIL_FIELDS = (
+    "repeat_count",
+    "active_count",
+    "resolved_count",
+    "unique_learning_sessions",
+    "struggle_score",
+    "hint_dependency_level",
+    "intervention_status",
+    "status",
+    "created_at",
+)
+
+
 @router.get("/triggers")
 def list_triggers(user: CurrentUser = Depends(get_current_user)):
     """Everything this student currently needs remediation for.
 
-    Each recommendation arrives with the concept, the error type, a struggle
-    level, a rationale, and Code Coach's suggested lesson and quiz. The
-    frontend renders one card per entry — an empty list is the healthy case,
-    not an error.
+    Each entry arrives with the concept, the error type, a struggle level, a
+    rationale, Code Coach's suggested lesson and quiz, and the counts behind
+    the decision. The frontend renders one card per entry — an empty list is
+    the healthy case, not an error.
     """
-    payload = _forward(
+    recommendations = _forward(
         lambda: code_coach_client.get(
             "/api/v1/remediation/me/recommendations",
             user.access_token,
         )
-    )
+    ).get("recommendations", [])
 
-    return {
-        "success": True,
-        "total": payload.get("total", 0),
-        "triggers": payload.get("recommendations", []),
-    }
+    # Best effort: if this second call fails the student still gets their
+    # lessons, just without the "you have hit this 4 times" detail. Losing a
+    # subtitle is not worth failing the page.
+    try:
+        raw = code_coach_client.get(
+            "/api/v1/remediation/me/triggers",
+            user.access_token,
+            params={"status": "active"},
+        ).get("triggers", [])
+    except CodeCoachError:
+        raw = []
+
+    detail_by_id = {trigger["trigger_id"]: trigger for trigger in raw}
+
+    merged = []
+    for recommendation in recommendations:
+        detail = detail_by_id.get(recommendation.get("trigger_id"), {})
+        merged.append(
+            {
+                **recommendation,
+                **{
+                    field: detail[field]
+                    for field in _TRIGGER_DETAIL_FIELDS
+                    if field in detail
+                },
+            }
+        )
+
+    return {"success": True, "total": len(merged), "triggers": merged}
 
 
 @router.post("/triggers/{trigger_id}/lesson-opened")

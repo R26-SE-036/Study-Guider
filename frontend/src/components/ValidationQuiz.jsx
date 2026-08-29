@@ -1,9 +1,16 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
+import api from '../lib/api';
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
-
-export default function ValidationQuiz({ studentId, errorType, codeSnippet }) {
+/**
+ * The validation quiz for one remediation trigger.
+ *
+ * Finishing it does two things: it records the attempt in Study Guider's own
+ * Neo4j progress graph, and it reports the score back to Code Coach. That
+ * second call is what closes the loop — a score at or above the platform pass
+ * mark marks the trigger completed, and without it Code Coach would keep
+ * insisting the student is still struggling with this concept.
+ */
+export default function ValidationQuiz({ trigger, errorType, onComplete }) {
   const [quizState, setQuizState] = useState(() => {
     const saved = localStorage.getItem('cg_quizState');
     return saved ? JSON.parse(saved) : {
@@ -26,8 +33,9 @@ export default function ValidationQuiz({ studentId, errorType, codeSnippet }) {
 
   useEffect(() => {
     if (!quizState.quizData) {
-      const payload = { student_id: studentId, error_type: errorType, code_snippet: codeSnippet };
-      axios.post(`${API_BASE_URL}/api/quiz/generate`, payload)
+      // No student_id: the backend takes the student from the bearer token.
+      const payload = { error_type: errorType };
+      api.post('/api/quiz/generate', payload)
         .then(response => {
           if (response.data.quiz_data && response.data.quiz_data.length > 0) {
             setQuizState(prev => ({ ...prev, quizData: response.data.quiz_data }));
@@ -39,7 +47,7 @@ export default function ValidationQuiz({ studentId, errorType, codeSnippet }) {
           setQuizLoading(false);
         });
     }
-  }, [studentId, errorType, codeSnippet]);
+  }, [errorType, quizState.quizData]);
 
   const isMatch = (opt1, opt2) => {
     if (!opt1 || !opt2) return false;
@@ -63,21 +71,47 @@ export default function ValidationQuiz({ studentId, errorType, codeSnippet }) {
   const handleQuizCompletion = (finalScore, totalQs) => {
     setQuizState(prev => ({ ...prev, quizFinished: true, graphStatus: "updating" }));
 
-    const payload = { 
-        student_id: studentId, 
-        concept: errorType, 
-        score: finalScore, 
-        total_questions: totalQs 
-    };
-
-    axios.post(`${API_BASE_URL}/api/progress/update`, payload)
-      .then(response => { 
-        setQuizState(prev => ({ ...prev, graphStatus: response.data.success ? "success" : "error" })); 
+    // 1. Study Guider's own record of the attempt. No student_id — the backend
+    //    resolves the student from the bearer token.
+    api.post('/api/progress/update', {
+        concept: errorType,
+        score: finalScore,
+        total_questions: totalQs
+    })
+      .then(response => {
+        setQuizState(prev => ({ ...prev, graphStatus: response.data.success ? "success" : "error" }));
       })
-      .catch(error => { 
-        console.error("Neo4j Update Error:", error); 
-        setQuizState(prev => ({ ...prev, graphStatus: "error" })); 
+      .catch(error => {
+        console.error("Neo4j Update Error:", error);
+        setQuizState(prev => ({ ...prev, graphStatus: "error" }));
       });
+
+    // 2. Report the result to Code Coach. This is the call that resolves the
+    //    remediation trigger, so it is tracked separately from the Neo4j write
+    //    above — one can fail without hiding the other.
+    if (trigger?.trigger_id) {
+      const scorePercent = totalQs > 0 ? Math.round((finalScore / totalQs) * 100) : 0;
+
+      setQuizState(prev => ({ ...prev, triggerStatus: "updating" }));
+      api.post(`/api/remediation/triggers/${trigger.trigger_id}/quiz-completed`, {
+          quiz_id: trigger.quiz?.quiz_id || 'quiz_general_01',
+          score_percent: scorePercent
+          // `passed` is left out on purpose: Code Coach applies the platform
+          // pass mark, so Study Guider cannot quietly disagree about it.
+      })
+        .then(response => {
+          setQuizState(prev => ({
+            ...prev,
+            triggerStatus: "success",
+            triggerResolved: response.data.trigger?.status === "completed",
+            triggerPassed: response.data.trigger?.quiz_passed
+          }));
+        })
+        .catch(error => {
+          console.error("Code Coach trigger update failed:", error);
+          setQuizState(prev => ({ ...prev, triggerStatus: "error" }));
+        });
+    }
   };
 
   const nextQuestion = () => {
@@ -115,7 +149,27 @@ export default function ValidationQuiz({ studentId, errorType, codeSnippet }) {
           {quizState.graphStatus === "updating" && <div className="cg-feedback-box" style={{background: 'linear-gradient(90deg, rgba(245, 158, 11, 0.1) 0%, transparent 100%)', borderLeft: '4px solid #FBBF24', color: '#FCD34D'}}>⏳ Committing results to Neo4j Knowledge Graph...</div>}
           {quizState.graphStatus === "success" && <div className="cg-feedback-box" style={{background: 'linear-gradient(90deg, rgba(16, 185, 129, 0.1) 0%, transparent 100%)', borderLeft: '4px solid #10B981', color: '#6EE7B7'}}>✅ Neo4j Database Sync Successful! Relationship updated.</div>}
           {quizState.graphStatus === "error" && <div className="cg-feedback-box" style={{background: 'linear-gradient(90deg, rgba(239, 68, 68, 0.1) 0%, transparent 100%)', borderLeft: '4px solid #EF4444', color: '#FCA5A5'}}>❌ Database Connection Failed. Please check Backend configurations.</div>}
+
+          {/* The half that matters to the rest of the platform: until Code
+              Coach records this score, it still considers the student stuck. */}
+          {trigger?.trigger_id && (
+            <>
+              <h4 className="cg-title-content" style={{ display: 'flex', alignItems: 'center', gap: '10px', marginTop: '28px' }}><span>🎯</span> Code Coach Remediation</h4>
+              {quizState.triggerStatus === "updating" && <div className="cg-feedback-box" style={{background: 'linear-gradient(90deg, rgba(245, 158, 11, 0.1) 0%, transparent 100%)', borderLeft: '4px solid #FBBF24', color: '#FCD34D'}}>⏳ Reporting your score to Code Coach...</div>}
+              {quizState.triggerStatus === "success" && quizState.triggerResolved && <div className="cg-feedback-box" style={{background: 'linear-gradient(90deg, rgba(16, 185, 129, 0.1) 0%, transparent 100%)', borderLeft: '4px solid #10B981', color: '#6EE7B7'}}>✅ Passed. This struggle is marked resolved and will stop being flagged.</div>}
+              {quizState.triggerStatus === "success" && !quizState.triggerResolved && <div className="cg-feedback-box" style={{background: 'linear-gradient(90deg, rgba(245, 158, 11, 0.1) 0%, transparent 100%)', borderLeft: '4px solid #FBBF24', color: '#FCD34D'}}>📌 Score recorded, but below the pass mark — this concept will stay on your list.</div>}
+              {quizState.triggerStatus === "error" && <div className="cg-feedback-box" style={{background: 'linear-gradient(90deg, rgba(239, 68, 68, 0.1) 0%, transparent 100%)', borderLeft: '4px solid #EF4444', color: '#FCA5A5'}}>❌ Could not reach Code Coach. Your score was not recorded there, so this concept stays flagged.</div>}
+            </>
+          )}
         </div>
+
+        <button
+          onClick={() => { localStorage.removeItem('cg_quizState'); onComplete?.(); }}
+          className="cg-btn cg-btn-premium-success"
+          style={{ marginTop: '36px', padding: '14px 32px' }}
+        >
+          Back to my lessons
+        </button>
       </div>
     );
   }

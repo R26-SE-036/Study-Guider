@@ -106,7 +106,13 @@ export default function MicroLesson({ lessonData, studentCode, cognitiveState, o
               {/* Problematic Student Code */}
               <div style={{ background: '#0F172A', borderRadius: '12px', border: '1px solid rgba(239, 68, 68, 0.3)', overflow: 'hidden' }}>
                 <div style={{ background: 'rgba(239, 68, 68, 0.1)', padding: '10px 16px', borderBottom: '1px solid rgba(239, 68, 68, 0.2)', display: 'flex', alignItems: 'center', gap: '8px', color: '#F87171', fontSize: '0.85rem', fontWeight: 'bold' }}>
-                  <span>✕</span> Problematic Logic (Active Code)
+                  {/* Code Coach stores only a hash of the code around a
+                      diagnostic, never the source, so a lesson opened from a
+                      remediation trigger has no student code behind it. Say
+                      so rather than passing a canned example off as theirs. */}
+                  <span>✕</span> {lessonData.exampleIsGeneric
+                    ? 'Problematic Logic (Typical Example)'
+                    : 'Problematic Logic (Active Code)'}
                 </div>
                 <pre style={{ margin: 0, padding: '16px', color: '#FCA5A5', fontFamily: 'Fira Code', fontSize: '0.9rem', overflowX: 'auto', lineHeight: '1.5' }}>
                   <code>{studentCode ? studentCode.replace(/\\n/g, '\n') : "int[] arr = new int[5];\narr[5] = 10; // Index 5 is out of bounds!"}</code>

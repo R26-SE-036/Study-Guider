@@ -1,18 +1,19 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
 import {
   Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis,
   ResponsiveContainer, Tooltip as RechartsTooltip
 } from 'recharts';
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
+import api from '../lib/api';
 
-export default function StudentDashboard({ studentId, cognitiveState, onBack }) {
+// No studentId prop: the backend reads the student from the bearer token, so
+// there is no id for this component to pass around or get wrong.
+export default function StudentDashboard({ cognitiveState, onBack }) {
   const [progressData, setProgressData] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    axios.get(`${API_BASE_URL}/api/progress/${studentId}`)
+    api.get('/api/progress/me')
       .then(response => {
         if (response.data.success && response.data.data) {
           setProgressData(response.data.data);
@@ -26,7 +27,7 @@ export default function StudentDashboard({ studentId, cognitiveState, onBack }) 
         setProgressData([]); 
         setLoading(false);
       });
-  }, [studentId]);
+  }, []);
 
   const totalAssessments = progressData.length;
   const masteredCount = progressData.filter(item => item.status === "MASTERED").length;

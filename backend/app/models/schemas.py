@@ -10,4 +10,7 @@ class DiagnosticPayload(BaseModel):
     error_type: str
     concept_tag: str
     error_count: int
-    code_snippet: str
+    # Optional: a lesson generated from a remediation trigger has no student
+    # code behind it (Code Coach stores only a hash of the code context), so
+    # the route falls back to a canonical example of the same mistake.
+    code_snippet: str = ""

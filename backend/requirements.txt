@@ -1,0 +1,30 @@
+# Study Guider backend dependencies.
+#
+# Derived from the imports actually present in app/ — this file did not exist
+# before, which meant nobody but the original author could run the service.
+# Versions are floors, not pins: pin them if a reproducible build is needed.
+
+# ── Web framework ──
+fastapi>=0.115
+uvicorn[standard]>=0.30
+pydantic>=2.7
+python-dotenv>=1.0
+
+# ── Talking to Code Coach (identity + remediation triggers) ──
+requests>=2.32
+
+# ── Databases ──
+neo4j>=5.20
+langchain-chroma>=0.1.4
+
+# ── LLM / RAG pipeline ──
+langchain-core>=0.3
+langchain-openai>=0.2
+langchain-google-genai>=2.0
+langchain-text-splitters>=0.3
+
+# ── Cognitive-state model + Java parsing ──
+scikit-learn>=1.5
+joblib>=1.4
+pandas>=2.2
+javalang>=0.13

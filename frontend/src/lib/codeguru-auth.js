@@ -280,7 +280,19 @@ export function consumeHandoffFragment() {
   return true;
 }
 
-/** Send the browser to the shared portal to sign in, and come back here after. */
+/**
+ * Send the browser to the shared portal to sign in, and come back here after.
+ *
+ * The JSDoc types are load-bearing: PairPath's frontend is TypeScript with
+ * allowJs, so it type-checks this file directly. Without them TypeScript
+ * infers the options bag from its `= {}` default and rejects `returnTo` at the
+ * call site.
+ *
+ * @param {string} portalUrl - Base URL of the Code Guru portal.
+ * @param {{ returnTo?: string, path?: string }} [options]
+ *   returnTo: where the portal should send the student back to (defaults to
+ *   the current page). path: '/login' or '/register'.
+ */
 export function redirectToPortal(portalUrl, { returnTo, path = '/login' } = {}) {
   const target = returnTo || window.location.href.split('#')[0];
   window.location.href =

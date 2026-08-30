@@ -16,6 +16,7 @@ import {
   loadTokens,
   loadUser,
   logout,
+  me,
   redirectToPortal,
 } from './lib/codeguru-auth';
 import { CODE_COACH_URL, DEV_LOGIN_FLAG, PORTAL_URL } from './lib/config';
@@ -59,8 +60,21 @@ function App() {
     consumeHandoffFragment();
 
     if (isSignedIn()) {
+      // Render immediately from what is stored, then confirm with Code Coach.
+      // The stored profile can be nothing but a user_id (that is all the portal
+      // handoff carries), and /auth/me is the only authoritative answer to who
+      // this token belongs to - which matters now the platform bar puts a name
+      // on every page.
       setUser(loadUser());
       setAuthState('signed-in');
+
+      const { accessToken } = loadTokens();
+      me(CODE_COACH_URL, accessToken)
+        .then((response) => setUser(response.user))
+        .catch(() => {
+          // A failure here is not worth interrupting the page for: the API
+          // calls below carry the same token and will surface a dead session.
+        });
       return;
     }
 

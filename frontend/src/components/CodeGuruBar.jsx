@@ -32,10 +32,22 @@ export const CG_SERVICES = [
   { key: 'gamification', label: 'Games' },
 ];
 
+/**
+ * The student's name, whatever shape the service stores it in.
+ *
+ * Code Coach returns `full_name`, the Gamification Engine normalises it to
+ * `fullName`, and PairPath's token exchange stores `firstName`/`lastName`.
+ * The bar is the same component in all four, so it has to read all three.
+ */
+export function cgDisplayName(user) {
+  if (!user) return '';
+  const joined = [user.firstName, user.lastName].filter(Boolean).join(' ');
+  return user.full_name || user.fullName || joined || user.email || '';
+}
+
 /** "Jane Student" -> "JS"; falls back to the email, then to a neutral glyph. */
 export function cgInitials(user) {
-  const name = user?.full_name || user?.fullName || user?.email || '';
-  const parts = String(name).trim().split(/[\s@._-]+/).filter(Boolean);
+  const parts = cgDisplayName(user).trim().split(/[\s@._-]+/).filter(Boolean);
   if (!parts.length) return '·';
   if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
   return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
@@ -43,7 +55,7 @@ export function cgInitials(user) {
 
 export default function CodeGuruBar({ service, portalUrl, user, onSignOut }) {
   const base = String(portalUrl || '').replace(/\/+$/, '');
-  const displayName = user?.full_name || user?.fullName || user?.email || '';
+  const displayName = cgDisplayName(user);
   const current = CG_SERVICES.find((s) => s.key === service);
 
   function hrefFor(key) {

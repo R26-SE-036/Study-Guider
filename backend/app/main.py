@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api import struggle, quiz, progress, remediation
+from app.api import struggle, quiz, progress, remediation, dashboard
 from app.core.config import settings
 from app.db.neo4j_connection import neo4j_db
 
@@ -32,6 +32,7 @@ app.include_router(struggle.router, prefix="/api/struggle", tags=["Struggle Dete
 app.include_router(quiz.router, prefix="/api/quiz", tags=["Validation Quiz"])
 app.include_router(progress.router, prefix="/api/progress", tags=["Progress Tracking"])
 app.include_router(remediation.router, prefix="/api/remediation", tags=["Remediation"])
+app.include_router(dashboard.router, prefix="/api/dashboard", tags=["Dashboard"])
 
 @app.get("/")
 def read_root():

@@ -9,8 +9,8 @@ html, body {
   width: 100%;
   min-height: 100vh;
   /* Deep Premium Slate Background */
-  background-color: #0F172A; 
-  color: #F8FAFC;
+  background-color: var(--cg-page); 
+  color: var(--cg-ink);
 }
 
 #root {

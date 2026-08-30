@@ -1,0 +1,385 @@
+/* The two platform faces, loaded here so every app gets them from one place.
+   Must stay above every rule below - @import is only legal at the top of a
+   stylesheet. Each app imports this file first, from its JS entry point. */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+
+/* ============================================================================
+   codeguru-theme.css - the Code Guru design tokens
+   ============================================================================
+
+   MASTER COPY. This file lives in code-coach/portal/src/styles/ and is COPIED
+   into the other three repos. Do not edit a copy: edit this file and run
+   code-coach/sync-codeguru-shared.sh, then commit the result in each repo.
+
+   Copies:
+     Study-Guider/frontend/src/styles/codeguru-theme.css
+     Pair_Path/frontend/src/styles/codeguru-theme.css
+     adaptive-gamification-engine/frontend/src/styles/codeguru-theme.css
+
+   ---------------------------------------------------------------------------
+   Why two layers of colour tokens
+   ---------------------------------------------------------------------------
+   Three different consumers need three different formats:
+
+     --cg-rgb-*   Raw "R G B" channel triplets. Tailwind needs these so its
+                  opacity modifiers still work: PairPath's tailwind.config.js
+                  writes rgb(var(--cg-rgb-card) / <alpha-value>), which is what
+                  keeps classes like bg-surface-800/50 rendering correctly.
+     --cg-*       Ready-to-use rgb() colours. This is what stylesheets and the
+                  inline style={{}} props in Study Guider and Gamification
+                  reference. Inline styles beat any stylesheet, so they can only
+                  be re-themed by holding a var() themselves.
+     composites   Gradients, shadows and the glass recipe, so the four apps
+                  share not just hues but depth and light.
+
+   Colour is only half of "one product". Radius, shadow, easing and font are in
+   here too - four apps with the same blue but different corner radii and
+   different easing curves still read as four apps.
+
+   ---------------------------------------------------------------------------
+   Contrast
+   ---------------------------------------------------------------------------
+   Checked against the card background (#FFFFFF):
+
+     ink    #0F1B33   16.9:1   AAA
+     body   #2D3C58   10.6:1   AAA
+     muted  #64748B    4.76:1  AA   (body text minimum is 4.5:1)
+     accent #2563EB    5.17:1  AA
+     white on #2563EB  5.17:1  AA   (button labels)
+
+   --cg-faint is 3.3:1 and is NOT for text. Use it for rules, disabled glyphs
+   and decorative strokes only.
+   ============================================================================ */
+
+:root {
+  /* -- Surfaces -----------------------------------------------------------
+     page      the app background
+     page-alt  a recessed band inside the page (table headers, footers)
+     card      raised panels
+     card-alt  a panel nested inside a card                                */
+  --cg-rgb-page:          244 247 252;
+  --cg-rgb-page-alt:      234 240 250;
+  --cg-rgb-card:          255 255 255;
+  --cg-rgb-card-alt:      248 250 253;
+  --cg-rgb-border:        218 227 241;
+  --cg-rgb-border-strong: 190 205 228;
+
+  /* -- Text ------------------------------------------------------------- */
+  --cg-rgb-ink:     15  27  51;   /* headings                    */
+  --cg-rgb-body:    45  60  88;   /* paragraphs                  */
+  --cg-rgb-muted:  100 116 139;   /* labels, captions - AA       */
+  --cg-rgb-faint:  148 163 184;   /* NOT text: rules, decoration */
+
+  /* -- Accent: the platform blue ---------------------------------------- */
+  --cg-rgb-accent:        37  99 235;   /* #2563EB */
+  --cg-rgb-accent-strong: 29  78 216;   /* #1D4ED8 */
+  --cg-rgb-accent-bright: 59 130 246;   /* #3B82F6 - gradients, glows */
+  --cg-rgb-accent-soft:  219 234 254;   /* #DBEAFE - tinted fills     */
+  --cg-rgb-on-accent:    255 255 255;
+
+  /* -- Semantic -----------------------------------------------------------
+     Kept genuinely green/amber/red. A quiz result and a struggle level must
+     stay legible as pass/warn/fail; flattening them into blue would trade
+     meaning for tidiness.                                                 */
+  --cg-rgb-ok:           22 163  74;
+  --cg-rgb-ok-soft:     220 252 231;
+  --cg-rgb-warn:        180  83   9;
+  --cg-rgb-warn-soft:   254 243 199;
+  --cg-rgb-danger:      220  38  38;
+  --cg-rgb-danger-soft: 254 226 226;
+
+  /* -- Code -------------------------------------------------------------- */
+  --cg-rgb-code-bg:  241 245 252;
+  --cg-rgb-code-ink:  30  41  59;
+
+  /* -- Ready-to-use colours ---------------------------------------------- */
+  --cg-page:          rgb(var(--cg-rgb-page));
+  --cg-page-alt:      rgb(var(--cg-rgb-page-alt));
+  --cg-card:          rgb(var(--cg-rgb-card));
+  --cg-card-alt:      rgb(var(--cg-rgb-card-alt));
+  --cg-border:        rgb(var(--cg-rgb-border));
+  --cg-border-strong: rgb(var(--cg-rgb-border-strong));
+
+  --cg-ink:   rgb(var(--cg-rgb-ink));
+  --cg-body:  rgb(var(--cg-rgb-body));
+  --cg-muted: rgb(var(--cg-rgb-muted));
+  --cg-faint: rgb(var(--cg-rgb-faint));
+
+  --cg-accent:        rgb(var(--cg-rgb-accent));
+  --cg-accent-strong: rgb(var(--cg-rgb-accent-strong));
+  --cg-accent-bright: rgb(var(--cg-rgb-accent-bright));
+  --cg-accent-soft:   rgb(var(--cg-rgb-accent-soft));
+  --cg-on-accent:     rgb(var(--cg-rgb-on-accent));
+
+  --cg-ok:          rgb(var(--cg-rgb-ok));
+  --cg-ok-soft:     rgb(var(--cg-rgb-ok-soft));
+  --cg-warn:        rgb(var(--cg-rgb-warn));
+  --cg-warn-soft:   rgb(var(--cg-rgb-warn-soft));
+  --cg-danger:      rgb(var(--cg-rgb-danger));
+  --cg-danger-soft: rgb(var(--cg-rgb-danger-soft));
+
+  --cg-code-bg:  rgb(var(--cg-rgb-code-bg));
+  --cg-code-ink: rgb(var(--cg-rgb-code-ink));
+
+  /* -- Composites ---------------------------------------------------------
+     The glass recipe is Study Guider's and Gamification's visual signature.
+     Both keep their backdrop-filter blur; only the tint moves here so the two
+     apps frost to the same colour.                                        */
+  --cg-glass:        rgb(var(--cg-rgb-card) / 0.72);
+  --cg-glass-inner:  rgb(var(--cg-rgb-card-alt) / 0.85);
+  --cg-glass-border: rgb(255 255 255 / 0.9);
+  --cg-glass-blur:   blur(20px);
+
+  --cg-gradient-accent: linear-gradient(135deg,
+      rgb(var(--cg-rgb-accent)) 0%,
+      rgb(var(--cg-rgb-accent-strong)) 100%);
+  --cg-gradient-text: linear-gradient(100deg,
+      rgb(var(--cg-rgb-accent-strong)) 0%,
+      rgb(var(--cg-rgb-accent-bright)) 50%,
+      rgb(var(--cg-rgb-accent-strong)) 100%);
+
+  /* Two low-alpha blue washes. Replaces Study Guider's blue/violet glow and
+     Gamification's pink/cyan/yellow pastels with one hue in both. */
+  --cg-page-wash:
+      radial-gradient(circle at 12% -8%, rgb(var(--cg-rgb-accent) / 0.10) 0%, transparent 46%),
+      radial-gradient(circle at 88% 8%, rgb(var(--cg-rgb-accent-bright) / 0.08) 0%, transparent 42%);
+
+  /* -- Depth ------------------------------------------------------------- */
+  --cg-shadow-sm: 0 1px 2px rgb(var(--cg-rgb-ink) / 0.06);
+  --cg-shadow-md: 0 8px 24px -8px rgb(var(--cg-rgb-ink) / 0.12);
+  --cg-shadow-lg: 0 20px 44px -16px rgb(var(--cg-rgb-ink) / 0.18);
+  --cg-shadow-accent: 0 10px 24px -10px rgb(var(--cg-rgb-accent) / 0.45);
+  --cg-focus: 0 0 0 3px rgb(var(--cg-rgb-accent) / 0.25);
+
+  /* -- Shape ------------------------------------------------------------- */
+  --cg-bar-h: 58px;
+  --cg-radius-sm: 8px;
+  --cg-radius: 14px;
+  --cg-radius-lg: 20px;
+  --cg-radius-pill: 999px;
+
+  /* -- Motion ------------------------------------------------------------ */
+  --cg-ease: cubic-bezier(0.16, 1, 0.3, 1);
+  --cg-fast: 0.15s;
+  --cg-slow: 0.3s;
+
+  /* -- Type ---------------------------------------------------------------
+     One family everywhere. Gamification used Outfit, which was the loudest
+     non-colour signal that it was a different product.                    */
+  --cg-font: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --cg-font-mono: 'JetBrains Mono', 'Fira Code', ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+/* -- Dark theme ---------------------------------------------------------------
+   Deliberately empty for now. Because every app reaches colour through the
+   tokens above - PairPath via its Tailwind ramp, the other three via var() -
+   dark mode is a values-only change here plus a toggle in CodeGuruBar. No
+   component file needs to be touched to add it. */
+:root[data-theme='dark'] {
+  /* filled in the dark-mode pass */
+}
+
+/* ============================================================================
+   Shared chrome: CodeGuruBar
+   ============================================================================
+   These rules live in the token file rather than beside the component so the
+   four copies of CodeGuruBar cannot drift apart visually - the markup is
+   copied, but there is only one stylesheet describing it.
+
+   A chrome that does not change as you cross from one origin to another is a
+   stronger "one product" signal than colour is: the four services run on four
+   ports, and this is the only thing on screen that stays put.
+   ============================================================================ */
+
+.cg-bar {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  background: rgb(var(--cg-rgb-card) / 0.82);
+  backdrop-filter: saturate(180%) var(--cg-glass-blur);
+  -webkit-backdrop-filter: saturate(180%) var(--cg-glass-blur);
+  border-bottom: 1px solid var(--cg-border);
+  font-family: var(--cg-font);
+}
+
+.cg-bar-inner {
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: 0 20px;
+  height: var(--cg-bar-h);
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
+/* Pages sit UNDER the sticky bar, so a literal 100vh always overflows by
+   exactly the bar height and every screen gains a pointless scrollbar. These
+   are the three full-height roots the platform actually uses: Study Guider,
+   the Gamification Engine, and Tailwind min-h-screen in PairPath. */
+.cg-bar ~ .App-container,
+.cg-bar ~ .app-container,
+.cg-bar ~ .min-h-screen,
+.cg-bar ~ * .min-h-screen {
+  min-height: calc(100vh - var(--cg-bar-h));
+}
+
+/* -- Brand ---------------------------------------------------------------- */
+
+.cg-bar-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  text-decoration: none;
+  color: inherit;
+  flex-shrink: 0;
+}
+
+.cg-bar-mark {
+  width: 30px;
+  height: 30px;
+  flex-shrink: 0;
+  border-radius: 9px;
+  background: var(--cg-gradient-accent);
+  color: var(--cg-on-accent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+}
+
+.cg-bar-titles {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.15;
+}
+
+.cg-bar-title {
+  font-size: 0.86rem;
+  font-weight: 700;
+  color: var(--cg-ink);
+}
+
+/* Which of the four you are actually looking at. */
+.cg-bar-service {
+  font-size: 0.7rem;
+  color: var(--cg-muted);
+  font-weight: 500;
+}
+
+/* -- Nav ------------------------------------------------------------------ */
+
+.cg-bar-nav {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  margin-left: auto;
+  /* Narrow screens scroll the nav rather than wrapping the bar to two rows. */
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.cg-bar-nav::-webkit-scrollbar {
+  display: none;
+}
+
+.cg-bar-link {
+  padding: 7px 12px;
+  border-radius: var(--cg-radius-sm);
+  font-size: 0.83rem;
+  font-weight: 500;
+  color: var(--cg-muted);
+  text-decoration: none;
+  white-space: nowrap;
+  border: none;
+  background: none;
+  font-family: inherit;
+  cursor: pointer;
+  transition: color var(--cg-fast), background var(--cg-fast);
+}
+
+.cg-bar-link:hover {
+  color: var(--cg-ink);
+  background: rgb(var(--cg-rgb-accent) / 0.07);
+}
+
+.cg-bar-link[aria-current='page'] {
+  color: var(--cg-accent);
+  background: rgb(var(--cg-rgb-accent) / 0.1);
+  font-weight: 600;
+}
+
+/* -- User ----------------------------------------------------------------- */
+
+.cg-bar-user {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding-left: 16px;
+  margin-left: 4px;
+  border-left: 1px solid var(--cg-border);
+  flex-shrink: 0;
+}
+
+.cg-bar-avatar {
+  width: 28px;
+  height: 28px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: var(--cg-accent-soft);
+  color: var(--cg-accent-strong);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.cg-bar-username {
+  font-size: 0.82rem;
+  color: var(--cg-body);
+  font-weight: 500;
+  max-width: 130px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cg-bar-signout {
+  padding: 6px 12px;
+  border-radius: var(--cg-radius-sm);
+  border: 1px solid var(--cg-border);
+  background: none;
+  color: var(--cg-muted);
+  font-family: inherit;
+  font-size: 0.79rem;
+  font-weight: 500;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: color var(--cg-fast), border-color var(--cg-fast), background var(--cg-fast);
+}
+
+.cg-bar-signout:hover {
+  color: var(--cg-danger);
+  border-color: rgb(var(--cg-rgb-danger) / 0.4);
+  background: rgb(var(--cg-rgb-danger) / 0.06);
+}
+
+/* Below this the username is the first thing worth dropping - the avatar still
+   says who is signed in, and the nav is what the bar is for. */
+@media (max-width: 720px) {
+  .cg-bar-username,
+  .cg-bar-service {
+    display: none;
+  }
+
+  .cg-bar-inner {
+    gap: 12px;
+    padding: 0 12px;
+  }
+
+  .cg-bar-user {
+    padding-left: 10px;
+  }
+}

@@ -1,9 +1,9 @@
 import React from 'react';
 
 const LEVEL_STYLES = {
-  high: { label: 'High struggle', color: '#F87171', bg: 'rgba(248, 113, 113, 0.12)' },
-  medium: { label: 'Medium struggle', color: '#FBBF24', bg: 'rgba(251, 191, 36, 0.12)' },
-  low: { label: 'Low struggle', color: '#60A5FA', bg: 'rgba(96, 165, 250, 0.12)' },
+  high: { label: 'High struggle', color: 'var(--cg-danger)', bg: 'rgb(var(--cg-rgb-danger) / 0.12)' },
+  medium: { label: 'Medium struggle', color: 'var(--cg-warn)', bg: 'rgb(var(--cg-rgb-warn) / 0.12)' },
+  low: { label: 'Low struggle', color: 'var(--cg-accent)', bg: 'rgb(var(--cg-rgb-accent) / 0.12)' },
 };
 
 /**
@@ -25,7 +25,7 @@ export default function TriggerCard({ trigger, loading, onGenerateLesson }) {
       <div
         className="cg-glow-bg"
         style={{
-          background: 'radial-gradient(circle, rgba(248, 113, 113, 0.13) 0%, transparent 70%)',
+          background: 'radial-gradient(circle, rgb(var(--cg-rgb-danger) / 0.13) 0%, transparent 70%)',
           position: 'absolute',
           top: '-50%',
           left: '-50%',
@@ -76,8 +76,8 @@ export default function TriggerCard({ trigger, loading, onGenerateLesson }) {
           style={{
             display: 'inline-block',
             fontSize: '0.8rem',
-            color: '#94A3B8',
-            background: 'rgba(255,255,255,0.06)',
+            color: 'var(--cg-muted)',
+            background: 'rgb(var(--cg-rgb-ink) / 0.072)',
             padding: '4px 10px',
             borderRadius: '6px',
             marginBottom: '18px',
@@ -97,15 +97,15 @@ export default function TriggerCard({ trigger, loading, onGenerateLesson }) {
             style={{
               padding: '16px 18px',
               borderRadius: '12px',
-              background: 'rgba(15, 23, 42, 0.45)',
-              border: '1px solid rgba(255,255,255,0.06)',
+              background: 'rgb(var(--cg-rgb-card) / 0.45)',
+              border: '1px solid rgb(var(--cg-rgb-ink) / 0.072)',
               marginBottom: '28px',
             }}
           >
-            <div style={{ fontSize: '0.75rem', color: '#64748B', fontWeight: 700, letterSpacing: '1px', marginBottom: '6px' }}>
+            <div style={{ fontSize: '0.75rem', color: 'var(--cg-muted)', fontWeight: 700, letterSpacing: '1px', marginBottom: '6px' }}>
               RECOMMENDED
             </div>
-            <div style={{ color: '#E2E8F0', fontWeight: 600, marginBottom: '4px' }}>
+            <div style={{ color: 'var(--cg-body)', fontWeight: 600, marginBottom: '4px' }}>
               {trigger.lesson.title}
             </div>
             <div className="cg-text-muted" style={{ fontSize: '0.85rem' }}>

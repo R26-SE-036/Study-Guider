@@ -133,32 +133,32 @@ export default function ValidationQuiz({ trigger, errorType, onComplete }) {
     return (
       <div className="cg-card ValidationQuiz fadeIn cg-glass-panel" style={{ textAlign: 'center', padding: '60px 40px' }}>
         <div style={{ fontSize: '4rem', marginBottom: '20px' }}>{passed ? '🏆' : '📚'}</div>
-        <h2 className="cg-title-section" style={{ fontSize: '2.5rem', background: passed ? 'linear-gradient(to right, #34D399, #10B981)' : 'linear-gradient(to right, #F87171, #EF4444)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
+        <h2 className="cg-title-section" style={{ fontSize: '2.5rem', background: passed ? 'linear-gradient(to right, rgb(var(--cg-rgb-ok) / 0.85), rgb(var(--cg-rgb-ok)))' : 'linear-gradient(to right, rgb(var(--cg-rgb-danger) / 0.85), rgb(var(--cg-rgb-danger)))', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
           Assessment Complete
         </h2>
         
-        <div style={{ margin: '40px 0', padding: '30px', background: 'rgba(15, 23, 42, 0.5)', borderRadius: '16px', border: '1px solid rgba(255,255,255,0.05)' }}>
+        <div style={{ margin: '40px 0', padding: '30px', background: 'var(--cg-glass)', borderRadius: '16px', border: '1px solid var(--cg-border)' }}>
           <span className="cg-text-muted" style={{ fontSize: '1.2rem', textTransform: 'uppercase', letterSpacing: '2px', fontWeight: '600' }}>Final Score</span>
-          <h1 style={{ fontSize: '5rem', margin: '15px 0', color: passed ? '#34D399' : '#F87171', textShadow: `0 0 30px ${passed ? 'rgba(52, 211, 153, 0.3)' : 'rgba(248, 113, 113, 0.3)'}` }}>
-            {quizState.score}<span style={{color: '#475569', fontSize: '4rem'}}>/</span>{quizState.quizData?.length || 4}
+          <h1 style={{ fontSize: '5rem', margin: '15px 0', color: passed ? 'var(--cg-ok)' : 'var(--cg-danger)', textShadow: `0 0 30px ${passed ? 'rgb(var(--cg-rgb-ok) / 0.3)' : 'rgb(var(--cg-rgb-danger) / 0.3)'}` }}>
+            {quizState.score}<span style={{color: 'var(--cg-muted)', fontSize: '4rem'}}>/</span>{quizState.quizData?.length || 4}
           </h1>
         </div>
 
-        <div style={{ marginTop: '40px', paddingTop: '30px', borderTop: '1px solid rgba(255,255,255,0.1)', textAlign: 'left' }}>
+        <div style={{ marginTop: '40px', paddingTop: '30px', borderTop: '1px solid var(--cg-border)', textAlign: 'left' }}>
           <h4 className="cg-title-content" style={{ display: 'flex', alignItems: 'center', gap: '10px' }}><span>🔄</span> Database Sync Status</h4>
-          {quizState.graphStatus === "updating" && <div className="cg-feedback-box" style={{background: 'linear-gradient(90deg, rgba(245, 158, 11, 0.1) 0%, transparent 100%)', borderLeft: '4px solid #FBBF24', color: '#FCD34D'}}>⏳ Committing results to Neo4j Knowledge Graph...</div>}
-          {quizState.graphStatus === "success" && <div className="cg-feedback-box" style={{background: 'linear-gradient(90deg, rgba(16, 185, 129, 0.1) 0%, transparent 100%)', borderLeft: '4px solid #10B981', color: '#6EE7B7'}}>✅ Neo4j Database Sync Successful! Relationship updated.</div>}
-          {quizState.graphStatus === "error" && <div className="cg-feedback-box" style={{background: 'linear-gradient(90deg, rgba(239, 68, 68, 0.1) 0%, transparent 100%)', borderLeft: '4px solid #EF4444', color: '#FCA5A5'}}>❌ Database Connection Failed. Please check Backend configurations.</div>}
+          {quizState.graphStatus === "updating" && <div className="cg-feedback-box" style={{background: 'linear-gradient(90deg, rgb(var(--cg-rgb-warn) / 0.1) 0%, transparent 100%)', borderLeft: '4px solid var(--cg-warn)', color: 'var(--cg-warn)'}}>⏳ Committing results to Neo4j Knowledge Graph...</div>}
+          {quizState.graphStatus === "success" && <div className="cg-feedback-box" style={{background: 'linear-gradient(90deg, var(--cg-ok-soft) 0%, transparent 100%)', borderLeft: '4px solid var(--cg-ok)', color: 'var(--cg-ok)'}}>✅ Neo4j Database Sync Successful! Relationship updated.</div>}
+          {quizState.graphStatus === "error" && <div className="cg-feedback-box" style={{background: 'linear-gradient(90deg, var(--cg-danger-soft) 0%, transparent 100%)', borderLeft: '4px solid var(--cg-danger)', color: 'var(--cg-danger)'}}>❌ Database Connection Failed. Please check Backend configurations.</div>}
 
           {/* The half that matters to the rest of the platform: until Code
               Coach records this score, it still considers the student stuck. */}
           {trigger?.trigger_id && (
             <>
               <h4 className="cg-title-content" style={{ display: 'flex', alignItems: 'center', gap: '10px', marginTop: '28px' }}><span>🎯</span> Code Coach Remediation</h4>
-              {quizState.triggerStatus === "updating" && <div className="cg-feedback-box" style={{background: 'linear-gradient(90deg, rgba(245, 158, 11, 0.1) 0%, transparent 100%)', borderLeft: '4px solid #FBBF24', color: '#FCD34D'}}>⏳ Reporting your score to Code Coach...</div>}
-              {quizState.triggerStatus === "success" && quizState.triggerResolved && <div className="cg-feedback-box" style={{background: 'linear-gradient(90deg, rgba(16, 185, 129, 0.1) 0%, transparent 100%)', borderLeft: '4px solid #10B981', color: '#6EE7B7'}}>✅ Passed. This struggle is marked resolved and will stop being flagged.</div>}
-              {quizState.triggerStatus === "success" && !quizState.triggerResolved && <div className="cg-feedback-box" style={{background: 'linear-gradient(90deg, rgba(245, 158, 11, 0.1) 0%, transparent 100%)', borderLeft: '4px solid #FBBF24', color: '#FCD34D'}}>📌 Score recorded, but below the pass mark — this concept will stay on your list.</div>}
-              {quizState.triggerStatus === "error" && <div className="cg-feedback-box" style={{background: 'linear-gradient(90deg, rgba(239, 68, 68, 0.1) 0%, transparent 100%)', borderLeft: '4px solid #EF4444', color: '#FCA5A5'}}>❌ Could not reach Code Coach. Your score was not recorded there, so this concept stays flagged.</div>}
+              {quizState.triggerStatus === "updating" && <div className="cg-feedback-box" style={{background: 'linear-gradient(90deg, rgb(var(--cg-rgb-warn) / 0.1) 0%, transparent 100%)', borderLeft: '4px solid var(--cg-warn)', color: 'var(--cg-warn)'}}>⏳ Reporting your score to Code Coach...</div>}
+              {quizState.triggerStatus === "success" && quizState.triggerResolved && <div className="cg-feedback-box" style={{background: 'linear-gradient(90deg, var(--cg-ok-soft) 0%, transparent 100%)', borderLeft: '4px solid var(--cg-ok)', color: 'var(--cg-ok)'}}>✅ Passed. This struggle is marked resolved and will stop being flagged.</div>}
+              {quizState.triggerStatus === "success" && !quizState.triggerResolved && <div className="cg-feedback-box" style={{background: 'linear-gradient(90deg, rgb(var(--cg-rgb-warn) / 0.1) 0%, transparent 100%)', borderLeft: '4px solid var(--cg-warn)', color: 'var(--cg-warn)'}}>📌 Score recorded, but below the pass mark — this concept will stay on your list.</div>}
+              {quizState.triggerStatus === "error" && <div className="cg-feedback-box" style={{background: 'linear-gradient(90deg, var(--cg-danger-soft) 0%, transparent 100%)', borderLeft: '4px solid var(--cg-danger)', color: 'var(--cg-danger)'}}>❌ Could not reach Code Coach. Your score was not recorded there, so this concept stays flagged.</div>}
             </>
           )}
         </div>
@@ -205,13 +205,13 @@ export default function ValidationQuiz({ trigger, errorType, onComplete }) {
       ) : (
         <div>
           {/* Progress Bar */}
-          <div style={{ width: '100%', height: '6px', background: '#1E293B', borderRadius: '10px', marginBottom: '30px', overflow: 'hidden' }}>
-            <div style={{ width: `${progressPercentage}%`, height: '100%', background: 'linear-gradient(90deg, #3B82F6, #8B5CF6)', transition: 'width 0.5s ease' }}></div>
+          <div style={{ width: '100%', height: '6px', background: 'var(--cg-card-alt)', borderRadius: '10px', marginBottom: '30px', overflow: 'hidden' }}>
+            <div style={{ width: `${progressPercentage}%`, height: '100%', background: 'var(--cg-gradient-accent)', transition: 'width 0.5s ease' }}></div>
           </div>
 
           <div className="cg-flex-between" style={{ marginBottom: '30px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-              <span style={{ padding: '6px 12px', background: 'rgba(59, 130, 246, 0.1)', borderRadius: '6px', fontSize: '0.85rem', color: '#60A5FA', fontWeight: '600', letterSpacing: '1px' }}>
+              <span style={{ padding: '6px 12px', background: 'rgb(var(--cg-rgb-accent) / 0.1)', borderRadius: '6px', fontSize: '0.85rem', color: 'var(--cg-accent)', fontWeight: '600', letterSpacing: '1px' }}>
                 Q {quizState.currentQIndex + 1} OF {quizState.quizData.length}
               </span>
             </div>
@@ -254,8 +254,8 @@ export default function ValidationQuiz({ trigger, errorType, onComplete }) {
 
           {/* 🤔 Metacognition Confidence Selector (Before Submit) */}
           {!quizState.isAnswerChecked && quizState.selectedOption && (
-            <div className="fadeIn" style={{ background: 'rgba(15, 23, 42, 0.6)', padding: '16px 20px', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.05)', marginBottom: '25px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px' }}>
-              <span style={{ fontSize: '0.9rem', color: '#94A3B8', fontWeight: '500' }}>
+            <div className="fadeIn" style={{ background: 'var(--cg-glass)', padding: '16px 20px', borderRadius: '12px', border: '1px solid var(--cg-border)', marginBottom: '25px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px' }}>
+              <span style={{ fontSize: '0.9rem', color: 'var(--cg-muted)', fontWeight: '500' }}>
                 How confident are you in this answer?
               </span>
               <div style={{ display: 'flex', gap: '8px' }}>
@@ -272,9 +272,9 @@ export default function ValidationQuiz({ trigger, errorType, onComplete }) {
                       borderRadius: '8px',
                       fontSize: '0.8rem',
                       cursor: 'pointer',
-                      border: quizState.confidenceLevel === item.id ? '1px solid #3B82F6' : '1px solid rgba(255,255,255,0.1)',
-                      backgroundColor: quizState.confidenceLevel === item.id ? 'rgba(59, 130, 246, 0.2)' : 'transparent',
-                      color: quizState.confidenceLevel === item.id ? '#60A5FA' : '#94A3B8'
+                      border: quizState.confidenceLevel === item.id ? '1px solid var(--cg-accent)' : '1px solid var(--cg-border)',
+                      backgroundColor: quizState.confidenceLevel === item.id ? 'rgb(var(--cg-rgb-accent) / 0.2)' : 'transparent',
+                      color: quizState.confidenceLevel === item.id ? 'var(--cg-accent)' : 'var(--cg-muted)'
                     }}
                   >
                     {item.label}
@@ -288,23 +288,23 @@ export default function ValidationQuiz({ trigger, errorType, onComplete }) {
           {quizState.isAnswerChecked && (
             <div className={`cg-feedback-box fadeIn ${isUserCorrect ? 'cg-feedback-success' : 'cg-feedback-error'}`} style={{ padding: '25px' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
-                <h4 style={{ margin: 0, fontSize: '1.2rem', display: 'flex', alignItems: 'center', gap: '10px', color: isUserCorrect ? '#34D399' : '#F87171' }}>
+                <h4 style={{ margin: 0, fontSize: '1.2rem', display: 'flex', alignItems: 'center', gap: '10px', color: isUserCorrect ? 'var(--cg-ok)' : 'var(--cg-danger)' }}>
                   {isUserCorrect ? '✅ Outstanding!' : '❌ Let\'s Review'}
                 </h4>
-                <span style={{ fontSize: '0.8rem', fontWeight: 'bold', padding: '4px 10px', borderRadius: '6px', background: 'rgba(255,255,255,0.1)', color: '#F8FAFC' }}>
+                <span style={{ fontSize: '0.8rem', fontWeight: 'bold', padding: '4px 10px', borderRadius: '6px', background: 'var(--cg-border)', color: 'var(--cg-ink)' }}>
                   {metaInsight.tag}
                 </span>
               </div>
-              <p style={{ margin: '0 0 10px 0', color: '#CBD5E1', fontSize: '0.9rem', fontStyle: 'italic' }}>
+              <p style={{ margin: '0 0 10px 0', color: 'var(--cg-body)', fontSize: '0.9rem', fontStyle: 'italic' }}>
                 {metaInsight.text}
               </p>
-              <p style={{ margin: 0, color: '#F1F5F9', lineHeight: '1.6', fontSize: '1.05rem', borderTop: '1px solid rgba(255,255,255,0.1)', paddingTop: '10px' }}>
+              <p style={{ margin: 0, color: 'var(--cg-ink)', lineHeight: '1.6', fontSize: '1.05rem', borderTop: '1px solid var(--cg-border)', paddingTop: '10px' }}>
                 {quizState.quizData[quizState.currentQIndex]?.explanation}
               </p>
             </div>
           )}
 
-          <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '25px', paddingTop: '25px', borderTop: '1px solid rgba(255,255,255,0.05)' }}>
+          <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '25px', paddingTop: '25px', borderTop: '1px solid var(--cg-border)' }}>
             {!quizState.isAnswerChecked ? (
               <button 
                 onClick={checkAnswer} 

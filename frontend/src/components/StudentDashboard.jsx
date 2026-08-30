@@ -5,6 +5,16 @@ import {
 } from 'recharts';
 
 import api from '../lib/api';
+import { useThemeColors } from '../lib/theme';
+
+/* Recharts hands these straight to SVG presentation attributes, where var()
+   does not resolve - they have to be real colour values. Declared at module
+   scope so the hook's identity is stable across renders. */
+const CHART_TOKENS = {
+  accent: '--cg-accent',
+  grid: '--cg-border',
+  axis: '--cg-muted',
+};
 
 /**
  * The student's analytics view, across the whole platform.
@@ -25,14 +35,14 @@ import api from '../lib/api';
  */
 
 const STRUGGLE = {
-  high: { colour: '#F87171', label: 'High struggle', weight: 1 },
-  medium: { colour: '#FBBF24', label: 'Medium struggle', weight: 0.6 },
-  low: { colour: '#60A5FA', label: 'Low struggle', weight: 0.3 },
+  high: { colour: 'var(--cg-danger)', label: 'High struggle', weight: 1 },
+  medium: { colour: 'var(--cg-warn)', label: 'Medium struggle', weight: 0.6 },
+  low: { colour: 'var(--cg-accent)', label: 'Low struggle', weight: 0.3 },
 };
 const MASTERY = {
-  strong: '#34D399',
-  developing: '#FBBF24',
-  at_risk: '#F87171',
+  strong: 'var(--cg-ok)',
+  developing: 'var(--cg-warn)',
+  at_risk: 'var(--cg-danger)',
 };
 
 const titleCase = (s) => String(s || '').replace(/_/g, ' ');
@@ -50,8 +60,8 @@ function StatTile({ label, value, colour, hint }) {
 }
 
 function ConceptRow({ trend }) {
-  const struggle = STRUGGLE[trend.struggle_level] || { colour: '#94A3B8', label: 'Unrated', weight: 0.15 };
-  const masteryColour = MASTERY[trend.mastery_level] || '#64748B';
+  const struggle = STRUGGLE[trend.struggle_level] || { colour: 'var(--cg-muted)', label: 'Unrated', weight: 0.15 };
+  const masteryColour = MASTERY[trend.mastery_level] || 'var(--cg-muted)';
 
   // The meter reads as "how much attention does this need". Mastery is the
   // better signal when Code Coach has rated the concept; until a quiz or game
@@ -96,6 +106,7 @@ function ConceptRow({ trend }) {
 }
 
 export default function StudentDashboard({ cognitiveState, onBack }) {
+  const chart = useThemeColors(CHART_TOKENS);
   const [overview, setOverview] = useState(null);
   const [progressData, setProgressData] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -186,7 +197,7 @@ export default function StudentDashboard({ cognitiveState, onBack }) {
       ) : !hasAnything ? (
         <div style={{ textAlign: 'center', padding: '64px 20px' }}>
           <div style={{ fontSize: '3.2rem', marginBottom: '14px' }}>🌱</div>
-          <h3 className="cg-title-content" style={{ color: '#E2E8F0', fontSize: '1.4rem', margin: 0 }}>
+          <h3 className="cg-title-content" style={{ color: 'var(--cg-body)', fontSize: '1.4rem', margin: 0 }}>
             Nothing to show yet
           </h3>
           {/* The old copy blamed Neo4j, which was almost never the cause - an
@@ -197,20 +208,20 @@ export default function StudentDashboard({ cognitiveState, onBack }) {
             extension and your errors, struggles and progress will appear here.
           </p>
           {overviewError && (
-            <p style={{ color: '#FCA5A5', fontSize: '0.82rem', marginTop: '16px' }}>{overviewError}</p>
+            <p style={{ color: 'var(--cg-danger)', fontSize: '0.82rem', marginTop: '16px' }}>{overviewError}</p>
           )}
         </div>
       ) : (
         <div>
           {overviewError && (
-            <div className="cg-section" style={{ padding: '12px 16px', borderRadius: '12px', background: 'rgba(251,191,36,0.1)', border: '1px solid rgba(251,191,36,0.28)', color: '#FCD34D', fontSize: '0.86rem' }}>
+            <div className="cg-section" style={{ padding: '12px 16px', borderRadius: '12px', background: 'rgb(var(--cg-rgb-warn) / 0.1)', border: '1px solid rgb(var(--cg-rgb-warn) / 0.28)', color: 'var(--cg-warn)', fontSize: '0.86rem' }}>
               {overviewError} Showing your Study Guider quiz history only.
             </div>
           )}
 
           <div className="cg-section cg-stat-grid cg-stagger">
             <StatTile
-              label="Errors Found" value={counts.total_diagnostics ?? 0} colour="#60A5FA"
+              label="Errors Found" value={counts.total_diagnostics ?? 0} colour="var(--cg-accent)"
               hint={`${counts.active_diagnostics ?? 0} still unfixed`}
             />
             <StatTile
@@ -222,11 +233,11 @@ export default function StudentDashboard({ cognitiveState, onBack }) {
               hint={`${counts.active_remediation_triggers ?? 0} still open`}
             />
             <StatTile
-              label="Quiz Accuracy" value={`${avgAccuracy}%`} colour={avgAccuracy >= 50 ? '#34D399' : '#FBBF24'}
+              label="Quiz Accuracy" value={`${avgAccuracy}%`} colour={avgAccuracy >= 50 ? 'var(--cg-ok)' : 'var(--cg-warn)'}
               hint={`${totalAssessments} taken · ${masteredCount} mastered`}
             />
             <StatTile
-              label="Cognitive State" value={String(cognitiveState || '—').split(' ')[0]} colour="#F472B6"
+              label="Cognitive State" value={String(cognitiveState || '—').split(' ')[0]} colour="var(--cg-accent-bright)"
               hint={cognitiveState || 'not measured'}
             />
           </div>
@@ -249,15 +260,15 @@ export default function StudentDashboard({ cognitiveState, onBack }) {
                 <RadarChart cx="50%" cy="50%" outerRadius="72%" data={radarData}>
                   <defs>
                     <linearGradient id="colorUv" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#8B5CF6" stopOpacity={0.85} />
-                      <stop offset="95%" stopColor="#3B82F6" stopOpacity={0.28} />
+                      <stop offset="5%" stopColor={chart.accent} stopOpacity={0.85} />
+                      <stop offset="95%" stopColor={chart.accent} stopOpacity={0.28} />
                     </linearGradient>
                   </defs>
-                  <PolarGrid stroke="rgba(255,255,255,0.1)" />
-                  <PolarAngleAxis dataKey="subject" tick={{ fill: '#94A3B8', fontSize: 12 }} />
-                  <PolarRadiusAxis angle={30} domain={[0, 100]} tick={{ fill: '#475569', fontSize: 10 }} />
-                  <RechartsTooltip contentStyle={{ background: '#0F172A', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '10px' }} />
-                  <Radar name="Mastery (%)" dataKey="A" stroke="#8B5CF6" strokeWidth={3} fill="url(#colorUv)" fillOpacity={0.6} />
+                  <PolarGrid stroke={chart.grid} />
+                  <PolarAngleAxis dataKey="subject" tick={{ fill: chart.axis, fontSize: 12 }} />
+                  <PolarRadiusAxis angle={30} domain={[0, 100]} tick={{ fill: chart.axis, fontSize: 10 }} />
+                  <RechartsTooltip contentStyle={{ background: 'var(--cg-page)', border: '1px solid var(--cg-border)', borderRadius: '10px' }} />
+                  <Radar name="Mastery (%)" dataKey="A" stroke={chart.accent} strokeWidth={3} fill="url(#colorUv)" fillOpacity={0.6} />
                 </RadarChart>
               </ResponsiveContainer>
               <p className="cg-text-muted" style={{ textAlign: 'center', fontSize: '0.78rem', margin: 0 }}>

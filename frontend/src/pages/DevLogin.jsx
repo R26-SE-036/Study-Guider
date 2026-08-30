@@ -55,16 +55,16 @@ export default function DevLogin({ onSignedIn }) {
     padding: '12px 14px',
     marginBottom: '4px',
     borderRadius: '10px',
-    border: '1px solid rgba(255,255,255,0.12)',
-    background: 'rgba(15, 23, 42, 0.6)',
-    color: '#F8FAFC',
+    border: '1px solid rgb(var(--cg-rgb-ink) / 0.144)',
+    background: 'var(--cg-glass)',
+    color: 'var(--cg-ink)',
     fontSize: '0.95rem',
   };
 
   const labelStyle = {
     display: 'block',
     fontSize: '0.8rem',
-    color: '#94A3B8',
+    color: 'var(--cg-muted)',
     marginTop: '16px',
     marginBottom: '6px',
     fontWeight: 600,
@@ -76,8 +76,8 @@ export default function DevLogin({ onSignedIn }) {
         style={{
           padding: '8px 12px',
           borderRadius: '8px',
-          background: 'rgba(245, 158, 11, 0.12)',
-          color: '#FCD34D',
+          background: 'rgb(var(--cg-rgb-warn) / 0.12)',
+          color: 'var(--cg-warn)',
           fontSize: '0.78rem',
           fontWeight: 600,
           marginBottom: '24px',
@@ -99,9 +99,9 @@ export default function DevLogin({ onSignedIn }) {
             style={{
               padding: '10px 12px',
               borderRadius: '8px',
-              background: 'rgba(239, 68, 68, 0.12)',
-              border: '1px solid rgba(239, 68, 68, 0.3)',
-              color: '#FCA5A5',
+              background: 'rgb(var(--cg-rgb-danger) / 0.12)',
+              border: '1px solid rgb(var(--cg-rgb-danger) / 0.3)',
+              color: 'var(--cg-danger)',
               fontSize: '0.85rem',
               marginTop: '18px',
             }}
@@ -169,7 +169,7 @@ export default function DevLogin({ onSignedIn }) {
         style={{
           background: 'none',
           border: 'none',
-          color: '#60A5FA',
+          color: 'var(--cg-accent)',
           fontSize: '0.85rem',
           cursor: 'pointer',
           marginTop: '20px',

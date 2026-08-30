@@ -5,6 +5,7 @@ import MicroLesson from './components/MicroLesson';
 import ValidationQuiz from './components/ValidationQuiz';
 import StudentDashboard from './components/StudentDashboard';
 import DevLogin from './pages/DevLogin';
+import CodeGuruBar from './components/CodeGuruBar';
 
 import api from './lib/api';
 import {
@@ -215,12 +216,19 @@ function App() {
   }
 
   return (
+    <>
+      <CodeGuruBar
+        service="study-guider"
+        portalUrl={PORTAL_URL}
+        user={user}
+        onSignOut={handleSignOut}
+      />
     <div className="App-container">
       <header className="cg-header cg-flex-between">
         <div>
-          <h1 className="cg-title-main">Code Guru Study Guider</h1>
+          <h1 className="cg-title-main">Study Guider</h1>
           <p className="cg-subtitle">
-            {user?.full_name || user?.email || user?.user_id || 'Signed in'}
+            Micro-lessons and quizzes for the concepts Code Coach sees you struggling with.
           </p>
         </div>
         <div style={{ display: 'flex', gap: '10px' }}>
@@ -229,9 +237,6 @@ function App() {
               <span style={{ marginRight: '8px' }}>📊</span> Analytics
             </button>
           )}
-          <button onClick={handleSignOut} className="cg-btn cg-btn-outline">
-            Sign out
-          </button>
         </div>
       </header>
 
@@ -241,9 +246,9 @@ function App() {
             style={{
               padding: '14px 18px',
               borderRadius: '12px',
-              background: 'rgba(239, 68, 68, 0.1)',
-              border: '1px solid rgba(239, 68, 68, 0.3)',
-              color: '#FCA5A5',
+              background: 'var(--cg-danger-soft)',
+              border: '1px solid rgb(var(--cg-rgb-danger) / 0.3)',
+              color: 'var(--cg-danger)',
               marginBottom: '24px',
             }}
           >
@@ -312,6 +317,7 @@ function App() {
         )}
       </div>
     </div>
+    </>
   );
 }
 

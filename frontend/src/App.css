@@ -217,3 +217,131 @@ html, body {
 ::-webkit-scrollbar-track { background: #0B1120; }
 ::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
 ::-webkit-scrollbar-thumb:hover { background: #475569; }
+/* =========================================
+   📊 LEARNING ANALYTICS
+   Cross-component dashboard. Classes live here rather than inline so the
+   analytics view picks up the same glass/hover language as the rest of the app.
+   ========================================= */
+
+.cg-analytics-head {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 20px; flex-wrap: wrap;
+  margin-bottom: 34px; padding-bottom: 22px;
+  border-bottom: 1px solid rgba(255,255,255,0.08);
+}
+.cg-analytics-icon {
+  width: 52px; height: 52px; flex-shrink: 0;
+  background: linear-gradient(135deg, #3B82F6, #8B5CF6);
+  border-radius: 14px; display: flex; align-items: center; justify-content: center;
+  font-size: 1.5rem; box-shadow: 0 10px 24px rgba(59, 130, 246, 0.35);
+}
+
+/* Section rhythm: every block gets the same breathing room. */
+.cg-section { margin-bottom: 34px; }
+.cg-section-title {
+  display: flex; align-items: center; gap: 10px;
+  font-size: 1.15rem; font-weight: 700; color: #E2E8F0;
+  margin: 0 0 18px 0; letter-spacing: -0.2px;
+}
+
+/* ── Stat tiles ── */
+.cg-stat-grid {
+  display: grid; gap: 13px;
+  /* 138px lets all five tiles sit on one row inside the 850px content wrapper
+     instead of leaving the last one stranded, and still wraps cleanly on
+     narrow screens. */
+  grid-template-columns: repeat(auto-fit, minmax(138px, 1fr));
+}
+.cg-stat-tile {
+  padding: 18px 20px; border-radius: 14px;
+  background: rgba(30, 41, 59, 0.45);
+  border: 1px solid rgba(255,255,255,0.06);
+  transition: transform .35s cubic-bezier(.16,1,.3,1), border-color .35s ease, background .35s ease;
+}
+.cg-stat-tile:hover {
+  transform: translateY(-4px);
+  background: rgba(30, 41, 59, 0.75);
+  border-color: rgba(99, 102, 241, 0.45);
+}
+.cg-stat-label {
+  display: block; font-size: 0.68rem; letter-spacing: 1.2px;
+  text-transform: uppercase; color: #64748B; font-weight: 700;
+}
+.cg-stat-value { margin: 8px 0 4px 0; font-size: 2rem; line-height: 1; font-weight: 700; }
+.cg-stat-hint { font-size: 0.75rem; color: #94A3B8; }
+
+/* ── Concept rows ── */
+.cg-concept-row {
+  padding: 16px 18px; border-radius: 14px;
+  background: rgba(15, 23, 42, 0.5);
+  border: 1px solid rgba(255,255,255,0.06);
+  transition: transform .3s ease, background .3s ease, border-color .3s ease;
+}
+.cg-concept-row:hover {
+  transform: translateX(6px);
+  background: rgba(30, 41, 59, 0.7);
+  border-color: rgba(99, 102, 241, 0.35);
+}
+.cg-concept-top {
+  display: flex; align-items: baseline; justify-content: space-between;
+  gap: 14px; flex-wrap: wrap; margin-bottom: 12px;
+}
+.cg-concept-name {
+  font-size: 1.02rem; font-weight: 650; color: #F1F5F9;
+  text-transform: capitalize; letter-spacing: -0.2px;
+}
+.cg-chip {
+  padding: 3px 11px; border-radius: 999px;
+  font-size: 0.67rem; font-weight: 800;
+  letter-spacing: 0.7px; text-transform: uppercase; white-space: nowrap;
+}
+/* Intensity meter - conveys "how bad" at a glance, which a badge alone cannot. */
+.cg-meter {
+  height: 6px; border-radius: 999px; overflow: hidden;
+  background: rgba(255,255,255,0.07);
+}
+.cg-meter-fill {
+  height: 100%; border-radius: 999px;
+  transition: width .8s cubic-bezier(.16,1,.3,1);
+}
+.cg-concept-meta {
+  display: flex; justify-content: space-between; gap: 12px;
+  flex-wrap: wrap; margin-top: 9px;
+  font-size: 0.76rem; color: #94A3B8;
+}
+
+/* ── Timeline ── */
+.cg-timeline { position: relative; padding-left: 22px; }
+.cg-timeline::before {
+  content: ''; position: absolute; left: 6px; top: 6px; bottom: 6px;
+  width: 2px; border-radius: 2px;
+  background: linear-gradient(180deg, rgba(139,92,246,.5), rgba(59,130,246,.12));
+}
+.cg-timeline-item { position: relative; padding: 9px 0 9px 6px; }
+.cg-timeline-item::before {
+  content: ''; position: absolute; left: -21px; top: 15px;
+  width: 9px; height: 9px; border-radius: 50%;
+  background: #8B5CF6; box-shadow: 0 0 0 3px rgba(139,92,246,0.18);
+}
+.cg-timeline-tag {
+  display: inline-block; padding: 2px 8px; border-radius: 5px;
+  font-size: 0.62rem; font-weight: 800; letter-spacing: 0.6px;
+  text-transform: uppercase; color: #93C5FD; background: rgba(96,165,250,0.14);
+  margin-right: 8px;
+}
+.cg-timeline-title { color: #E2E8F0; font-size: 0.9rem; }
+.cg-timeline-sub { color: #94A3B8; font-size: 0.78rem; margin-top: 2px; }
+.cg-timeline-time { color: #64748B; font-size: 0.71rem; margin-top: 3px; }
+
+/* Stagger, so sections settle in rather than snapping. */
+.cg-stagger > * { animation: slideUpFade .5s cubic-bezier(.16,1,.3,1) backwards; }
+.cg-stagger > *:nth-child(1) { animation-delay: .04s; }
+.cg-stagger > *:nth-child(2) { animation-delay: .08s; }
+.cg-stagger > *:nth-child(3) { animation-delay: .12s; }
+.cg-stagger > *:nth-child(4) { animation-delay: .16s; }
+.cg-stagger > *:nth-child(5) { animation-delay: .20s; }
+.cg-stagger > *:nth-child(n+6) { animation-delay: .24s; }
+
+@media (prefers-reduced-motion: reduce) {
+  .cg-stagger > *, .cg-meter-fill { animation: none; transition: none; }
+}

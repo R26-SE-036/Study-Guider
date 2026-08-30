@@ -169,6 +169,19 @@ export async function createHandoffCode(baseUrl, accessToken, clientName) {
     throw new AuthError('Cannot reach Code Coach at ' + trimBase(baseUrl) + '.', 0);
   }
 
+  // A 404 here means one specific thing and is worth saying out loud: the
+  // backend is running code from before this endpoint existed. The generic
+  // message for that is FastAPI's "Not Found", which sends you looking at the
+  // login form rather than at the server you forgot to restart.
+  if (response.status === 404) {
+    throw new AuthError(
+      'This Code Coach backend has no /api/v1/auth/handoff endpoint, so it cannot ' +
+        'complete a VS Code sign-in. It is running an older build — restart it and ' +
+        'try again.',
+      404,
+    );
+  }
+
   if (!response.ok) throw new AuthError(await readError(response), response.status);
   const payload = await response.json();
   return payload.code;

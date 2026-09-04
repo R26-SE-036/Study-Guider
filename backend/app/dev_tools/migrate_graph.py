@@ -219,17 +219,41 @@ class Migration:
                 f"FOR (n:{label}) REQUIRE n.{prop} IS UNIQUE"
             )
 
-    # ── 5. the prerequisite graph ──────────────────────────────────────────
+    # ── 5. the canonical vocabulary ────────────────────────────────────────
+    def seed_concepts(self):
+        """The 14 concept tags themselves. Not a pedagogical claim.
+
+        These come straight from Code Coach's knowledge_base mapping, so they
+        are the platform's vocabulary rather than an opinion about teaching
+        order. Seeding them is safe and idempotent regardless of how the
+        prerequisite edges are eventually decided.
+        """
+        print("\n[5] Canonical concept vocabulary")
+        self.note(f"MERGE {len(CONCEPT_TAGS)} Concept nodes")
+        for tag in CONCEPT_TAGS:
+            self.run_query("MERGE (:Concept {name: $name})", {"name": tag})
+
+    # ── 6. the prerequisite graph ──────────────────────────────────────────
     def seed_prerequisites(self):
-        print("\n[5] Concept prerequisite graph")
+        """Opt-in with --with-prerequisites, because the ordering is contested.
+
+        The edges in concepts.py are a hand-written pedagogical prior. The
+        alternative - deriving the ordering from real resolution data - is the
+        better answer and is NOT currently possible: Code Coach's 98
+        diagnostics come from 3 seeded fixtures, not students. Each fixture's
+        entire 13-concept history spans between 32 seconds and 3.5 minutes,
+        because app/dev_tools/seed_student.py wrote it in a loop. An ordering
+        derived from that recovers the seed script's iteration order and would
+        look empirical while meaning nothing.
+
+        So the prior stays behind a flag, and derive_prerequisites.py is the
+        path to replacing it once there is real student history.
+        """
+        print("\n[6] Concept prerequisite graph (hand-written prior)")
 
         cycles = find_cycles()
         if cycles:
             raise SystemExit(f"  ABORT: prerequisite graph has a cycle: {' -> '.join(cycles)}")
-
-        self.note(f"MERGE {len(CONCEPT_TAGS)} Concept nodes (the canonical vocabulary)")
-        for tag in CONCEPT_TAGS:
-            self.run_query("MERGE (:Concept {name: $name})", {"name": tag})
 
         self.note(f"MERGE {len(PREREQUISITE_EDGES)} PREREQUISITE_OF relationships")
         for prereq, dependent in PREREQUISITE_EDGES:
@@ -256,7 +280,14 @@ def main():
     migration.normalise_concepts()
     migration.fold_legacy_status_relationships()
     migration.add_constraints()
-    migration.seed_prerequisites()
+    migration.seed_concepts()
+
+    if "--with-prerequisites" in sys.argv:
+        migration.seed_prerequisites()
+    else:
+        print("\n[6] Concept prerequisite graph")
+        print("  skipped - pass --with-prerequisites to seed the hand-written prior.")
+        print("  See seed_prerequisites() for why it is not on by default.")
 
     print("\n" + "=" * 68)
     print(f"  {len(migration.planned)} change(s) "

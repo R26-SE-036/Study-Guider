@@ -3,17 +3,34 @@ import joblib
 import pandas as pd
 import javalang
 
+from app.services.cognitive_rubric import classify as rubric_classify
+
 # Define paths to load the trained model
 base_dir = os.path.dirname(os.path.abspath(__file__))
 model_path = os.path.join(base_dir, "models", "cognitive_model.pkl")
 
-# Load the trained Random Forest model into memory
+# ── Loading ───────────────────────────────────────────────────────────────────
+# ml_model_trainer.py writes {"model", "feature_columns", "card"}. A bare
+# estimator is the pre-rewrite artifact - fitted on ten handwritten rows with a
+# different feature order - so it is refused by name rather than served.
+_bundle = None
 try:
-    rf_model = joblib.load(model_path)
-    print("✅ ML Model Loaded Successfully!")
-except Exception as e:
-    print(f"⚠️ Warning: ML Model could not be loaded: {e}")
-    rf_model = None
+    _loaded = joblib.load(model_path)
+    if isinstance(_loaded, dict) and "model" in _loaded:
+        _bundle = _loaded
+        print(
+            "Cognitive model loaded "
+            f"({_bundle['card'].get('label_provenance', 'unknown')}-labelled)."
+        )
+    else:
+        print(
+            "cognitive_model.pkl is in the pre-rewrite format (a bare estimator "
+            "fitted on ten handwritten rows). Refusing to use it; the rubric "
+            "answers instead. Run: python -m app.services.ml_model_trainer"
+        )
+except Exception as error:
+    print(f"Cognitive model could not be loaded ({error}); the rubric answers instead.")
+
 
 def extract_code_complexity(code_snippet: str) -> int:
     """
@@ -62,23 +79,34 @@ def extract_code_complexity(code_snippet: str) -> int:
         return 2
 
 def predict_cognitive_state(error_count: int, code_snippet: str, past_score: int) -> str:
-    if rf_model is None:
-        return "Needs Simple Basics"
-        
-    # 1. Feature Extraction via AST
+    """The student's cognitive state, used only to set the lesson's register.
+
+    Falls back to the rubric the model was fitted on - NOT to a fixed string.
+    This used to return "Needs Simple Basics" whenever the model was missing or
+    threw, which meant a service with no model at all still answered every
+    request with a confident-looking constant, and every lesson came out pitched
+    for a beginner. The rubric is what the model approximates, so falling back to
+    it degrades smoothly instead of silently.
+
+    See app/services/cognitive_rubric.py for what the label means and how much
+    weight it is meant to carry.
+    """
     complexity_score = extract_code_complexity(code_snippet)
-    
-    # 2. Prepare features as a Pandas DataFrame
-    features = pd.DataFrame(
-        [[error_count, complexity_score, past_score]], 
-        columns=['error_count', 'complexity_score', 'past_score']
-    )
-    
+
+    if _bundle is None:
+        state = rubric_classify(error_count, complexity_score, past_score)
+        print(f"Cognitive state (rubric, no model): {state} | complexity {complexity_score}")
+        return state
+
     try:
-        # 3. Model Prediction
-        prediction = rf_model.predict(features)[0]
-        print(f"🧠 ML Prediction -> Cognitive State: {prediction} | AST Complexity Score: {complexity_score}")
+        features = pd.DataFrame(
+            [[error_count, complexity_score, past_score]],
+            columns=_bundle["feature_columns"],
+        )
+        prediction = str(_bundle["model"].predict(features)[0])
+        print(f"Cognitive state (model): {prediction} | complexity {complexity_score}")
         return prediction
-    except Exception as e:
-        print(f"❌ Prediction Error: {e}")
-        return "Needs Simple Basics"
+    except Exception as error:
+        state = rubric_classify(error_count, complexity_score, past_score)
+        print(f"Cognitive model failed ({error}); rubric says {state}.")
+        return state

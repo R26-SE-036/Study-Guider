@@ -22,9 +22,11 @@ class Settings:
     # 🚀 EXACT OPENROUTER MODEL ID
     MODEL_NAME = "openai/gpt-oss-20b:free"
 
-    # Directory paths
+    # Directory paths.
+    # CHROMA_DB_DIR is gone with Chroma: the syllabus vectors live in Neo4j's
+    # vector index now, so there is no longer a directory on local disk that
+    # has to survive a container restart.
     DATA_DIR = os.path.join(BASE_DIR, "data")
-    CHROMA_DB_DIR = os.path.join(BASE_DIR, "chroma_db")
 
     # ── Code Coach (the platform's identity provider) ──
     # Study Guider has no accounts of its own. It verifies the bearer token on

@@ -23,21 +23,18 @@ COPY app ./app
 # the cognitive-state model was fitted from. Both are read at runtime.
 COPY data ./data
 
-# ─────────────────────────────────────────────────────────────────────────────
-# KNOWN ISSUE - the vector store does not survive this container.
+# The vector store is in Neo4j, not on this filesystem.
 #
-# chroma_setup.py persists to a `chroma_db/` directory on the local filesystem.
-# A container's disk is ephemeral, so the index is rebuilt from data/*.txt on
-# the first RAG request after every deploy, restart and scale event - each
-# rebuild re-embedding every chunk through the Gemini API.
+# It used to be a Chroma directory beside the source, which a container's
+# ephemeral disk destroyed on every restart - so the corpus was re-embedded
+# through the Gemini API on the first request after each deploy. The syllabus
+# vectors now live in Neo4j's native vector index alongside the concept graph,
+# so this image is genuinely stateless and nothing here needs a volume.
 #
-# It is not baked in at build time on purpose: that would require GEMINI_API_KEY
-# as a build argument, which puts a live credential in the image history.
-#
-# The fix is to move the vectors into Neo4j's native vector index, alongside the
-# concept graph this service already uses - one datastore instead of two, and
-# retrieval and prerequisite traversal become one query. Tracked separately.
-# ─────────────────────────────────────────────────────────────────────────────
+# Populate the index once per deploy, and after any change to data/*.txt:
+#     python -m app.dev_tools.index_knowledge_base
+# It is idempotent, and deliberately a separate step rather than something the
+# service does at startup - each run costs one embedding call per chunk.
 
 # Emoji appear in status prints across eight modules here, several at import
 # time. Without this the container's stdout can default to ASCII and the import

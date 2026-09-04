@@ -22,7 +22,7 @@ requests==2.34.2
 
 # ── Databases ──
 neo4j==6.3.0
-langchain-chroma==1.1.0
+# langchain-chroma removed: the vector store moved into Neo4j (app/db/vector_index.py).
 
 # ── LLM / RAG pipeline ──
 langchain-core==1.6.1

@@ -11,6 +11,10 @@ load_dotenv(ENV_PATH)
 class Settings:
     """Application configuration settings loaded from environment variables."""
     # API Keys
+    # OPENROUTER_API_KEY is no longer read by anything. The account has no
+    # credits and the model it was configured for no longer exists; lessons
+    # and quizzes are generated with GEMINI_API_KEY instead. Left declared so
+    # an existing .env does not look broken, but nothing consumes it.
     OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
     GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 
@@ -19,8 +23,16 @@ class Settings:
     NEO4J_USERNAME = os.getenv("NEO4J_USERNAME")
     NEO4J_PASSWORD = os.getenv("NEO4J_PASSWORD")
 
-    # 🚀 EXACT OPENROUTER MODEL ID
-    MODEL_NAME = "openai/gpt-oss-20b:free"
+    # The Gemini model used for lessons and quizzes.
+    #
+    # This was "openai/gpt-oss-20b:free" on OpenRouter. That slug no longer
+    # exists - OpenRouter answers 404, "unavailable for free" - and the account
+    # has no credits, so the paid slug answers 402. Every generation had been
+    # failing into a hardcoded fallback that still returned 200.
+    #
+    # Gemini instead, using the key that already powers the embeddings behind
+    # the Neo4j vector index. One provider, one key, one thing to configure.
+    MODEL_NAME = os.getenv("MODEL_NAME", "gemini-2.5-flash")
 
     # Directory paths.
     # CHROMA_DB_DIR is gone with Chroma: the syllabus vectors live in Neo4j's

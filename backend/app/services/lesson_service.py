@@ -1,198 +1,212 @@
-import os
+"""Generate a micro-lesson for one student's specific mistake.
+
+The lesson is GENERATED, every time, by a language model, using the student's
+cognitive state and the retrieved syllabus context. There is no template and no
+fallback: if it cannot be generated, the caller is told so.
+
+============================ WHAT CHANGED, AND WHY ============================
+This module used to end every failure path in `get_smart_fallback`, which
+returned invented lesson text - a title of "Logical Issue Detected: {error_type}",
+an explanation reading "Hello {student_id}, we noticed a struggle with...", a
+fixed Mermaid diagram, and a YouTube *search* URL dressed as a reference.
+
+That fallback was being served in place of real output, because the configured
+model (`openai/gpt-oss-20b:free` on OpenRouter) no longer exists and the account
+has no credits. The endpoint answered 200 the whole time, so it looked like it
+was working. It was not.
+
+Both problems are removed together: generation moves to Gemini, which the
+platform already uses for embeddings, and the fallback is deleted rather than
+repaired. Invented content that reaches a student, a screenshot or a viva is
+worse than an honest failure - and an honest failure is the only thing that
+makes a broken API key visible.
+==============================================================================
+"""
+
 import json
-import requests
-from langchain_openai import ChatOpenAI
-from langchain_core.prompts import PromptTemplate
-from app.services.rag_service import retrieve_context
-from app.services.ml_service import predict_cognitive_state
+
 from app.core.config import settings
 from app.db.neo4j_connection import neo4j_db
+from app.services.llm import LLMUnavailable, generate, strip_code_fence
+from app.services.ml_service import predict_cognitive_state
+from app.services.rag_service import retrieve_context
 
-try:
-    # Initialize OpenRouter using OpenAI compatible endpoint
-    llm = ChatOpenAI(
-        model=settings.MODEL_NAME, 
-        temperature=0.3, 
-        api_key=settings.OPENROUTER_API_KEY,
-        base_url="https://openrouter.ai/api/v1",
-        max_retries=0, 
-        timeout=10 
+PROMPT = """
+You are 'Code Guru', an expert computer science tutor for first-year IT students.
+
+CRITICAL: You MUST focus ONLY on this specific error: "{error_type}"
+Student's Code: "{code_snippet}"
+
+=== MACHINE LEARNING COGNITIVE ANALYSIS ===
+Predicted Student Cognitive State: "{cognitive_state}"
+INSTRUCTION: If the state is "High Cognitive Load" or "Needs Simple Basics",
+explain it extremely simply, step-by-step. If "Minor Syntax Error", give a quick
+direct correction.
+
+=== SYLLABUS NOTES (Use ONLY as background context) ===
+{context}
+======================
+
+Generate a DETAILED, COMPREHENSIVE micro-lesson specifically addressing the
+"{error_type}". The "explanation" field MUST be at least 150-200 words. Break
+down exactly why the error happens and how to think about the logic correctly.
+Do NOT give a generic lesson - it must be specific to the code provided.
+
+Also generate a simple Mermaid.js chart (graph TD) showing the visual breakdown
+of THIS specific error. Emit clean mermaid, with no markdown backticks.
+
+Respond with JSON only, exactly in this shape:
+{{
+    "issue": "A specific 1-sentence title about {error_type}",
+    "explanation": "A detailed, step-by-step explanation (MINIMUM 150 words) adapted to the cognitive state and this specific error.",
+    "exampleCode": "The student's incorrect code as a comment, and the correct way underneath.",
+    "mermaidDiagram": "graph TD\\n A[Step 1] --> B[Step 2]",
+    "videoUrl": "A YouTube URL relevant to {error_type}",
+    "referenceLink": "A documentation link relevant to {error_type}",
+    "hint": "A guiding question specific to {error_type}"
+}}
+"""
+
+REQUIRED_FIELDS = ("issue", "explanation")
+
+
+def _extract_json(text: str) -> dict:
+    """Pull the JSON object out of a chat response.
+
+    Models wrap JSON in prose and code fences even when told not to, so the
+    outermost braces are located rather than trusting the whole response to
+    parse. A response that yields no object is a generation failure, not
+    something to paper over.
+    """
+    cleaned = strip_code_fence(text)
+
+    try:
+        return json.loads(cleaned)
+    except json.JSONDecodeError:
+        pass
+
+    start, end = cleaned.find("{"), cleaned.rfind("}")
+    if start == -1 or end <= start:
+        raise LLMUnavailable("The model did not return a JSON object.")
+
+    try:
+        return json.loads(cleaned[start : end + 1])
+    except json.JSONDecodeError as error:
+        raise LLMUnavailable(f"The model returned malformed JSON: {error}") from error
+
+
+def past_score_for(student_id: str) -> int:
+    """The student's average quiz score so far, as a percentage.
+
+    Read from their actual attempt history in the graph. This used to be a
+    constant chosen by string-matching the error type - "LOOP" in the name gave
+    30, "ARRAY" gave 60, anything else 80 - which meant the cognitive-state
+    model's inputs never varied by student and its output was a three-branch
+    lookup table wearing a model's name.
+
+    50 for a student with no history: neutral, and the same midpoint the rest of
+    the platform treats as the pass mark.
+    """
+    if not neo4j_db.driver:
+        return 50
+
+    rows = neo4j_db.execute_query(
+        """
+        MATCH (:Student {student_id: $student_id})-[a:ATTEMPTED]->(:Concept)
+        RETURN avg(a.percentage) AS average
+        """,
+        {"student_id": student_id},
     )
-except Exception as e:
-    llm = None
 
-def get_smart_fallback(student_id, error_type, code_snippet):
-    return {
-        "issue": f"Logical Issue Detected: {error_type}",
-        "explanation": f"Hello {student_id}, we noticed a struggle with {error_type}. Ensure you are using the correct syntax and logic.",
-        "exampleCode": f"// Your Code:\n// {code_snippet}\n\n// Tip: Double check your operators and boundaries.",
-        "mermaidDiagram": "graph TD\n    A[Code Execution] --> B{Check Condition}\n    B -- Invalid --> C[Logical Error]\n    B -- Valid --> D[Success]\n    style C fill:#FF453A,stroke:#333",
-        "videoUrl": f"https://www.youtube.com/results?search_query=java+{error_type.replace('_', '+')}",
-        "referenceLink": "https://docs.oracle.com/javase/tutorial/java/nutsandbolts/",
-        "hint": "Check your logic boundaries and operators."
+    average = (rows or [{}])[0].get("average") if rows else None
+    return int(average) if average is not None else 50
+
+
+def generate_real_lesson(
+    student_id: str,
+    error_type: str,
+    code_snippet: str,
+    error_count: int,
+) -> dict:
+    """Build a lesson, or raise LLMUnavailable.
+
+    Raises rather than returning a placeholder. The API layer turns this into a
+    503, so a student is told the lesson could not be built - which is true -
+    instead of being shown something invented, which is not.
+
+    `error_count` is the real repeat count behind the trigger, passed down from
+    the caller, and `past_score` comes from this student's own attempt history.
+    Both used to be constants derived from the error type's spelling.
+    """
+    cognitive_state = predict_cognitive_state(
+        error_count, code_snippet, past_score_for(student_id)
+    )
+    context = retrieve_context(f"{error_type} {code_snippet}", k=2)
+
+    text = generate(
+        PROMPT.format(
+            error_type=error_type,
+            code_snippet=code_snippet,
+            cognitive_state=cognitive_state,
+            context=context,
+        )
+    )
+
+    lesson = _extract_json(text)
+
+    missing = [field for field in REQUIRED_FIELDS if not lesson.get(field)]
+    if missing:
+        # A response missing the fields the lesson is made of is not a lesson.
+        # Filling the gaps with defaults is how a half-generated answer starts
+        # looking like a whole one.
+        raise LLMUnavailable(f"The generated lesson was missing: {', '.join(missing)}")
+
+    result = {
+        "issue": lesson.get("issue", ""),
+        "explanation": lesson.get("explanation", ""),
+        "exampleCode": lesson.get("exampleCode", ""),
+        "mermaidDiagram": lesson.get("mermaidDiagram", ""),
+        "videoUrl": lesson.get("videoUrl", ""),
+        "referenceLink": lesson.get("referenceLink", ""),
+        "hint": lesson.get("hint", ""),
+        "cognitive_state": cognitive_state,
     }
 
-def generate_real_lesson(student_id: str, error_type: str, code_snippet: str):
-    if not settings.OPENROUTER_API_KEY:
-        return get_smart_fallback(student_id, error_type, code_snippet)
+    _cache_lesson(error_type, result)
+    return result
 
-    # =====================================================================
-    # 🚀 STEP 1: NEO4J SEMANTIC CACHING - TEMPORARILY DISABLED FOR TESTING
-    # =====================================================================
-    # අපි මේ ටික comment කරලා තියෙන්නේ පරණ පාඩම එන එක නවත්තලා, හැමපාරම 
-    # අලුත්ම දිග පාඩමක් AI එකෙන් generate කරගන්න ඕන නිසයි.
-    
-    # cache_query = """
-    # MATCH (e:ErrorType {name: $error_type})-[:HAS_LESSON]->(l:Lesson)
-    # RETURN l.issue AS issue, l.explanation AS explanation, l.exampleCode AS exampleCode,
-    #        l.mermaidDiagram AS mermaidDiagram, l.videoUrl AS videoUrl, l.referenceLink AS referenceLink, l.hint AS hint
-    # """
-    # try:
-    #     cached_result = neo4j_db.execute_query(cache_query, {"error_type": error_type})
-    #     if cached_result and len(cached_result) > 0:
-    #         print(f"\n⚡ CACHE HIT! Serving lesson for '{error_type}' directly from Neo4j DB (0 API Calls, 0 Latency).")
-    #         return cached_result[0]
-    # except Exception as cache_err:
-    #     print(f"⚠️ Cache read error: {cache_err}")
 
-    print(f"\n⚠️ CACHE BYPASSED! Generating a brand new, detailed lesson for '{error_type}' via OpenRouter API...")
-    # =====================================================================
+def _cache_lesson(error_type: str, lesson: dict) -> None:
+    """Record the lesson against its error type in the graph.
 
-    # --- DYNAMIC METRICS ---
-    if "LOOP" in error_type:
-        error_count = 6
-        past_score = 30
-    elif "ARRAY" in error_type:
-        error_count = 4
-        past_score = 60
-    else:
-        error_count = 3
-        past_score = 80
+    Best effort. A cache write that fails must not cost the student the lesson
+    that was just generated for them.
 
-    search_query = f"Explain {error_type} and how to fix {code_snippet}"
-    retrieved_context = retrieve_context(search_query)
-
-    cognitive_state = predict_cognitive_state(error_count, code_snippet, past_score)
-    print(f"🎯 Guiding AI based on ML Prediction: {cognitive_state}")
-
-    # 🛠️ UPDATED PROMPT: Forcing a detailed, longer response (Min 150 words)
-    prompt_template = """
-    You are 'Code Guru', an expert computer science tutor for first-year IT students.
-    
-    CRITICAL: You MUST focus ONLY on this specific error: "{error_type}"
-    Student's Code: "{code_snippet}"
-
-    === MACHINE LEARNING COGNITIVE ANALYSIS ===
-    Predicted Student Cognitive State: "{cognitive_state}"
-    INSTRUCTION: If the state is "High Cognitive Load" or "Needs Simple Basics", explain it extremely simply, step-by-step. If "Minor Syntax Error", give a quick direct correction.
-
-    === SYLLABUS NOTES (Use ONLY as background context) ===
-    {context}
-    ======================
-
-    Generate a DETAILED, COMPREHENSIVE micro-lesson specifically addressing the "{error_type}". 
-    The "explanation" field MUST be at least 150-200 words long. It should be highly educational, breaking down exactly why the error happens and how to think about the logic correctly. 
-    Do NOT give a generic lesson. It must be specific to the code provided.
-    Also, generate a simple 'Mermaid.js' chart (graph TD) showing the visual breakdown of THIS specific error. Ensure the mermaid code is clean, without markdown backticks.
-    
-    Provide the response EXACTLY in this JSON format:
-    {{
-        "issue": "A specific 1-sentence title about {error_type}",
-        "explanation": "A detailed, step-by-step pedagogical explanation (MINIMUM 150 words) adapted to the ML Cognitive State and the specific error.",
-        "exampleCode": "Show the student's incorrect code as a comment, and the correct way underneath.",
-        "mermaidDiagram": "graph TD\\n A[Step 1] --> B[Step 2]",
-        "videoUrl": "Provide YouTube URL relevant to {error_type}",
-        "referenceLink": "Provide Documentation link relevant to {error_type}",
-        "hint": "A guiding question specific to {error_type}"
-    }}
+    This was commented out with a note about wanting a fresh lesson every time
+    while testing. It is back on, because with generation working the cache is
+    the difference between one model call and one per view.
     """
-
-    prompt = PromptTemplate(input_variables=["student_id", "error_type", "code_snippet", "cognitive_state", "context"], template=prompt_template)
-    
-    formatted_prompt = prompt.format(
-        student_id=student_id, 
-        error_type=error_type, 
-        code_snippet=code_snippet, 
-        cognitive_state=cognitive_state,
-        context=retrieved_context
-    )
-    
-    content = ""
+    if not neo4j_db.driver:
+        return
 
     try:
-        response = llm.invoke(formatted_prompt)
-        content = response.content
-        print("✅ Generation Success: Using LangChain (OpenRouter)")
-    except Exception as e:
-        print(f"\n⚠️ LangChain Failed: {e}. Switching to OpenRouter Fallback API...")
-        try:
-            url = "https://openrouter.ai/api/v1/chat/completions"
-            headers = {
-                "Authorization": f"Bearer {settings.OPENROUTER_API_KEY}",
-                "Content-Type": "application/json"
-            }
-            data = {
-                "model": settings.MODEL_NAME,
-                "messages": [{"role": "user", "content": formatted_prompt}],
-                "temperature": 0.3
-            }
-            res = requests.post(url, headers=headers, json=data, timeout=10)
-            if res.status_code == 200:
-                content = res.json()['choices'][0]['message']['content']
-            else:
-                raise Exception(f"API Error {res.status_code}")
-        except Exception as fallback_error:
-            print(f"⚠️ Fallback API Failed: {fallback_error}. Serving Mock Data.")
-            return get_smart_fallback(student_id, error_type, code_snippet)
-
-    if isinstance(content, list) and len(content) > 0 and isinstance(content[0], dict) and 'text' in content[0]:
-        content = content[0]['text']
-
-    try:
-        parsed_lesson = None
-        if isinstance(content, dict):
-            parsed_lesson = content
-        elif isinstance(content, str):
-            content = content.replace("```json", "").replace("```", "").strip()
-            start_index = content.find('{')
-            end_index = content.rfind('}')
-            if start_index != -1 and end_index != -1:
-                clean_json = content[start_index:end_index+1].replace("\\n", "\\\\n")
-                parsed_lesson = json.loads(clean_json)
-        
-        if parsed_lesson is None:
-            return get_smart_fallback(student_id, error_type, code_snippet)
-
-        # =====================================================================
-        # 🚀 STEP 2: NEO4J SEMANTIC CACHING - SAVE NEW LESSON TO CACHE
-        # =====================================================================
-        # අලුතින් හැදෙන දිග පාඩම ආයෙත් Database එකේ save වෙනවා.
-        save_cache_query = """
-        MERGE (e:ErrorType {name: $error_type})
-        MERGE (l:Lesson {
-            issue: $issue, explanation: $explanation, exampleCode: $exampleCode,
-            mermaidDiagram: $mermaidDiagram, videoUrl: $videoUrl, referenceLink: $referenceLink, hint: $hint
-        })
-        MERGE (e)-[:HAS_LESSON]->(l)
-        """
-        try:
-            neo4j_db.execute_query(save_cache_query, {
-                "error_type": error_type,
-                "issue": parsed_lesson.get("issue", ""),
-                "explanation": parsed_lesson.get("explanation", ""),
-                "exampleCode": parsed_lesson.get("exampleCode", ""),
-                "mermaidDiagram": parsed_lesson.get("mermaidDiagram", ""),
-                "videoUrl": parsed_lesson.get("videoUrl", ""),
-                "referenceLink": parsed_lesson.get("referenceLink", ""),
-                "hint": parsed_lesson.get("hint", "")
+        neo4j_db.execute_query(
+            """
+            MERGE (e:ErrorType {name: $error_type})
+            MERGE (l:Lesson {
+                issue: $issue,
+                explanation: $explanation,
+                exampleCode: $exampleCode,
+                mermaidDiagram: $mermaidDiagram,
+                videoUrl: $videoUrl,
+                referenceLink: $referenceLink,
+                hint: $hint
             })
-            print(f"💾 NEW CACHE SAVED! Detailed Lesson for '{error_type}' successfully stored in Neo4j.")
-        except Exception as cache_save_err:
-            print(f"⚠️ Cache save error: {cache_save_err}")
-        # =====================================================================
-
-        return parsed_lesson
-
-    except Exception as parse_error:
-        print(f"❌ JSON Parsing Error: {parse_error}")
-        return get_smart_fallback(student_id, error_type, code_snippet)
+            MERGE (e)-[:HAS_LESSON]->(l)
+            """,
+            {"error_type": error_type, **{k: lesson.get(k, "") for k in (
+                "issue", "explanation", "exampleCode", "mermaidDiagram",
+                "videoUrl", "referenceLink", "hint")}},
+        )
+    except Exception as error:  # pragma: no cover - cache is not load-bearing
+        print(f"⚠️ Could not cache the lesson: {error}")

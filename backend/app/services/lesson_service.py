@@ -54,6 +54,10 @@ Do NOT give a generic lesson - it must be specific to the code provided.
 
 Also generate a simple Mermaid.js chart (graph TD) showing the visual breakdown
 of THIS specific error. Emit clean mermaid, with no markdown backticks.
+Node labels must be plain words only - no parentheses, brackets, braces or
+quotes inside a label. Mermaid treats those as syntax and refuses to parse the
+whole diagram, so "A[Check index (i)]" loses the student the entire chart.
+Write "A[Check the index i]" instead.
 
 Respond with JSON only, exactly in this shape:
 {{

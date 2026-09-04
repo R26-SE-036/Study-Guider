@@ -1,30 +1,42 @@
 # Study Guider backend dependencies.
 #
-# Derived from the imports actually present in app/ — this file did not exist
+# Derived from the imports actually present in app/ - this file did not exist
 # before, which meant nobody but the original author could run the service.
-# Versions are floors, not pins: pin them if a reproducible build is needed.
+#
+# Versions are PINNED, not floors. They used to be floors with a note saying
+# "pin them if a reproducible build is needed" - a container build is exactly
+# that: with floors, two builds a week apart install different code, and the
+# one that breaks is the one nobody changed. The pins below are the versions
+# this service is known to run on, taken from the working virtualenv.
+#
+# Upgrading is a deliberate edit here, not a side effect of rebuilding.
 
 # ── Web framework ──
-fastapi>=0.115
-uvicorn[standard]>=0.30
-pydantic>=2.7
-python-dotenv>=1.0
+fastapi==0.141.1
+uvicorn[standard]==0.52.4
+pydantic==2.13.5
+python-dotenv==1.2.3
 
 # ── Talking to Code Coach (identity + remediation triggers) ──
-requests>=2.32
+requests==2.34.2
 
 # ── Databases ──
-neo4j>=5.20
-langchain-chroma>=0.1.4
+neo4j==6.3.0
+# langchain-chroma removed: the vector store moved into Neo4j (app/db/vector_index.py).
 
 # ── LLM / RAG pipeline ──
-langchain-core>=0.3
-langchain-openai>=0.2
-langchain-google-genai>=2.0
-langchain-text-splitters>=0.3
+langchain-core==1.6.1
+langchain-openai==1.6.0
+langchain-google-genai==4.3.7
+langchain-text-splitters==1.1.2
 
 # ── Cognitive-state model + Java parsing ──
-scikit-learn>=1.5
-joblib>=1.4
-pandas>=2.2
-javalang>=0.13
+scikit-learn==1.9.0
+joblib==1.5.3
+pandas==3.0.5
+javalang==0.13.0
+
+# ── Serving ──
+# uvicorn runs this directly; gunicorn is here to manage workers in the
+# container the same way the other Python services in the platform do.
+gunicorn==23.0.0

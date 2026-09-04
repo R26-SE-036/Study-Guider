@@ -3,9 +3,24 @@ frontend/node_modules/
 frontend/dist/
 
 # Python
-backend/venv/
+# Both spellings, and at any depth. This rule used to read `backend/venv/`
+# only, and the virtualenv on disk is `backend/.venv/` - one missing dot, so
+# 16,109 files were committed. A venv is machine-specific (its launcher scripts
+# hardcode absolute paths) and broken the moment anyone checks it out
+# elsewhere, and it dwarfed the real source 16,109 to 53.
+venv/
+.venv/
+**/venv/
+**/.venv/
 backend/__pycache__/
+__pycache__/
 *.pyc
+
+# Vector store. Generated from backend/data/*.txt by chroma_setup.py, so it is
+# build output - and it was tracked, sqlite file and HNSW index binaries and
+# all. It is also per-machine: the embeddings depend on which model and API key
+# built them.
+backend/chroma_db/
 
 # Environment Variables (Never push secrets!)
 backend/.env

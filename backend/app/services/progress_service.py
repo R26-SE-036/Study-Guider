@@ -3,6 +3,19 @@ from app.core.concepts import normalise_concept
 from app.services import knowledge_tracing
 from datetime import datetime, timezone
 
+# The platform pass mark, matching Code Coach.
+#
+# This was 50 here while Code Coach passes at 70 (api/routes/remediation.py and
+# gamification.py both use `score_percent >= 70`). So a 2/4 was recorded as
+# MASTERED in the progress graph while the very same quiz left the remediation
+# trigger unresolved - the dashboard said "Passed" and the student kept being
+# told to study it. Two services disagreeing about what passing means is worse
+# than either threshold being wrong.
+#
+# Code Coach owns the decision, so this follows it rather than the reverse.
+PASS_MARK_PERCENT = 70
+
+
 def update_student_progress(student_id: str, concept: str, score: int, total: int):
     """
     Saves a new Quiz Attempt node for the student to maintain a history of their progress,
@@ -16,7 +29,7 @@ def update_student_progress(student_id: str, concept: str, score: int, total: in
     concept = normalise_concept(concept)
 
     percentage = (score / total) * 100 if total > 0 else 0
-    status = "MASTERED" if percentage >= 50 else "NEEDS_REVIEW"
+    status = "MASTERED" if percentage >= PASS_MARK_PERCENT else "NEEDS_REVIEW"
 
     # UTC, and explicitly marked as such. datetime.now() returned a naive local
     # timestamp, so attempts recorded in different timezones sorted against each
@@ -64,8 +77,12 @@ def get_student_progress(student_id: str):
     """Retrieves all past attempts for the dashboard timeline."""
     query = """
     MATCH (s:Student {student_id: $student_id})-[a:ATTEMPTED]->(c:Concept)
-    RETURN c.name AS concept, a.score AS score, a.total AS total, 
-           a.percentage AS percentage, a.status AS status, a.timestamp AS last_updated
+    RETURN c.name AS concept, a.score AS score, a.total AS total,
+           a.percentage AS percentage, a.status AS status,
+           a.timestamp AS last_updated,
+           // FR-07. Written on every attempt but not returned until now, so
+           // the dashboard had no way to show it.
+           a.seconds_on_lesson AS seconds_on_lesson
     ORDER BY a.timestamp DESC
     """
     try:

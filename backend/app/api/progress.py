@@ -4,6 +4,7 @@ from pydantic import BaseModel
 from app.core.auth import CurrentUser, get_current_user
 from app.services.learning_path_service import get_learning_path
 from app.services.progress_service import (
+    get_curriculum,
     get_mastery_estimates,
     get_student_progress,
     update_student_progress,
@@ -72,3 +73,13 @@ def get_my_mastery(user: CurrentUser = Depends(get_current_user)):
     Sorted weakest-first, so the top of the list is where teaching should go.
     """
     return get_mastery_estimates(user.student_id)
+
+@router.get("/me/curriculum")
+def get_my_curriculum(user: CurrentUser = Depends(get_current_user)):
+    """All fourteen concepts, the student's state on each, and what is next.
+
+    Distinct from /me/mastery, which only knows about concepts already
+    quizzed. This returns the whole map, so a new account sees how much there
+    is and where to start rather than an empty page.
+    """
+    return get_curriculum(user.student_id)

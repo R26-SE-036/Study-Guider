@@ -1,6 +1,7 @@
 from app.db.neo4j_connection import neo4j_db
-from app.core.concepts import normalise_concept
+from app.core.concepts import CONCEPT_TAGS, PREREQUISITE_EDGES, normalise_concept
 from app.services import knowledge_tracing
+from collections import Counter
 from datetime import datetime, timezone
 
 # The platform pass mark, matching Code Coach.
@@ -229,3 +230,99 @@ def _seconds_on_lesson(student_id: str, concept: str) -> float | None:
         return None
 
     return round(elapsed, 1)
+
+
+def get_curriculum(student_id: str) -> dict:
+    """Every concept, where the student stands on it, and what it depends on.
+
+    ── Why this exists ─────────────────────────────────────────────────────
+    The dashboard only knew about concepts the student had already been
+    quizzed on. On a new account that is one row, sometimes none, and the page
+    reads as broken when it is simply empty - there is no sense of how much
+    there is to learn, where the student is in it, or what to do next.
+
+    This returns all fourteen. Concepts with attempts carry their knowledge
+    tracing estimate; the rest are reported honestly as not started rather than
+    given a made-up score.
+
+    ── The four states ─────────────────────────────────────────────────────
+      mastered     attempted, and knowledge tracing believes it is known
+      in_progress  attempted, not yet believed
+      ready        not attempted, and every prerequisite is mastered
+      locked       not attempted, and something it depends on is not
+
+    "locked" is descriptive, not a restriction - nothing stops a student
+    opening it. It answers "why is this not the thing to do next", which a flat
+    list of fourteen names cannot.
+    """
+    estimates_result = get_mastery_estimates(student_id)
+    estimates = {
+        item["concept"]: item
+        for item in (estimates_result.get("data") or [])
+    }
+
+    # Direct prerequisites per concept, from the same hand-written edges that
+    # are seeded into the graph - read here rather than queried so the page
+    # still renders the map when Neo4j is unreachable.
+    prerequisites: dict[str, list[str]] = {tag: [] for tag in CONCEPT_TAGS}
+    for prereq, dependent in PREREQUISITE_EDGES:
+        prerequisites.setdefault(dependent, []).append(prereq)
+
+    concepts = []
+    for tag in CONCEPT_TAGS:
+        estimate = estimates.get(tag)
+        needs = prerequisites.get(tag, [])
+        unmet = [
+            name
+            for name in needs
+            if not (estimates.get(name) or {}).get("mastered", False)
+        ]
+
+        if estimate and estimate["mastered"]:
+            state = "mastered"
+        elif estimate:
+            state = "in_progress"
+        elif unmet:
+            state = "locked"
+        else:
+            state = "ready"
+
+        concepts.append(
+            {
+                "concept": tag,
+                "state": state,
+                "prerequisites": needs,
+                "unmet_prerequisites": unmet,
+                # None, not 0, when never attempted. A zero here would place an
+                # untouched concept alongside one the student has failed twice,
+                # and those are not the same situation.
+                "probability_known": estimate["probability_known"] if estimate else None,
+                "predicted_correct": estimate["predicted_correct"] if estimate else None,
+                "attempts": estimate["attempts"] if estimate else 0,
+                "observations": estimate["observations"] if estimate else 0,
+                "average_percentage": estimate["average_percentage"] if estimate else None,
+            }
+        )
+
+    counts = Counter(item["state"] for item in concepts)
+
+    return {
+        "success": True,
+        "data": {
+            "concepts": concepts,
+            "total": len(concepts),
+            "counts": {
+                "mastered": counts["mastered"],
+                "in_progress": counts["in_progress"],
+                "ready": counts["ready"],
+                "locked": counts["locked"],
+            },
+            # What to do next: a ready concept the student has not started,
+            # earliest in the dependency order. Falls back to whatever they are
+            # part-way through when everything available is already underway.
+            "suggested_next": next(
+                (c["concept"] for c in concepts if c["state"] == "ready"),
+                next((c["concept"] for c in concepts if c["state"] == "in_progress"), None),
+            ),
+        },
+    }

@@ -24,6 +24,7 @@ makes a broken API key visible.
 """
 
 import json
+from datetime import datetime, timezone
 
 from app.core.config import settings
 from app.db.neo4j_connection import neo4j_db
@@ -197,6 +198,7 @@ def generate_real_lesson(
     code_snippet: str,
     error_count: int,
     concept_tag: str = "",
+    force_regenerate: bool = False,
 ) -> dict:
     """Build a lesson, or raise LLMUnavailable.
 
@@ -211,6 +213,16 @@ def generate_real_lesson(
     cognitive_state = predict_cognitive_state(
         error_count, code_snippet, past_score_for(student_id)
     )
+
+    # Before spending a model call, check whether this exact lesson already
+    # exists. Lessons were being cached and never read, so a page refresh cost
+    # a full generation - which is where most of the API quota was going.
+    if not force_regenerate:
+        cached = _cached_lesson(student_id, error_type, cognitive_state)
+        if cached:
+            print(f"Lesson cache HIT for {error_type} / {cognitive_state}")
+            return {**cached, "cognitive_state": cognitive_state, "cached": True}
+
     context = retrieve_context(f"{error_type} {code_snippet}", k=2)
     graph_context = build_graph_context(student_id, concept_tag)
 
@@ -234,6 +246,7 @@ def generate_real_lesson(
         raise LLMUnavailable(f"The generated lesson was missing: {', '.join(missing)}")
 
     result = {
+        "cached": False,
         "issue": lesson.get("issue", ""),
         "explanation": lesson.get("explanation", ""),
         "exampleCode": lesson.get("exampleCode", ""),
@@ -244,19 +257,99 @@ def generate_real_lesson(
         "cognitive_state": cognitive_state,
     }
 
-    _cache_lesson(error_type, result)
+    _cache_lesson(student_id, error_type, cognitive_state, result)
     return result
 
 
-def _cache_lesson(error_type: str, lesson: dict) -> None:
-    """Record the lesson against its error type in the graph.
+# How long a cached lesson stays usable. Seven days: long enough that a student
+# working through one concept over a week never pays for regeneration, short
+# enough that a change to the prompt or the syllabus reaches everyone quickly.
+CACHE_TTL_SECONDS = 7 * 24 * 60 * 60
+
+# Fields that make up a lesson, in one place so the read and the write cannot
+# disagree about what a cached lesson contains.
+LESSON_FIELDS = (
+    "issue",
+    "explanation",
+    "exampleCode",
+    "mermaidDiagram",
+    "videoUrl",
+    "referenceLink",
+    "hint",
+)
+
+
+def _cached_lesson(student_id: str, error_type: str, cognitive_state: str) -> dict | None:
+    """A lesson already generated for this student, error and state.
+
+    ── Why this function did not exist, and why it matters ──────────────────
+    Lessons were being WRITTEN to the graph and never read back. Every request
+    called the model, including a page refresh on a lesson the student had just
+    read - so re-opening a lesson cost a full generation, and the API quota was
+    being spent on content that already existed.
+
+    ── Why the key includes the student ─────────────────────────────────────
+    It would be cheaper to cache per error type alone, and that is what the
+    write did. It is now wrong to: the prompt carries this student's mastery
+    and their unmastered prerequisites, so a generated lesson can open with
+    "you have practiced this before". Serving that to a different student would
+    be a lie the cache invented, which is worse than the cost it saves.
+
+    Cognitive state is in the key for the same reason - it changes how the
+    lesson is pitched, so a lesson written for "Needs Simple Basics" is not the
+    one to hand back when the student is now on "Minor Syntax Error".
+    """
+    if not neo4j_db.driver:
+        return None
+
+    try:
+        rows = neo4j_db.execute_query(
+            """
+            MATCH (s:Student {student_id: $student_id})
+                  -[c:CACHED_LESSON {error_type: $error_type,
+                                     cognitive_state: $cognitive_state}]->(l:Lesson)
+            RETURN l AS lesson, c.generated_at AS generated_at
+            ORDER BY c.generated_at DESC
+            LIMIT 1
+            """,
+            {
+                "student_id": student_id,
+                "error_type": error_type,
+                "cognitive_state": cognitive_state,
+            },
+        )
+    except Exception as error:  # pragma: no cover - a cache miss is not fatal
+        print(f"⚠️ Could not read the lesson cache: {error}")
+        return None
+
+    row = (rows or [None])[0]
+    if not row or not row.get("lesson"):
+        return None
+
+    generated_at = row.get("generated_at")
+    if generated_at:
+        try:
+            age = (
+                datetime.now(timezone.utc) - datetime.fromisoformat(generated_at)
+            ).total_seconds()
+            if age > CACHE_TTL_SECONDS:
+                return None
+        except (TypeError, ValueError):
+            # An unparseable timestamp means we cannot prove it is fresh, and a
+            # stale lesson is worse than paying for a new one.
+            return None
+
+    lesson = dict(row["lesson"])
+    return {field: lesson.get(field, "") for field in LESSON_FIELDS}
+
+
+def _cache_lesson(
+    student_id: str, error_type: str, cognitive_state: str, lesson: dict
+) -> None:
+    """Record the lesson so the next request does not have to generate it.
 
     Best effort. A cache write that fails must not cost the student the lesson
     that was just generated for them.
-
-    This was commented out with a note about wanting a fresh lesson every time
-    while testing. It is back on, because with generation working the cache is
-    the difference between one model call and one per view.
     """
     if not neo4j_db.driver:
         return
@@ -264,8 +357,8 @@ def _cache_lesson(error_type: str, lesson: dict) -> None:
     try:
         neo4j_db.execute_query(
             """
-            MERGE (e:ErrorType {name: $error_type})
-            MERGE (l:Lesson {
+            MERGE (s:Student {student_id: $student_id})
+            CREATE (l:Lesson {
                 issue: $issue,
                 explanation: $explanation,
                 exampleCode: $exampleCode,
@@ -274,11 +367,19 @@ def _cache_lesson(error_type: str, lesson: dict) -> None:
                 referenceLink: $referenceLink,
                 hint: $hint
             })
-            MERGE (e)-[:HAS_LESSON]->(l)
+            CREATE (s)-[:CACHED_LESSON {
+                error_type: $error_type,
+                cognitive_state: $cognitive_state,
+                generated_at: $generated_at
+            }]->(l)
             """,
-            {"error_type": error_type, **{k: lesson.get(k, "") for k in (
-                "issue", "explanation", "exampleCode", "mermaidDiagram",
-                "videoUrl", "referenceLink", "hint")}},
+            {
+                "student_id": student_id,
+                "error_type": error_type,
+                "cognitive_state": cognitive_state,
+                "generated_at": datetime.now(timezone.utc).isoformat(),
+                **{field: lesson.get(field, "") for field in LESSON_FIELDS},
+            },
         )
     except Exception as error:  # pragma: no cover - cache is not load-bearing
         print(f"⚠️ Could not cache the lesson: {error}")

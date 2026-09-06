@@ -13,23 +13,28 @@ can decide what to build, what to cut, and what to rewrite in the document.
 
 | # | Proposal requirement | Status |
 |---|---|---|
-| FR-01 | Collect error IDs, repeat counts, time between runs | **Partly.** Counts yes, timing no |
-| FR-02 | Also ingest engagement from Gamification + Collaborative | **Missing** |
+| FR-01 | Collect error IDs, repeat counts, time between runs | **Done.** Timing added |
+| FR-02 | ~~Ingest engagement from Gamification + Collaborative~~ | **Withdrawn** — claim removed |
 | FR-03 | Random Forest classifies struggle Low/Medium/High every 30s | **Different thing built** |
 | FR-04 | Trigger on 3 repeats of one concept, or sustained High | **Done**, but by Code Coach |
-| FR-05 | Graph RAG — vector DB *and* knowledge graph | **Half.** Vector yes, graph no |
-| FR-06 | Auto-generate a quiz after each lesson | **Done**, was broken, now fixed |
-| FR-07 | Track time spent on the lesson | **Missing** |
-| FR-08 | Update mastery using Knowledge Tracing | **Simplified.** No KT model |
+| FR-05 | Graph RAG — vector DB *and* knowledge graph | **Done.** Graph context now in the prompt |
+| FR-06 | Auto-generate a quiz after each lesson | **Done.** Two answer shapes fixed; see caveat |
+| FR-07 | Track time spent on the lesson | **Done** |
+| FR-08 | Update mastery using Knowledge Tracing | **Done.** Bayesian Knowledge Tracing |
 | FR-09 | IDE card → web dashboard | **Done** |
-| NFR-01 | Lesson + quiz in under 5 seconds | **Missed badly.** 13–30s |
+| NFR-01 | Lesson + quiz in under 5 seconds | **Missed.** Now 18–48s on a thinking model |
 | NFR-02 | Struggle model F1 ≥ 0.75 | **Not measurable as written** |
-| NFR-03 | 100% grounded in the syllabus vector DB | **Not enforced** |
+| NFR-03 | 100% grounded in the syllabus vector DB | **All 14 concepts now have notes** |
 | NFR-04 | SUS score above 68 | **Not tested** |
 | NFR-05 | Anonymised, raw source code never sent | **Done** |
 | NFR-06 | Available 24/7 | **Blocked** — see the quota problem |
 
 ---
+
+> **Updated after the implementation pass.** FR-01, FR-05, FR-07 and FR-08 are
+> now built, the prerequisite graph has been seeded into Neo4j, and all 14
+> concepts have syllabus material. FR-02 was withdrawn rather than built. The
+> sections below still describe what was found, with current status noted.
 
 ## The two that will hurt you most
 

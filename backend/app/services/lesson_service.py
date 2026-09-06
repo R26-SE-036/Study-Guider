@@ -69,11 +69,19 @@ quotes inside a label. Mermaid treats those as syntax and refuses to parse the
 whole diagram, so "A[Check index (i)]" loses the student the entire chart.
 Write "A[Check the index i]" instead.
 
+"incorrectCode" and "correctCode" must be the SAME few lines of code, once
+broken and once fixed, so they can be read side by side. Put no `//` comment
+markers in front of the code itself in either field - the interface labels which
+is which and colours them, so commenting the broken version out makes it
+unreadable and hides the very thing the student is meant to look at. A short
+explanatory comment INSIDE the code is fine where it earns its place.
+
 Respond with JSON only, exactly in this shape:
 {{
     "issue": "A specific 1-sentence title about {error_type}",
     "explanation": "A detailed, step-by-step explanation (MINIMUM 150 words) adapted to the cognitive state and this specific error.",
-    "exampleCode": "The student's incorrect code as a comment, and the correct way underneath.",
+    "incorrectCode": "ONLY the broken code, as real runnable-looking Java. Do NOT comment it out. Do NOT include the fix.",
+    "correctCode": "ONLY the corrected version of the same code. Do NOT comment it out. Do NOT include the broken version.",
     "mermaidDiagram": "graph TD\\n A[Step 1] --> B[Step 2]",
     "videoUrl": "A YouTube URL relevant to {error_type}",
     "referenceLink": "A documentation link relevant to {error_type}",
@@ -82,6 +90,95 @@ Respond with JSON only, exactly in this shape:
 """
 
 REQUIRED_FIELDS = ("issue", "explanation")
+
+
+def split_legacy_example(example: str) -> tuple[str, str]:
+    """Separate a pre-2026-09 `exampleCode` blob into (incorrect, correct).
+
+    ── Why this exists ─────────────────────────────────────────────────────
+    The prompt used to ask for "the student's incorrect code as a comment, and
+    the correct way underneath", so a lesson arrived as one block in which the
+    broken version was commented out:
+
+        // Incorrect: missing break causes fall-through
+        // switch (day) {
+        //     case 1:
+        // }
+
+        switch (day) {
+            case 1:
+                break;
+        }
+
+    Rendered as a single grey block that is genuinely hard to read: the part the
+    student most needs to look at is the part styled as a comment, and nothing
+    says which half is which.
+
+    New lessons carry `incorrectCode` and `correctCode` separately. This exists
+    only for the ones already cached in the graph - up to seven days of them -
+    and for any that a model still returns in the old shape. It is a heuristic
+    on purpose: a lesson from the old format is worth showing well, but not
+    worth building a Java parser for.
+
+    Returns ("", "") when the blob has no commented section, because a blob that
+    is entirely live code cannot be split into a wrong half and a right half,
+    and inventing a division would be worse than showing it unchanged.
+    """
+    if not example:
+        return "", ""
+
+    commented: list[str] = []
+    plain: list[str] = []
+
+    for raw in example.splitlines():
+        stripped = raw.strip()
+
+        if stripped.startswith("//"):
+            # Drop the marker and at most ONE following space - the space the
+            # comment convention adds. Everything after it is the code's own
+            # indentation, and flattening it turns a nested switch into a list
+            # of unrelated lines, which is most of what made the old rendering
+            # hard to read in the first place.
+            body = stripped[2:]
+            if body.startswith(" "):
+                body = body[1:]
+
+            # A label line ("Incorrect: ...", "Correct: ...") is prose about the
+            # code rather than code, and the interface supplies its own heading.
+            if _is_label(body.lstrip()):
+                continue
+
+            commented.append(body)
+        else:
+            plain.append(raw)
+
+    if not commented:
+        return "", ""
+
+    return ("\n".join(commented).strip(), "\n".join(plain).strip())
+
+
+_LABEL_PREFIXES = (
+    "incorrect",
+    "correct",
+    "wrong",
+    "right",
+    "bad",
+    "good",
+    "before",
+    "after",
+    "fixed",
+    "broken",
+)
+
+
+def _is_label(comment_body: str) -> bool:
+    """Is this comment a heading for the block rather than part of the code?"""
+    lowered = comment_body.lower()
+    return any(
+        lowered.startswith(prefix) and (":" in lowered[: len(prefix) + 2] or lowered == prefix)
+        for prefix in _LABEL_PREFIXES
+    )
 
 
 def _extract_json(text: str) -> dict:
@@ -245,11 +342,25 @@ def generate_real_lesson(
         # looking like a whole one.
         raise LLMUnavailable(f"The generated lesson was missing: {', '.join(missing)}")
 
+    # A model may still answer in the old single-field shape whatever the
+    # prompt says, so the split is applied to whatever it returns rather than
+    # trusting it to have followed instructions.
+    incorrect = lesson.get("incorrectCode", "") or ""
+    correct = lesson.get("correctCode", "") or ""
+    example = lesson.get("exampleCode", "") or ""
+
+    if not (incorrect and correct) and example:
+        incorrect, correct = split_legacy_example(example)
+
     result = {
         "cached": False,
         "issue": lesson.get("issue", ""),
         "explanation": lesson.get("explanation", ""),
-        "exampleCode": lesson.get("exampleCode", ""),
+        "incorrectCode": incorrect,
+        "correctCode": correct,
+        # Kept so a client written against the old shape still gets something,
+        # and so a blob that could not be split is still shown rather than lost.
+        "exampleCode": example,
         "mermaidDiagram": lesson.get("mermaidDiagram", ""),
         "videoUrl": lesson.get("videoUrl", ""),
         "referenceLink": lesson.get("referenceLink", ""),
@@ -271,6 +382,8 @@ CACHE_TTL_SECONDS = 7 * 24 * 60 * 60
 LESSON_FIELDS = (
     "issue",
     "explanation",
+    "incorrectCode",
+    "correctCode",
     "exampleCode",
     "mermaidDiagram",
     "videoUrl",
@@ -340,7 +453,19 @@ def _cached_lesson(student_id: str, error_type: str, cognitive_state: str) -> di
             return None
 
     lesson = dict(row["lesson"])
-    return {field: lesson.get(field, "") for field in LESSON_FIELDS}
+    cached = {field: lesson.get(field, "") for field in LESSON_FIELDS}
+
+    # Lessons cached before the example was split into two fields carry only the
+    # old commented-out blob. Splitting on READ as well as on generate means the
+    # up-to-seven-days of them already in the graph render in the new format
+    # rather than falling back to the blob until they expire.
+    if not (cached.get("incorrectCode") and cached.get("correctCode")):
+        incorrect, correct = split_legacy_example(cached.get("exampleCode", ""))
+        if incorrect and correct:
+            cached["incorrectCode"] = incorrect
+            cached["correctCode"] = correct
+
+    return cached
 
 
 def _cache_lesson(
@@ -361,6 +486,8 @@ def _cache_lesson(
             CREATE (l:Lesson {
                 issue: $issue,
                 explanation: $explanation,
+                incorrectCode: $incorrectCode,
+                correctCode: $correctCode,
                 exampleCode: $exampleCode,
                 mermaidDiagram: $mermaidDiagram,
                 videoUrl: $videoUrl,

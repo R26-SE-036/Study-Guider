@@ -21,7 +21,7 @@ can decide what to build, what to cut, and what to rewrite in the document.
 | FR-06 | Auto-generate a quiz after each lesson | **Done.** Two answer shapes fixed; see caveat |
 | FR-07 | Track time spent on the lesson | **Done** |
 | FR-08 | Update mastery using Knowledge Tracing | **Done.** Bayesian Knowledge Tracing |
-| FR-09 | IDE card → web dashboard | **Done** |
+| FR-09 | IDE card → web dashboard | **Done.** Navigation was missing; now built |
 | NFR-01 | Lesson + quiz in under 5 seconds | **Missed.** Now 18–48s on a thinking model |
 | NFR-02 | Struggle model F1 ≥ 0.75 | **Not measurable as written** |
 | NFR-03 | 100% grounded in the syllabus vector DB | **All 14 concepts now have notes** |

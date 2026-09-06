@@ -1,5 +1,4 @@
 from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
 
 from app.api import struggle, quiz, progress, remediation, dashboard
 from app.core.config import settings
@@ -15,17 +14,14 @@ app = FastAPI(
     version="1.0.0"
 )
 
-app.add_middleware(
-    CORSMiddleware,
-    # Origins come from settings so the deployed portal can be allowed without
-    # a code change. allow_credentials stays off: this API authenticates with a
-    # bearer token, not a cookie, and combining credentials with a browser
-    # origin list buys nothing here.
-    allow_origins=settings.cors_origin_list,
-    allow_credentials=False,
-    allow_methods=["*"],
-    allow_headers=["Authorization", "Content-Type"],
-)
+# No CORS middleware.
+#
+# Nothing in a browser talks to this service. The web app calls it from its
+# own server through the BFF, so requests arrive server-to-server with no
+# Origin header and no preflight. The middleware was here for a separate
+# React frontend on its own port; that frontend is gone, and an allow-list
+# nobody is checked against is just a config value to keep in step for no
+# reason.
 
 # Routers
 app.include_router(struggle.router, prefix="/api/struggle", tags=["Struggle Detection"])

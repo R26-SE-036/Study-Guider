@@ -19,6 +19,7 @@ Generation moves to Gemini and the fallback is deleted.
 """
 
 import json
+import re
 
 from app.services.llm import LLMUnavailable, generate, strip_code_fence
 
@@ -64,6 +65,90 @@ def _extract_json(text: str):
     raise LLMUnavailable("The model did not return valid JSON.")
 
 
+def _resolve_answer(answer, options: list) -> str | None:
+    """Return the option `answer` refers to, or None if it refers to none.
+
+    The model does not answer consistently, and the difference is invisible
+    until it bites. Asked about a bare error type it replies with the whole
+    option text; given a code snippet in the same prompt it replies "B". Both
+    are reasonable readings of "correct_answer", and an exact string comparison
+    accepts the first and rejects the second - so every question was dropped,
+    `_normalise` raised, and the endpoint answered 503. Roughly half the time,
+    depending on the prompt.
+
+    Accepted, in order: the option text itself; a letter (B, b, "B)", "(B)");
+    a 1-based number; a 0-based index. Anything else is genuinely unusable and
+    the question is dropped, because a question whose answer is not among its
+    options cannot be marked.
+    """
+    if answer is None:
+        return None
+
+    text = str(answer).strip()
+    if not text:
+        return None
+
+    # 1. The option text, verbatim.
+    for option in options:
+        if text.lower() == str(option).strip().lower():
+            return str(option)
+
+    # 2. The same text once any A)/B./(C)/"D " label is removed from BOTH
+    #    sides. This covers every combination of who carries the label:
+    #    the model labels its answer and not the options ("A `for (...)`" vs
+    #    "`for (...)`"), or labels the options and not the answer, or labels
+    #    both differently.
+    #
+    #    Comparing stripped-to-stripped is what makes it safe to treat a bare
+    #    "A " as a label. An answer that genuinely begins with the article -
+    #    "A loop that runs once" - strips to "loop that runs once", and so does
+    #    the option it matches, so it still pairs correctly. And step 1 has
+    #    already returned for anything that matched exactly.
+    stripped = _strip_label(text)
+    if stripped:
+        for option in options:
+            if stripped == _strip_label(str(option)):
+                return str(option)
+
+    # 3. A bare label with nothing after it: B, b, "B)", "(B)", "B."
+    label = re.match(r"^\(?\s*([A-Za-z])\s*[).:\-]?\s*$", text)
+    if label:
+        index = ord(label.group(1).upper()) - ord("A")
+        if 0 <= index < len(options):
+            return str(options[index])
+
+    # 4. A label with text after it that matched no option above - trust the
+    #    letter, since the text disagreeing with every option is more likely a
+    #    paraphrase than a fifth answer.
+    answer_label = re.match(r"^\(?\s*([A-Za-z])\s*[).:\-]\s+\S", text)
+    if answer_label:
+        index = ord(answer_label.group(1).upper()) - ord("A")
+        if 0 <= index < len(options):
+            return str(options[index])
+
+    # 5. A number: 1-based first, since a model writing "3" for a four-option
+    #    question almost always means the third.
+    if text.isdigit():
+        number = int(text)
+        if 1 <= number <= len(options):
+            return str(options[number - 1])
+        if 0 <= number < len(options):
+            return str(options[number])
+
+    return None
+
+
+def _strip_label(text: str) -> str:
+    """Drop a leading option label, and normalise for comparison.
+
+    Backticks go too: the model routinely writes an answer as `code` and the
+    option as plain code, or the reverse, and that difference is presentational
+    rather than a different answer.
+    """
+    without_label = re.sub(r"^\(?\s*[A-Za-z]\s*[).:\-]?\s+", "", text.strip())
+    return without_label.replace("`", "").strip().lower()
+
+
 def _normalise(data) -> list[dict]:
     """Coerce the response into a list of well-formed questions, or raise.
 
@@ -93,16 +178,21 @@ def _normalise(data) -> list[dict]:
         if not question or not isinstance(options, list) or len(options) < 2 or not answer:
             continue
 
-        # An answer that is not among the options makes the question unmarkable:
-        # the student cannot pick it, so they cannot be right.
-        if not any(str(answer).strip().lower() == str(o).strip().lower() for o in options):
+        # An answer that refers to no option makes the question unmarkable: the
+        # student cannot pick it, so they cannot be right.
+        resolved = _resolve_answer(answer, options)
+        if resolved is None:
             continue
 
         questions.append(
             {
                 "question": str(question),
                 "options": [str(o) for o in options],
-                "correct_answer": str(answer),
+                # The RESOLVED option text, not what the model wrote. The web
+                # app marks the quiz by comparing the option the student
+                # clicked against this string, so storing a bare "B" here would
+                # mark every answer wrong even though the question parsed fine.
+                "correct_answer": resolved,
                 "explanation": str(item.get("explanation") or ""),
             }
         )

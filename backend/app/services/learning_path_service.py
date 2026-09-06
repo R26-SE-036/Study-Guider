@@ -98,3 +98,16 @@ def get_learning_path(student_id: str, concept: str):
             "start_here": prerequisites[-1]["concept"] if prerequisites else target,
         },
     }
+
+
+def unmastered_prerequisites(student_id: str, concept: str) -> list[dict]:
+    """Just the gaps, for callers that do not need the whole envelope.
+
+    Used by the lesson prompt. Returns [] rather than raising when the graph is
+    unreachable: a lesson pitched without the student's prerequisites is worse
+    than one pitched with them, but far better than no lesson at all.
+    """
+    result = get_learning_path(student_id, concept)
+    if not result.get("success"):
+        return []
+    return result["data"]["unmastered_prerequisites"]

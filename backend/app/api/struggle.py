@@ -45,6 +45,11 @@ def detect_struggle(
                 code_snippet=code_snippet,
                 # The real repeat count Code Coach raised the trigger on.
                 error_count=data.error_count,
+                # Feeds the knowledge-graph half of the prompt: this student's
+                # mastery of the concept and which of its prerequisites they
+                # have not got yet. Without it the pipeline is retrieval only,
+                # and every student with the same error gets the same lesson.
+                concept_tag=data.concept_tag or "",
             )
         except LLMUnavailable as error:
             raise HTTPException(

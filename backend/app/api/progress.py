@@ -3,7 +3,11 @@ from pydantic import BaseModel
 
 from app.core.auth import CurrentUser, get_current_user
 from app.services.learning_path_service import get_learning_path
-from app.services.progress_service import update_student_progress, get_student_progress
+from app.services.progress_service import (
+    get_mastery_estimates,
+    get_student_progress,
+    update_student_progress,
+)
 
 router = APIRouter()
 
@@ -56,3 +60,15 @@ def get_my_learning_path(
     code-coach's derive_concept_prerequisites for the data-driven alternative.
     """
     return get_learning_path(user.student_id, concept)
+
+@router.get("/me/mastery")
+def get_my_mastery(user: CurrentUser = Depends(get_current_user)):
+    """Per-concept Knowledge Tracing estimates (FR-08).
+
+    Distinct from /me, which lists every attempt as it happened. This answers
+    "how well does this student know each concept, and how likely are they to
+    get the next question right" - a belief and a prediction, not a history.
+
+    Sorted weakest-first, so the top of the list is where teaching should go.
+    """
+    return get_mastery_estimates(user.student_id)

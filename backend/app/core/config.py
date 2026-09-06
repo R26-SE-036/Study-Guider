@@ -27,7 +27,12 @@ class Settings:
     #
     # Gemini instead, using the key that already powers the embeddings behind
     # the Neo4j vector index. One provider, one key, one thing to configure.
-    MODEL_NAME = os.getenv("MODEL_NAME", "gemini-2.5-flash")
+    # gemini-2.5-flash was the default until the API started answering
+    # 404 NOT_FOUND for it: "no longer available to new users. Please
+    # update your code to use models/gemini-3.6-flash". An older key
+    # keeps working, so this only bites on a newly issued one - which is
+    # exactly when someone is least likely to suspect the model name.
+    MODEL_NAME = os.getenv("MODEL_NAME", "gemini-3.6-flash")
 
     # Directory paths.
     # CHROMA_DB_DIR is gone with Chroma: the syllabus vectors live in Neo4j's

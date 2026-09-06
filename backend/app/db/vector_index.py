@@ -72,8 +72,28 @@ CHUNK_OVERLAP = 50
 # `conditional_logic` - so the mapping is explicit rather than inferred from
 # the filename.
 SOURCE_FILE_CONCEPTS = {
+    # The two originals. Their names predate the concept vocabulary, which is
+    # why the mapping is explicit rather than derived from the filename.
     "conditionals.txt": "conditional_logic",
     "loop_boundaries.txt": "loop_boundaries",
+    # The other twelve, added so every concept in CONCEPT_TAGS has material.
+    # Before this, retrieval for a concept with no notes returned whichever of
+    # the two files above was least unrelated - so a lesson on switch
+    # statements was grounded in text about loop boundaries, and NFR-03's
+    # "100% grounded in the provided vector database" could not hold.
+    # These filenames match their concept tags exactly.
+    "arithmetic_operations.txt": "arithmetic_operations",
+    "array_indexing.txt": "array_indexing",
+    "assignment_logic.txt": "assignment_logic",
+    "boolean_logic.txt": "boolean_logic",
+    "control_flow.txt": "control_flow",
+    "immutable_strings.txt": "immutable_strings",
+    "loop_control.txt": "loop_control",
+    "loop_initialization.txt": "loop_initialization",
+    "loop_termination.txt": "loop_termination",
+    "statement_structure.txt": "statement_structure",
+    "string_comparison.txt": "string_comparison",
+    "switch_statements.txt": "switch_statements",
 }
 
 

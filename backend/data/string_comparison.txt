@@ -1,0 +1,8 @@
+Topic: Comparing Strings in Java
+Never compare Strings with ==. That operator compares references, asking whether two variables point at the same object, not whether the text matches.
+Use equals instead: name.equals("Ada") is true when the characters are the same.
+Confusingly, == sometimes appears to work. Java pools string literals, so two identical literals may share one object. The moment a String is built at run time, from input or concatenation, == starts returning false for equal text and the bug appears.
+For a case-insensitive comparison use equalsIgnoreCase.
+To order strings use compareTo, which returns a negative number, zero, or a positive number.
+Calling equals on a null reference throws NullPointerException. Putting the literal first, as in "Ada".equals(name), avoids it.
+Use isEmpty to test for an empty string rather than comparing against an empty literal.

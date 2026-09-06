@@ -1,0 +1,8 @@
+Topic: Arithmetic Operators and Integer Division in Java
+Java has five arithmetic operators: + for addition, - for subtraction, * for multiplication, / for division, and % for remainder (modulus).
+The trap for beginners is integer division. When both operands are int, Java discards the fractional part: 7 / 2 gives 3, not 3.5.
+This is not rounding, it always discards, so 9 / 10 gives 0. That is why an average computed as sum / count often comes out as zero.
+To get a decimal result at least one operand must be a floating point type: write 7.0 / 2, or cast with (double) sum / count.
+The % operator gives the remainder: 7 % 2 is 1. It is commonly used to test whether a number is even, as in if (n % 2 == 0).
+Operator precedence follows normal mathematics: * / and % are evaluated before + and -, and brackets override that order.
+A common bug is writing average = a + b / 2 when the intent was (a + b) / 2.

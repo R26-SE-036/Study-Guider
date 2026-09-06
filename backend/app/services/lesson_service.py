@@ -28,6 +28,7 @@ import json
 from app.core.config import settings
 from app.db.neo4j_connection import neo4j_db
 from app.services.llm import LLMUnavailable, generate, strip_code_fence
+from app.services import learning_path_service, progress_service
 from app.services.ml_service import predict_cognitive_state
 from app.services.rag_service import retrieve_context
 
@@ -45,6 +46,14 @@ direct correction.
 
 === SYLLABUS NOTES (Use ONLY as background context) ===
 {context}
+======================
+
+=== THIS STUDENT'S RECORD (from the knowledge graph) ===
+{graph_context}
+INSTRUCTION: Use this to pitch the lesson. If a prerequisite below is listed as
+not yet mastered, explain that idea briefly BEFORE the error itself - the error
+is a symptom of the gap, not the gap. If they have attempted this concept
+before, acknowledge it rather than teaching it as if for the first time.
 ======================
 
 Generate a DETAILED, COMPREHENSIVE micro-lesson specifically addressing the
@@ -126,11 +135,68 @@ def past_score_for(student_id: str) -> int:
     return int(average) if average is not None else 50
 
 
+def build_graph_context(student_id: str, concept_tag: str) -> str:
+    """What the knowledge graph knows about THIS student and THIS concept.
+
+    This is the "Graph" half of Graph RAG, and it was missing. The pipeline
+    retrieved syllabus text and stopped there, so every student with the same
+    error got the same lesson - which is retrieval-augmented, but not
+    personalised, and the proposal claims both.
+
+    Two things go in: how well BKT believes they know the concept, and which of
+    its prerequisites they have not mastered. The second is the more useful of
+    the two, because a student failing at array indexing because they never got
+    loop boundaries needs to be taught loop boundaries, and no amount of
+    explaining array indexing will do it.
+
+    Returns plain prose rather than JSON: it is going into a prompt, and a
+    model reads a sentence more reliably than it reads a nested object.
+    """
+    if not concept_tag:
+        return "No concept tag was supplied, so no record could be looked up."
+
+    lines: list[str] = []
+
+    try:
+        mastery = progress_service.get_concept_mastery(student_id, concept_tag)
+    except Exception as error:  # pragma: no cover - the lesson matters more
+        print(f"⚠️ Could not read mastery for the prompt: {error}")
+        mastery = None
+
+    if mastery:
+        lines.append(
+            f"- Concept '{concept_tag}': {mastery['attempts']} quiz attempt(s), "
+            f"average {mastery['average_percentage']}%. Knowledge-tracing belief "
+            f"they know it: {mastery['probability_known']:.0%}"
+            f"{' (mastered)' if mastery['mastered'] else ' (not yet mastered)'}."
+        )
+    else:
+        lines.append(
+            f"- Concept '{concept_tag}': no quiz attempts yet. This is the first "
+            "time they are being taught it."
+        )
+
+    try:
+        gaps = learning_path_service.unmastered_prerequisites(student_id, concept_tag)
+    except Exception as error:  # pragma: no cover
+        print(f"⚠️ Could not read prerequisites for the prompt: {error}")
+        gaps = []
+
+    if gaps:
+        listed = ", ".join(gap["concept"] for gap in gaps)
+        lines.append(f"- Prerequisites they have NOT mastered: {listed}.")
+    else:
+        lines.append("- No unmastered prerequisites stand in front of this concept.")
+
+    return "\n".join(lines)
+
+
 def generate_real_lesson(
     student_id: str,
     error_type: str,
     code_snippet: str,
     error_count: int,
+    concept_tag: str = "",
 ) -> dict:
     """Build a lesson, or raise LLMUnavailable.
 
@@ -146,6 +212,7 @@ def generate_real_lesson(
         error_count, code_snippet, past_score_for(student_id)
     )
     context = retrieve_context(f"{error_type} {code_snippet}", k=2)
+    graph_context = build_graph_context(student_id, concept_tag)
 
     text = generate(
         PROMPT.format(
@@ -153,6 +220,7 @@ def generate_real_lesson(
             code_snippet=code_snippet,
             cognitive_state=cognitive_state,
             context=context,
+            graph_context=graph_context,
         )
     )
 

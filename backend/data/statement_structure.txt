@@ -1,0 +1,7 @@
+Topic: Statement Structure and Blocks in Java
+Every Java statement ends with a semicolon. Missing one is a compile error, usually reported on the following line, which is why the real mistake is often just above where the compiler points.
+A block is a group of statements inside braces. Blocks define scope: a variable declared inside a block exists only within it.
+A stray semicolon immediately after an if or a for header ends the statement early. Writing if (x > 0); followed by a block compiles, but the block always runs regardless of the condition, because the semicolon is the entire if body.
+Braces are optional for a single statement but should always be written. Without them, adding a second line later silently leaves it outside the if.
+Indentation has no meaning to the Java compiler. Code that looks nested may not be. Matching braces are what decide structure.
+Each opening brace needs a closing one. When the compiler reports that it reached the end of file while parsing, a closing brace is missing.

@@ -1,0 +1,8 @@
+Topic: Variables and Assignment in Java
+A variable must be declared with a type before it is used: int count; declares an integer named count.
+The = operator assigns: count = 5 stores 5 in count. It is read right to left, so x = y copies the value of y into x, not the other way round.
+Declaration and assignment are often combined: int count = 5.
+A local variable must be assigned before it is read, or the compiler reports that the variable might not have been initialized. Fields get a default value of 0, false or null, but local variables do not.
+Assignment is not equality. The expression x = 10 stores 10 and evaluates to 10, while the expression x == 10 asks a question and evaluates to true or false.
+Compound assignments are shorthand: count += 1 means count = count + 1.
+A frequent beginner bug is swapping two variables with a = b; b = a; which loses the original value of a. A temporary variable is needed.

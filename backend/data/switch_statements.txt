@@ -1,0 +1,8 @@
+Topic: Switch Statements and Fall-Through in Java
+A switch chooses between several branches based on one value. It works with int, char, String and enum types.
+Each branch is a case label. Execution jumps to the matching label and then continues downward until it meets a break.
+That continuation is called fall-through, and forgetting break is the classic switch bug: matching case 1 runs case 1, then case 2, then case 3, until a break or the end of the switch.
+Deliberate fall-through is legal and occasionally useful for grouping labels that share a body, so write a comment when it is intended.
+The default label handles every value no other case matched. Leaving it out means an unmatched value silently does nothing.
+A case label must be a compile-time constant. A variable cannot be used as a label.
+The newer arrow form, written as case 1 -> doSomething();, does not fall through at all and avoids the problem entirely.

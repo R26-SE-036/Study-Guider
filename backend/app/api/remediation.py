@@ -24,7 +24,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
 from app.core.auth import CurrentUser, get_current_user
-from app.services import code_coach_client
+from app.services import code_coach_client, progress_service
 from app.services.code_coach_client import CodeCoachError
 
 router = APIRouter()
@@ -40,6 +40,10 @@ def _forward(call) -> Any:
 
 class LessonOpenedRequest(BaseModel):
     lesson_id: str
+    # Optional. The concept normally comes back on the forwarded trigger;
+    # this is the fallback for a caller that already knows it, so the
+    # lesson clock can start even when the trigger payload is thin.
+    concept_tag: str | None = None
 
 
 class QuizCompletedRequest(BaseModel):
@@ -135,6 +139,19 @@ def mark_lesson_opened(
             json={"lesson_id": body.lesson_id},
         )
     )
+
+    # FR-07: start the clock. The quiz attempt records how long elapsed between
+    # here and its submission, which is the "time spent on the lesson" half of
+    # remediation monitoring - accuracy was already tracked, this was not.
+    #
+    # After the forward, and never allowed to fail the request: the trigger
+    # moving off `pending` is what stops the student being nagged about a
+    # concept they are working through, and that matters more than a timing
+    # measurement.
+    trigger = payload.get("trigger") or {}
+    concept_tag = trigger.get("concept_tag") or body.concept_tag
+    if concept_tag:
+        progress_service.record_lesson_opened(user.student_id, concept_tag)
 
     return {"success": True, "trigger": payload.get("trigger")}
 

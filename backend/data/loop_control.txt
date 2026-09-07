@@ -1,0 +1,8 @@
+Topic: Loop Control in Java
+A loop repeats a block while its condition remains true. Java has for, while and do-while.
+A for loop gathers three parts on one line: initialisation, condition, and update, as in for (int i = 0; i < n; i++).
+Use a for loop when the number of repetitions is known in advance, and a while loop when it depends on something discovered during the loop.
+A do-while always runs its body at least once, because the condition is tested at the bottom.
+The break statement exits the loop immediately. The continue statement skips the rest of the current iteration and jumps to the next one.
+The most common loop bug is an infinite loop, caused by a condition variable that is never updated inside the body. If the loop never ends, check that something inside it changes the value the condition tests.
+Nested loops multiply: an outer loop of n and an inner loop of m run the inner body n times m. Each nested loop needs its own counter variable.

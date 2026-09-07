@@ -1,0 +1,8 @@
+Topic: Control Flow in Java
+Control flow is the order in which statements run. By default Java runs statements top to bottom, one after another.
+Three things change that order: selection with if, else and switch, repetition with for, while and do-while, and jumps with break, continue and return.
+An if statement runs its block only when the condition is true. An else block runs when it is false. An else if chain tests alternatives in order and stops at the first match.
+Only one branch of an if-else chain ever runs. Writing a series of separate if statements instead means several can run, which is usually not what was intended.
+A block is marked by braces. Without braces only the single next statement belongs to the if, which is why omitting them causes bugs when a second line is added later.
+The return statement leaves the method immediately, so any code after it in that path never runs and the compiler reports it as unreachable.
+Tracing control flow by hand, line by line with the current values written down, is the fastest way to find a logic error.

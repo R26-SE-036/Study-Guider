@@ -1,198 +1,512 @@
-import os
+"""Generate a micro-lesson for one student's specific mistake.
+
+The lesson is GENERATED, every time, by a language model, using the student's
+cognitive state and the retrieved syllabus context. There is no template and no
+fallback: if it cannot be generated, the caller is told so.
+
+============================ WHAT CHANGED, AND WHY ============================
+This module used to end every failure path in `get_smart_fallback`, which
+returned invented lesson text - a title of "Logical Issue Detected: {error_type}",
+an explanation reading "Hello {student_id}, we noticed a struggle with...", a
+fixed Mermaid diagram, and a YouTube *search* URL dressed as a reference.
+
+That fallback was being served in place of real output, because the configured
+model (`openai/gpt-oss-20b:free` on OpenRouter) no longer exists and the account
+has no credits. The endpoint answered 200 the whole time, so it looked like it
+was working. It was not.
+
+Both problems are removed together: generation moves to Gemini, which the
+platform already uses for embeddings, and the fallback is deleted rather than
+repaired. Invented content that reaches a student, a screenshot or a viva is
+worse than an honest failure - and an honest failure is the only thing that
+makes a broken API key visible.
+==============================================================================
+"""
+
 import json
-import requests
-from langchain_openai import ChatOpenAI
-from langchain_core.prompts import PromptTemplate
-from app.services.rag_service import retrieve_context
-from app.services.ml_service import predict_cognitive_state
+from datetime import datetime, timezone
+
 from app.core.config import settings
 from app.db.neo4j_connection import neo4j_db
+from app.services.llm import LLMUnavailable, generate, strip_code_fence
+from app.services import learning_path_service, progress_service
+from app.services.ml_service import predict_cognitive_state
+from app.services.rag_service import retrieve_context
 
-try:
-    # Initialize OpenRouter using OpenAI compatible endpoint
-    llm = ChatOpenAI(
-        model=settings.MODEL_NAME, 
-        temperature=0.3, 
-        api_key=settings.OPENROUTER_API_KEY,
-        base_url="https://openrouter.ai/api/v1",
-        max_retries=0, 
-        timeout=10 
+PROMPT = """
+You are 'Code Guru', an expert computer science tutor for first-year IT students.
+
+CRITICAL: You MUST focus ONLY on this specific error: "{error_type}"
+Student's Code: "{code_snippet}"
+
+=== MACHINE LEARNING COGNITIVE ANALYSIS ===
+Predicted Student Cognitive State: "{cognitive_state}"
+INSTRUCTION: If the state is "High Cognitive Load" or "Needs Simple Basics",
+explain it extremely simply, step-by-step. If "Minor Syntax Error", give a quick
+direct correction.
+
+=== SYLLABUS NOTES (Use ONLY as background context) ===
+{context}
+======================
+
+=== THIS STUDENT'S RECORD (from the knowledge graph) ===
+{graph_context}
+INSTRUCTION: Use this to pitch the lesson. If a prerequisite below is listed as
+not yet mastered, explain that idea briefly BEFORE the error itself - the error
+is a symptom of the gap, not the gap. If they have attempted this concept
+before, acknowledge it rather than teaching it as if for the first time.
+======================
+
+Generate a DETAILED, COMPREHENSIVE micro-lesson specifically addressing the
+"{error_type}". The "explanation" field MUST be at least 150-200 words. Break
+down exactly why the error happens and how to think about the logic correctly.
+Do NOT give a generic lesson - it must be specific to the code provided.
+
+Also generate a simple Mermaid.js chart (graph TD) showing the visual breakdown
+of THIS specific error. Emit clean mermaid, with no markdown backticks.
+Node labels must be plain words only - no parentheses, brackets, braces or
+quotes inside a label. Mermaid treats those as syntax and refuses to parse the
+whole diagram, so "A[Check index (i)]" loses the student the entire chart.
+Write "A[Check the index i]" instead.
+
+"incorrectCode" and "correctCode" must be the SAME few lines of code, once
+broken and once fixed, so they can be read side by side. Put no `//` comment
+markers in front of the code itself in either field - the interface labels which
+is which and colours them, so commenting the broken version out makes it
+unreadable and hides the very thing the student is meant to look at. A short
+explanatory comment INSIDE the code is fine where it earns its place.
+
+Respond with JSON only, exactly in this shape:
+{{
+    "issue": "A specific 1-sentence title about {error_type}",
+    "explanation": "A detailed, step-by-step explanation (MINIMUM 150 words) adapted to the cognitive state and this specific error.",
+    "incorrectCode": "ONLY the broken code, as real runnable-looking Java. Do NOT comment it out. Do NOT include the fix.",
+    "correctCode": "ONLY the corrected version of the same code. Do NOT comment it out. Do NOT include the broken version.",
+    "mermaidDiagram": "graph TD\\n A[Step 1] --> B[Step 2]",
+    "videoUrl": "A YouTube URL relevant to {error_type}",
+    "referenceLink": "A documentation link relevant to {error_type}",
+    "hint": "A guiding question specific to {error_type}"
+}}
+"""
+
+REQUIRED_FIELDS = ("issue", "explanation")
+
+
+def split_legacy_example(example: str) -> tuple[str, str]:
+    """Separate a pre-2026-09 `exampleCode` blob into (incorrect, correct).
+
+    ── Why this exists ─────────────────────────────────────────────────────
+    The prompt used to ask for "the student's incorrect code as a comment, and
+    the correct way underneath", so a lesson arrived as one block in which the
+    broken version was commented out:
+
+        // Incorrect: missing break causes fall-through
+        // switch (day) {
+        //     case 1:
+        // }
+
+        switch (day) {
+            case 1:
+                break;
+        }
+
+    Rendered as a single grey block that is genuinely hard to read: the part the
+    student most needs to look at is the part styled as a comment, and nothing
+    says which half is which.
+
+    New lessons carry `incorrectCode` and `correctCode` separately. This exists
+    only for the ones already cached in the graph - up to seven days of them -
+    and for any that a model still returns in the old shape. It is a heuristic
+    on purpose: a lesson from the old format is worth showing well, but not
+    worth building a Java parser for.
+
+    Returns ("", "") when the blob has no commented section, because a blob that
+    is entirely live code cannot be split into a wrong half and a right half,
+    and inventing a division would be worse than showing it unchanged.
+    """
+    if not example:
+        return "", ""
+
+    commented: list[str] = []
+    plain: list[str] = []
+
+    for raw in example.splitlines():
+        stripped = raw.strip()
+
+        if stripped.startswith("//"):
+            # Drop the marker and at most ONE following space - the space the
+            # comment convention adds. Everything after it is the code's own
+            # indentation, and flattening it turns a nested switch into a list
+            # of unrelated lines, which is most of what made the old rendering
+            # hard to read in the first place.
+            body = stripped[2:]
+            if body.startswith(" "):
+                body = body[1:]
+
+            # A label line ("Incorrect: ...", "Correct: ...") is prose about the
+            # code rather than code, and the interface supplies its own heading.
+            if _is_label(body.lstrip()):
+                continue
+
+            commented.append(body)
+        else:
+            plain.append(raw)
+
+    if not commented:
+        return "", ""
+
+    return ("\n".join(commented).strip(), "\n".join(plain).strip())
+
+
+_LABEL_PREFIXES = (
+    "incorrect",
+    "correct",
+    "wrong",
+    "right",
+    "bad",
+    "good",
+    "before",
+    "after",
+    "fixed",
+    "broken",
+)
+
+
+def _is_label(comment_body: str) -> bool:
+    """Is this comment a heading for the block rather than part of the code?"""
+    lowered = comment_body.lower()
+    return any(
+        lowered.startswith(prefix) and (":" in lowered[: len(prefix) + 2] or lowered == prefix)
+        for prefix in _LABEL_PREFIXES
     )
-except Exception as e:
-    llm = None
 
-def get_smart_fallback(student_id, error_type, code_snippet):
-    return {
-        "issue": f"Logical Issue Detected: {error_type}",
-        "explanation": f"Hello {student_id}, we noticed a struggle with {error_type}. Ensure you are using the correct syntax and logic.",
-        "exampleCode": f"// Your Code:\n// {code_snippet}\n\n// Tip: Double check your operators and boundaries.",
-        "mermaidDiagram": "graph TD\n    A[Code Execution] --> B{Check Condition}\n    B -- Invalid --> C[Logical Error]\n    B -- Valid --> D[Success]\n    style C fill:#FF453A,stroke:#333",
-        "videoUrl": f"https://www.youtube.com/results?search_query=java+{error_type.replace('_', '+')}",
-        "referenceLink": "https://docs.oracle.com/javase/tutorial/java/nutsandbolts/",
-        "hint": "Check your logic boundaries and operators."
+
+def _extract_json(text: str) -> dict:
+    """Pull the JSON object out of a chat response.
+
+    Models wrap JSON in prose and code fences even when told not to, so the
+    outermost braces are located rather than trusting the whole response to
+    parse. A response that yields no object is a generation failure, not
+    something to paper over.
+    """
+    cleaned = strip_code_fence(text)
+
+    try:
+        return json.loads(cleaned)
+    except json.JSONDecodeError:
+        pass
+
+    start, end = cleaned.find("{"), cleaned.rfind("}")
+    if start == -1 or end <= start:
+        raise LLMUnavailable("The model did not return a JSON object.")
+
+    try:
+        return json.loads(cleaned[start : end + 1])
+    except json.JSONDecodeError as error:
+        raise LLMUnavailable(f"The model returned malformed JSON: {error}") from error
+
+
+def past_score_for(student_id: str) -> int:
+    """The student's average quiz score so far, as a percentage.
+
+    Read from their actual attempt history in the graph. This used to be a
+    constant chosen by string-matching the error type - "LOOP" in the name gave
+    30, "ARRAY" gave 60, anything else 80 - which meant the cognitive-state
+    model's inputs never varied by student and its output was a three-branch
+    lookup table wearing a model's name.
+
+    50 for a student with no history: neutral, and the same midpoint the rest of
+    the platform treats as the pass mark.
+    """
+    if not neo4j_db.driver:
+        return 50
+
+    rows = neo4j_db.execute_query(
+        """
+        MATCH (:Student {student_id: $student_id})-[a:ATTEMPTED]->(:Concept)
+        RETURN avg(a.percentage) AS average
+        """,
+        {"student_id": student_id},
+    )
+
+    average = (rows or [{}])[0].get("average") if rows else None
+    return int(average) if average is not None else 50
+
+
+def build_graph_context(student_id: str, concept_tag: str) -> str:
+    """What the knowledge graph knows about THIS student and THIS concept.
+
+    This is the "Graph" half of Graph RAG, and it was missing. The pipeline
+    retrieved syllabus text and stopped there, so every student with the same
+    error got the same lesson - which is retrieval-augmented, but not
+    personalised, and the proposal claims both.
+
+    Two things go in: how well BKT believes they know the concept, and which of
+    its prerequisites they have not mastered. The second is the more useful of
+    the two, because a student failing at array indexing because they never got
+    loop boundaries needs to be taught loop boundaries, and no amount of
+    explaining array indexing will do it.
+
+    Returns plain prose rather than JSON: it is going into a prompt, and a
+    model reads a sentence more reliably than it reads a nested object.
+    """
+    if not concept_tag:
+        return "No concept tag was supplied, so no record could be looked up."
+
+    lines: list[str] = []
+
+    try:
+        mastery = progress_service.get_concept_mastery(student_id, concept_tag)
+    except Exception as error:  # pragma: no cover - the lesson matters more
+        print(f"⚠️ Could not read mastery for the prompt: {error}")
+        mastery = None
+
+    if mastery:
+        lines.append(
+            f"- Concept '{concept_tag}': {mastery['attempts']} quiz attempt(s), "
+            f"average {mastery['average_percentage']}%. Knowledge-tracing belief "
+            f"they know it: {mastery['probability_known']:.0%}"
+            f"{' (mastered)' if mastery['mastered'] else ' (not yet mastered)'}."
+        )
+    else:
+        lines.append(
+            f"- Concept '{concept_tag}': no quiz attempts yet. This is the first "
+            "time they are being taught it."
+        )
+
+    try:
+        gaps = learning_path_service.unmastered_prerequisites(student_id, concept_tag)
+    except Exception as error:  # pragma: no cover
+        print(f"⚠️ Could not read prerequisites for the prompt: {error}")
+        gaps = []
+
+    if gaps:
+        listed = ", ".join(gap["concept"] for gap in gaps)
+        lines.append(f"- Prerequisites they have NOT mastered: {listed}.")
+    else:
+        lines.append("- No unmastered prerequisites stand in front of this concept.")
+
+    return "\n".join(lines)
+
+
+def generate_real_lesson(
+    student_id: str,
+    error_type: str,
+    code_snippet: str,
+    error_count: int,
+    concept_tag: str = "",
+    force_regenerate: bool = False,
+) -> dict:
+    """Build a lesson, or raise LLMUnavailable.
+
+    Raises rather than returning a placeholder. The API layer turns this into a
+    503, so a student is told the lesson could not be built - which is true -
+    instead of being shown something invented, which is not.
+
+    `error_count` is the real repeat count behind the trigger, passed down from
+    the caller, and `past_score` comes from this student's own attempt history.
+    Both used to be constants derived from the error type's spelling.
+    """
+    cognitive_state = predict_cognitive_state(
+        error_count, code_snippet, past_score_for(student_id)
+    )
+
+    # Before spending a model call, check whether this exact lesson already
+    # exists. Lessons were being cached and never read, so a page refresh cost
+    # a full generation - which is where most of the API quota was going.
+    if not force_regenerate:
+        cached = _cached_lesson(student_id, error_type, cognitive_state)
+        if cached:
+            print(f"Lesson cache HIT for {error_type} / {cognitive_state}")
+            return {**cached, "cognitive_state": cognitive_state, "cached": True}
+
+    context = retrieve_context(f"{error_type} {code_snippet}", k=2)
+    graph_context = build_graph_context(student_id, concept_tag)
+
+    text = generate(
+        PROMPT.format(
+            error_type=error_type,
+            code_snippet=code_snippet,
+            cognitive_state=cognitive_state,
+            context=context,
+            graph_context=graph_context,
+        )
+    )
+
+    lesson = _extract_json(text)
+
+    missing = [field for field in REQUIRED_FIELDS if not lesson.get(field)]
+    if missing:
+        # A response missing the fields the lesson is made of is not a lesson.
+        # Filling the gaps with defaults is how a half-generated answer starts
+        # looking like a whole one.
+        raise LLMUnavailable(f"The generated lesson was missing: {', '.join(missing)}")
+
+    # A model may still answer in the old single-field shape whatever the
+    # prompt says, so the split is applied to whatever it returns rather than
+    # trusting it to have followed instructions.
+    incorrect = lesson.get("incorrectCode", "") or ""
+    correct = lesson.get("correctCode", "") or ""
+    example = lesson.get("exampleCode", "") or ""
+
+    if not (incorrect and correct) and example:
+        incorrect, correct = split_legacy_example(example)
+
+    result = {
+        "cached": False,
+        "issue": lesson.get("issue", ""),
+        "explanation": lesson.get("explanation", ""),
+        "incorrectCode": incorrect,
+        "correctCode": correct,
+        # Kept so a client written against the old shape still gets something,
+        # and so a blob that could not be split is still shown rather than lost.
+        "exampleCode": example,
+        "mermaidDiagram": lesson.get("mermaidDiagram", ""),
+        "videoUrl": lesson.get("videoUrl", ""),
+        "referenceLink": lesson.get("referenceLink", ""),
+        "hint": lesson.get("hint", ""),
+        "cognitive_state": cognitive_state,
     }
 
-def generate_real_lesson(student_id: str, error_type: str, code_snippet: str):
-    if not settings.OPENROUTER_API_KEY:
-        return get_smart_fallback(student_id, error_type, code_snippet)
+    _cache_lesson(student_id, error_type, cognitive_state, result)
+    return result
 
-    # =====================================================================
-    # 🚀 STEP 1: NEO4J SEMANTIC CACHING - TEMPORARILY DISABLED FOR TESTING
-    # =====================================================================
-    # අපි මේ ටික comment කරලා තියෙන්නේ පරණ පාඩම එන එක නවත්තලා, හැමපාරම 
-    # අලුත්ම දිග පාඩමක් AI එකෙන් generate කරගන්න ඕන නිසයි.
-    
-    # cache_query = """
-    # MATCH (e:ErrorType {name: $error_type})-[:HAS_LESSON]->(l:Lesson)
-    # RETURN l.issue AS issue, l.explanation AS explanation, l.exampleCode AS exampleCode,
-    #        l.mermaidDiagram AS mermaidDiagram, l.videoUrl AS videoUrl, l.referenceLink AS referenceLink, l.hint AS hint
-    # """
-    # try:
-    #     cached_result = neo4j_db.execute_query(cache_query, {"error_type": error_type})
-    #     if cached_result and len(cached_result) > 0:
-    #         print(f"\n⚡ CACHE HIT! Serving lesson for '{error_type}' directly from Neo4j DB (0 API Calls, 0 Latency).")
-    #         return cached_result[0]
-    # except Exception as cache_err:
-    #     print(f"⚠️ Cache read error: {cache_err}")
 
-    print(f"\n⚠️ CACHE BYPASSED! Generating a brand new, detailed lesson for '{error_type}' via OpenRouter API...")
-    # =====================================================================
+# How long a cached lesson stays usable. Seven days: long enough that a student
+# working through one concept over a week never pays for regeneration, short
+# enough that a change to the prompt or the syllabus reaches everyone quickly.
+CACHE_TTL_SECONDS = 7 * 24 * 60 * 60
 
-    # --- DYNAMIC METRICS ---
-    if "LOOP" in error_type:
-        error_count = 6
-        past_score = 30
-    elif "ARRAY" in error_type:
-        error_count = 4
-        past_score = 60
-    else:
-        error_count = 3
-        past_score = 80
+# Fields that make up a lesson, in one place so the read and the write cannot
+# disagree about what a cached lesson contains.
+LESSON_FIELDS = (
+    "issue",
+    "explanation",
+    "incorrectCode",
+    "correctCode",
+    "exampleCode",
+    "mermaidDiagram",
+    "videoUrl",
+    "referenceLink",
+    "hint",
+)
 
-    search_query = f"Explain {error_type} and how to fix {code_snippet}"
-    retrieved_context = retrieve_context(search_query)
 
-    cognitive_state = predict_cognitive_state(error_count, code_snippet, past_score)
-    print(f"🎯 Guiding AI based on ML Prediction: {cognitive_state}")
+def _cached_lesson(student_id: str, error_type: str, cognitive_state: str) -> dict | None:
+    """A lesson already generated for this student, error and state.
 
-    # 🛠️ UPDATED PROMPT: Forcing a detailed, longer response (Min 150 words)
-    prompt_template = """
-    You are 'Code Guru', an expert computer science tutor for first-year IT students.
-    
-    CRITICAL: You MUST focus ONLY on this specific error: "{error_type}"
-    Student's Code: "{code_snippet}"
+    ── Why this function did not exist, and why it matters ──────────────────
+    Lessons were being WRITTEN to the graph and never read back. Every request
+    called the model, including a page refresh on a lesson the student had just
+    read - so re-opening a lesson cost a full generation, and the API quota was
+    being spent on content that already existed.
 
-    === MACHINE LEARNING COGNITIVE ANALYSIS ===
-    Predicted Student Cognitive State: "{cognitive_state}"
-    INSTRUCTION: If the state is "High Cognitive Load" or "Needs Simple Basics", explain it extremely simply, step-by-step. If "Minor Syntax Error", give a quick direct correction.
+    ── Why the key includes the student ─────────────────────────────────────
+    It would be cheaper to cache per error type alone, and that is what the
+    write did. It is now wrong to: the prompt carries this student's mastery
+    and their unmastered prerequisites, so a generated lesson can open with
+    "you have practiced this before". Serving that to a different student would
+    be a lie the cache invented, which is worse than the cost it saves.
 
-    === SYLLABUS NOTES (Use ONLY as background context) ===
-    {context}
-    ======================
-
-    Generate a DETAILED, COMPREHENSIVE micro-lesson specifically addressing the "{error_type}". 
-    The "explanation" field MUST be at least 150-200 words long. It should be highly educational, breaking down exactly why the error happens and how to think about the logic correctly. 
-    Do NOT give a generic lesson. It must be specific to the code provided.
-    Also, generate a simple 'Mermaid.js' chart (graph TD) showing the visual breakdown of THIS specific error. Ensure the mermaid code is clean, without markdown backticks.
-    
-    Provide the response EXACTLY in this JSON format:
-    {{
-        "issue": "A specific 1-sentence title about {error_type}",
-        "explanation": "A detailed, step-by-step pedagogical explanation (MINIMUM 150 words) adapted to the ML Cognitive State and the specific error.",
-        "exampleCode": "Show the student's incorrect code as a comment, and the correct way underneath.",
-        "mermaidDiagram": "graph TD\\n A[Step 1] --> B[Step 2]",
-        "videoUrl": "Provide YouTube URL relevant to {error_type}",
-        "referenceLink": "Provide Documentation link relevant to {error_type}",
-        "hint": "A guiding question specific to {error_type}"
-    }}
+    Cognitive state is in the key for the same reason - it changes how the
+    lesson is pitched, so a lesson written for "Needs Simple Basics" is not the
+    one to hand back when the student is now on "Minor Syntax Error".
     """
-
-    prompt = PromptTemplate(input_variables=["student_id", "error_type", "code_snippet", "cognitive_state", "context"], template=prompt_template)
-    
-    formatted_prompt = prompt.format(
-        student_id=student_id, 
-        error_type=error_type, 
-        code_snippet=code_snippet, 
-        cognitive_state=cognitive_state,
-        context=retrieved_context
-    )
-    
-    content = ""
+    if not neo4j_db.driver:
+        return None
 
     try:
-        response = llm.invoke(formatted_prompt)
-        content = response.content
-        print("✅ Generation Success: Using LangChain (OpenRouter)")
-    except Exception as e:
-        print(f"\n⚠️ LangChain Failed: {e}. Switching to OpenRouter Fallback API...")
-        try:
-            url = "https://openrouter.ai/api/v1/chat/completions"
-            headers = {
-                "Authorization": f"Bearer {settings.OPENROUTER_API_KEY}",
-                "Content-Type": "application/json"
-            }
-            data = {
-                "model": settings.MODEL_NAME,
-                "messages": [{"role": "user", "content": formatted_prompt}],
-                "temperature": 0.3
-            }
-            res = requests.post(url, headers=headers, json=data, timeout=10)
-            if res.status_code == 200:
-                content = res.json()['choices'][0]['message']['content']
-            else:
-                raise Exception(f"API Error {res.status_code}")
-        except Exception as fallback_error:
-            print(f"⚠️ Fallback API Failed: {fallback_error}. Serving Mock Data.")
-            return get_smart_fallback(student_id, error_type, code_snippet)
-
-    if isinstance(content, list) and len(content) > 0 and isinstance(content[0], dict) and 'text' in content[0]:
-        content = content[0]['text']
-
-    try:
-        parsed_lesson = None
-        if isinstance(content, dict):
-            parsed_lesson = content
-        elif isinstance(content, str):
-            content = content.replace("```json", "").replace("```", "").strip()
-            start_index = content.find('{')
-            end_index = content.rfind('}')
-            if start_index != -1 and end_index != -1:
-                clean_json = content[start_index:end_index+1].replace("\\n", "\\\\n")
-                parsed_lesson = json.loads(clean_json)
-        
-        if parsed_lesson is None:
-            return get_smart_fallback(student_id, error_type, code_snippet)
-
-        # =====================================================================
-        # 🚀 STEP 2: NEO4J SEMANTIC CACHING - SAVE NEW LESSON TO CACHE
-        # =====================================================================
-        # අලුතින් හැදෙන දිග පාඩම ආයෙත් Database එකේ save වෙනවා.
-        save_cache_query = """
-        MERGE (e:ErrorType {name: $error_type})
-        MERGE (l:Lesson {
-            issue: $issue, explanation: $explanation, exampleCode: $exampleCode,
-            mermaidDiagram: $mermaidDiagram, videoUrl: $videoUrl, referenceLink: $referenceLink, hint: $hint
-        })
-        MERGE (e)-[:HAS_LESSON]->(l)
-        """
-        try:
-            neo4j_db.execute_query(save_cache_query, {
+        rows = neo4j_db.execute_query(
+            """
+            MATCH (s:Student {student_id: $student_id})
+                  -[c:CACHED_LESSON {error_type: $error_type,
+                                     cognitive_state: $cognitive_state}]->(l:Lesson)
+            RETURN l AS lesson, c.generated_at AS generated_at
+            ORDER BY c.generated_at DESC
+            LIMIT 1
+            """,
+            {
+                "student_id": student_id,
                 "error_type": error_type,
-                "issue": parsed_lesson.get("issue", ""),
-                "explanation": parsed_lesson.get("explanation", ""),
-                "exampleCode": parsed_lesson.get("exampleCode", ""),
-                "mermaidDiagram": parsed_lesson.get("mermaidDiagram", ""),
-                "videoUrl": parsed_lesson.get("videoUrl", ""),
-                "referenceLink": parsed_lesson.get("referenceLink", ""),
-                "hint": parsed_lesson.get("hint", "")
+                "cognitive_state": cognitive_state,
+            },
+        )
+    except Exception as error:  # pragma: no cover - a cache miss is not fatal
+        print(f"⚠️ Could not read the lesson cache: {error}")
+        return None
+
+    row = (rows or [None])[0]
+    if not row or not row.get("lesson"):
+        return None
+
+    generated_at = row.get("generated_at")
+    if generated_at:
+        try:
+            age = (
+                datetime.now(timezone.utc) - datetime.fromisoformat(generated_at)
+            ).total_seconds()
+            if age > CACHE_TTL_SECONDS:
+                return None
+        except (TypeError, ValueError):
+            # An unparseable timestamp means we cannot prove it is fresh, and a
+            # stale lesson is worse than paying for a new one.
+            return None
+
+    lesson = dict(row["lesson"])
+    cached = {field: lesson.get(field, "") for field in LESSON_FIELDS}
+
+    # Lessons cached before the example was split into two fields carry only the
+    # old commented-out blob. Splitting on READ as well as on generate means the
+    # up-to-seven-days of them already in the graph render in the new format
+    # rather than falling back to the blob until they expire.
+    if not (cached.get("incorrectCode") and cached.get("correctCode")):
+        incorrect, correct = split_legacy_example(cached.get("exampleCode", ""))
+        if incorrect and correct:
+            cached["incorrectCode"] = incorrect
+            cached["correctCode"] = correct
+
+    return cached
+
+
+def _cache_lesson(
+    student_id: str, error_type: str, cognitive_state: str, lesson: dict
+) -> None:
+    """Record the lesson so the next request does not have to generate it.
+
+    Best effort. A cache write that fails must not cost the student the lesson
+    that was just generated for them.
+    """
+    if not neo4j_db.driver:
+        return
+
+    try:
+        neo4j_db.execute_query(
+            """
+            MERGE (s:Student {student_id: $student_id})
+            CREATE (l:Lesson {
+                issue: $issue,
+                explanation: $explanation,
+                incorrectCode: $incorrectCode,
+                correctCode: $correctCode,
+                exampleCode: $exampleCode,
+                mermaidDiagram: $mermaidDiagram,
+                videoUrl: $videoUrl,
+                referenceLink: $referenceLink,
+                hint: $hint
             })
-            print(f"💾 NEW CACHE SAVED! Detailed Lesson for '{error_type}' successfully stored in Neo4j.")
-        except Exception as cache_save_err:
-            print(f"⚠️ Cache save error: {cache_save_err}")
-        # =====================================================================
-
-        return parsed_lesson
-
-    except Exception as parse_error:
-        print(f"❌ JSON Parsing Error: {parse_error}")
-        return get_smart_fallback(student_id, error_type, code_snippet)
+            CREATE (s)-[:CACHED_LESSON {
+                error_type: $error_type,
+                cognitive_state: $cognitive_state,
+                generated_at: $generated_at
+            }]->(l)
+            """,
+            {
+                "student_id": student_id,
+                "error_type": error_type,
+                "cognitive_state": cognitive_state,
+                "generated_at": datetime.now(timezone.utc).isoformat(),
+                **{field: lesson.get(field, "") for field in LESSON_FIELDS},
+            },
+        )
+    except Exception as error:  # pragma: no cover - cache is not load-bearing
+        print(f"⚠️ Could not cache the lesson: {error}")

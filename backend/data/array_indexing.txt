@@ -1,0 +1,9 @@
+Topic: Array Indexing in Java
+An array is a fixed-size block of values of the same type. Its length never changes after creation.
+Array indices start at 0. For an array of length n, the valid indices are 0 through n-1 inclusive.
+So for int[] marks = new int[5], the legal indices are 0, 1, 2, 3 and 4. There is no marks[5].
+Reading or writing an index outside that range throws ArrayIndexOutOfBoundsException at run time, not compile time, so the code compiles and then fails while running.
+The two most common mistakes are using arr[arr.length] to reach the last element, and looping with i <= arr.length.
+The last element is always arr[arr.length - 1].
+A negative index is equally invalid: arr[-1] does not mean the end in Java as it does in some other languages.
+When teaching this, draw the array as numbered boxes and point at the gap after the final box.

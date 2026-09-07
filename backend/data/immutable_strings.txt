@@ -1,0 +1,7 @@
+Topic: String Immutability in Java
+A Java String cannot be changed after it is created. Every method that appears to modify a String actually returns a new one.
+So name.toUpperCase() does not alter name. It returns a new String, and if the result is not assigned it is simply discarded.
+The correct form is name = name.toUpperCase().
+The same applies to trim, replace, substring and concat. Calling them as bare statements has no effect, and this is a very common beginner bug.
+Because Strings are immutable, building one inside a loop with += creates a new object on every iteration. For long loops use StringBuilder, call append, then call toString at the end.
+Immutability is also why Strings are safe to share between parts of a program: no other code can change the value underneath you.

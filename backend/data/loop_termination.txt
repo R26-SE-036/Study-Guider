@@ -1,0 +1,8 @@
+Topic: Loop Termination in Java
+A loop terminates when its condition becomes false. If that never happens the loop is infinite and the program hangs.
+Three things must line up: the condition must test a variable, the body must change that variable, and the change must move it toward making the condition false.
+A while loop whose counter is never incremented is the classic infinite loop: while (i < 10) with no i++ inside runs forever.
+Changing the variable in the wrong direction is equally fatal: while (i < 10) with i-- moves away from the exit forever.
+Writing while (true) is a deliberate infinite loop and is only correct when the body contains a break that is definitely reachable.
+Beware of testing floating point values for exact equality as a termination condition. Rounding means the value may step straight past the target and never equal it.
+Off-by-one errors show up here too: < and <= differ by exactly one iteration, which is often the difference between correct and out of bounds.

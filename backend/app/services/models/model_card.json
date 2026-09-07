@@ -1,0 +1,55 @@
+{
+  "trained_at": "2026-09-04T17:37:06.240592+00:00",
+  "label_provenance": "rubric",
+  "label_sources_in_file": [
+    "rubric",
+    "rubric_coverage_topup"
+  ],
+  "what_the_metric_means": "How closely this classifier reproduces the decision list in app/services/cognitive_rubric.py. The rubric is a stated pedagogical judgement, not an observation: nobody measured these students' cognitive load. This number is NOT accuracy at predicting cognitive state and must not be reported as such.",
+  "rows": 2253,
+  "features": [
+    "error_count",
+    "complexity_score",
+    "past_score"
+  ],
+  "classes": [
+    "High Cognitive Load",
+    "Needs Simple Basics",
+    "Minor Syntax Error"
+  ],
+  "class_balance": {
+    "Needs Simple Basics": 806,
+    "Minor Syntax Error": 781,
+    "High Cognitive Load": 666
+  },
+  "cv_macro_f1_mean": 0.9995,
+  "cv_macro_f1_std": 0.0009,
+  "holdout_macro_f1": 1.0,
+  "holdout_accuracy": 1.0,
+  "per_class": {
+    "High Cognitive Load": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 133.0
+    },
+    "Needs Simple Basics": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 162.0
+    },
+    "Minor Syntax Error": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 156.0
+    }
+  },
+  "feature_importance": {
+    "error_count": 0.3838,
+    "complexity_score": 0.4103,
+    "past_score": 0.2059
+  },
+  "used_for": "Choosing the register of the generated micro-lesson, and nothing else. It does not gate content, decide mastery, or reach a transcript."
+}

@@ -1,0 +1,7 @@
+Topic: Loop Initialisation in Java
+The initialisation part of a for loop runs exactly once, before the first test of the condition.
+It normally declares and sets the counter: for (int i = 0; i < n; i++) starts i at 0.
+The starting value matters. Array traversal starts at 0 because array indices start at 0. Counting for a person usually starts at 1.
+A counter declared in the for header exists only inside the loop. Referring to it after the loop is a compile error. Declare it before the loop if the final value is needed afterwards.
+Accumulators must be initialised before the loop, not inside it. Writing int sum = 0; inside the body resets the total on every iteration, so the result is only ever the last value added.
+The same applies to a running maximum or minimum: initialise it before the loop, and usually from the first element rather than from 0, which would be wrong for all-negative data.

@@ -1,19 +1,19 @@
+from app.db.vector_index import search
 
-from app.db.chroma_setup import get_vectorstore
 
 def retrieve_context(query: str, k=2):
-    """Searches the Vector DB for notes related to the student's error"""
+    """Searches the syllabus vector store for notes related to the student's error.
+
+    Backed by Neo4j's native vector index rather than a Chroma directory on
+    local disk - see app/db/vector_index.py for why. The contract is unchanged:
+    a string of context, or a sentence saying there is none.
+    """
     try:
-        vectorstore = get_vectorstore()
-        if not vectorstore:
+        matches = search(query, k=k)
+        if not matches:
             return "No specific university guidelines available."
-        
-        # Retrieve the top 'k' most relevant chunks
-        retriever = vectorstore.as_retriever(search_kwargs={"k": k})
-        docs = retriever.invoke(query)
-        
-        context = "\n".join([doc.page_content for doc in docs])
-        return context
+
+        return "\n".join(match["text"] for match in matches if match.get("text"))
     except Exception as e:
         print(f"⚠️ Retrieval Error: {e}")
         return "No specific university guidelines available."

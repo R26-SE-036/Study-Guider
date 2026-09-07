@@ -128,9 +128,20 @@ def get_game_summaries(student_id: str, limit: int = 50) -> dict:
 
     Read from `PLAYED`, never from `ATTEMPTED`. A caller wanting mastery asks
     progress_service; a caller wanting "what have they been playing" asks here.
+
+    Only rounds a person actually played are returned. The engine marks its own
+    simulated and automated rounds with `data_source`, and it transmits those
+    here like any other - correctly, since this is the record of what the engine
+    did. But the caller is a student looking at their own practice history, and
+    a round played by an integration test is not something they did. It showed
+    up as an unexplained failure in their list, which is worse than useless.
+
+    Rows written before `data_source` existed default to 'real' on the way in,
+    so nothing historical is hidden by this.
     """
     query = """
     MATCH (s:Student {student_id: $student_id})-[:PLAYED]->(g:GamePlay)-[:PRACTISED]->(c:Concept)
+    WHERE coalesce(g.data_source, 'real') = 'real'
     RETURN c.name AS concept,
            g.game_session_id AS game_session_id,
            g.game_type AS game_type,

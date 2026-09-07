@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 
-from app.api import struggle, quiz, progress, remediation, dashboard
+from app.api import dashboard, games, progress, quiz, remediation, struggle
 from app.core.config import settings
 from app.db.neo4j_connection import neo4j_db
 
@@ -29,6 +29,11 @@ app.include_router(quiz.router, prefix="/api/quiz", tags=["Validation Quiz"])
 app.include_router(progress.router, prefix="/api/progress", tags=["Progress Tracking"])
 app.include_router(remediation.router, prefix="/api/remediation", tags=["Remediation"])
 app.include_router(dashboard.router, prefix="/api/dashboard", tags=["Dashboard"])
+
+# Game rounds from the Adaptive Gamification Engine. Stored apart from the
+# progress graph on purpose - a game score is not a knowledge-tracing
+# observation. See app/services/game_summary_service.py.
+app.include_router(games.router, prefix="/api/games", tags=["Game Summaries"])
 
 @app.get("/")
 def read_root():

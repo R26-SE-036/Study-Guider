@@ -226,13 +226,13 @@ def test_a_grounded_lesson_is_cached_and_an_ungrounded_one_is_not(monkeypatch):
     monkeypatch.setattr(neo4j_connection.neo4j_db, "execute_query", fake_query)
 
     def cache_writes():
-        return [params for query, params in queries if "CREATE (s)-[:CACHED_LESSON" in query]
+        return [params for query, params in queries if "MERGE (l:Lesson {key: $key})" in query]
 
     monkeypatch.setattr(rag_service, "search", lambda *_a, **_k: [{"text": "Loops stop at n - 1.", "source": "loop_boundaries.txt"}])
     grounded = lesson_service.generate_real_lesson("student-1", "OFF_BY_ONE_LOOP_BOUNDARY", "x", 3, "loop_boundaries")
     assert grounded["grounding"] == {"syllabus_notes": "found", "student_record": "read"}
     assert len(cache_writes()) == 1
-    assert cache_writes()[0]["syllabus_notes"] == "found"
+    assert cache_writes()[0]["properties"]["syllabus_notes"] == "found"
 
     monkeypatch.setattr(rag_service, "search", lambda *_a, **_k: [])
     ungrounded = lesson_service.generate_real_lesson(

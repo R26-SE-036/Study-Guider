@@ -1,6 +1,6 @@
 """Generate a validation quiz for one student's specific mistake.
 
-Like the lesson, the quiz is generated every time and has no fallback.
+The quiz has no fallback: if no usable quiz can be written, the caller is told.
 
 ============================ WHAT CHANGED, AND WHY ============================
 `get_smart_quiz_fallback` returned four fixed multiple-choice questions - the
@@ -14,34 +14,83 @@ remediation trigger resolves. Four canned questions that are the same for every
 error type mean the pass mark measures nothing about the concept the student
 actually struggled with - and Code Coach then records that concept as mastered.
 
-Generation moves to Gemini and the fallback is deleted.
+========================== EIGHT QUESTIONS, FROM THE LESSON =========================
+Four questions was too few to mean much: one lucky guess moved the score 25
+points, and the 70% pass mark sat between three and four right answers. A quiz
+is now eight questions, each checked before it is asked.
+
+It is written from the lesson the student was actually given rather than from
+the bare error type, so it tests what they were taught. And it is kept - see
+content_store - with a few versions per lesson, so another student in the same
+situation is served it without a new generation, and a retake gets questions
+the student has not seen.
 ==============================================================================
 """
 
 import json
 import re
+import time
 
+from app.services import content_store
 from app.services.llm import LLMUnavailable, generate, strip_code_fence
 
-PROMPT = """
-You are 'Code Guru', an expert computer science tutor.
-The student specifically struggled with this error: "{error_type}"
-Their exact code was: "{code_snippet}"
+# How many questions a quiz has, and how many to ask for so that the checks can
+# drop a bad one or two without the quiz failing.
+QUIZ_LENGTH = 8
+QUESTIONS_REQUESTED = 10
 
-CRITICAL: Generate exactly 4 multiple choice questions testing their
-understanding ONLY of "{error_type}". Do not ask generic Java questions. Make
-each one specific to the mistake they made.
+# A student given a quiz this recently is coming back to it - a refresh, another
+# tab - rather than retaking it, and gets the same one.
+RESUME_WINDOW_SECONDS = 2 * 60 * 60
+
+QUESTION_SHAPE = """
+Every question has exactly 4 options, all different, and exactly one correct.
+"correct_answer" must repeat the correct option's text exactly.
 
 Respond with a JSON array only, exactly in this shape:
 [
     {{
-        "question": "Specific question about {error_type}?",
-        "options": ["Option A", "Option B", "Option C", "Option D"],
-        "correct_answer": "Option B",
-        "explanation": "Clear explanation."
+        "question": "A specific question?",
+        "options": ["First", "Second", "Third", "Fourth"],
+        "correct_answer": "Second",
+        "explanation": "Why that option is right, in one or two sentences."
     }}
 ]
 """
+
+LESSON_PROMPT = """
+You are 'Code Guru', an expert computer science tutor.
+A student struggled with this error: "{error_type}"
+They have just been taught this lesson:
+
+=== THE LESSON ===
+{issue}
+
+{explanation}
+
+The mistake:
+{incorrect_code}
+
+The fix:
+{correct_code}
+==================
+
+Write exactly {count} multiple choice questions that check whether they
+understood THIS lesson. Every question must be answerable from the lesson above;
+do not test anything it does not teach. Vary them: some should ask what a short
+piece of code does or prints, and some should ask which version of a line is
+correct.
+""" + QUESTION_SHAPE
+
+ERROR_TYPE_PROMPT = """
+You are 'Code Guru', an expert computer science tutor.
+The student specifically struggled with this error: "{error_type}"
+An example of the mistake: "{code_snippet}"
+
+Write exactly {count} multiple choice questions testing their understanding
+ONLY of "{error_type}". Do not ask generic Java questions. Make each one
+specific to this mistake.
+""" + QUESTION_SHAPE
 
 
 def _extract_json(text: str):
@@ -203,13 +252,147 @@ def _normalise(data) -> list[dict]:
     return questions
 
 
+def select_questions(questions: list[dict]) -> list[dict]:
+    """The first QUIZ_LENGTH questions worth asking, or raise.
+
+    _normalise keeps anything that can be marked. This keeps only what is fair
+    to ask: exactly four options that are actually different - two options
+    that read the same once labels and backticks go make a question a coin
+    toss - and no question asked twice in one quiz.
+    """
+    kept: list[dict] = []
+    seen: set[str] = set()
+
+    for question in questions:
+        text = " ".join(question["question"].split()).lower()
+        distinct_options = {_strip_label(option) for option in question["options"]}
+        if text in seen or len(question["options"]) != 4 or len(distinct_options) != 4:
+            continue
+        seen.add(text)
+        kept.append(question)
+        if len(kept) == QUIZ_LENGTH:
+            return kept
+
+    raise LLMUnavailable(
+        f"Only {len(kept)} usable questions were generated; a quiz needs {QUIZ_LENGTH}."
+    )
+
+
+def _write_quiz(prompt: str) -> tuple[list[dict], int]:
+    started = time.monotonic()
+    text = generate(prompt)
+    generation_ms = int((time.monotonic() - started) * 1000)
+    return select_questions(_normalise(_extract_json(text))), generation_ms
+
+
 def generate_validation_quiz(
     student_id: str, error_type: str, code_snippet: str = ""
 ) -> list[dict]:
-    """Build a quiz, or raise LLMUnavailable.
+    """The quiz for this student and mistake, or raise LLMUnavailable."""
+    questions, _generated = quiz_for(student_id, error_type, code_snippet)
+    return questions
 
-    `student_id` is unused in the prompt and kept only because callers pass it;
-    the quiz is about the concept, not the person.
-    """
-    text = generate(PROMPT.format(error_type=error_type, code_snippet=code_snippet))
-    return _normalise(_extract_json(text))
+
+def quiz_for(student_id: str, error_type: str, code_snippet: str = "") -> tuple[list[dict], bool]:
+    """The questions, and whether a new quiz had to be written for them."""
+    lesson = _taught_lesson(student_id, error_type)
+
+    if lesson is None:
+        # No lesson on record - the quiz page opened directly, or the lesson
+        # could not be stored. Written from the mistake itself, and not kept:
+        # there is nothing to hang it on that another student would look up.
+        questions, _ = _write_quiz(
+            ERROR_TYPE_PROMPT.format(
+                error_type=error_type,
+                code_snippet=code_snippet,
+                count=QUESTIONS_REQUESTED,
+            )
+        )
+        return questions, True
+
+    variants = _variants(lesson["key"], student_id)
+    if variants:
+        chosen = choose_variant(variants)
+        if chosen is not None:
+            _record_quizzed(student_id, chosen["key"], from_store=True)
+            return chosen["questions"], False
+
+    questions, generation_ms = _write_quiz(
+        LESSON_PROMPT.format(
+            error_type=error_type,
+            issue=lesson.get("issue", ""),
+            explanation=lesson.get("explanation", ""),
+            incorrect_code=lesson.get("incorrectCode", ""),
+            correct_code=lesson.get("correctCode", ""),
+            count=QUESTIONS_REQUESTED,
+        )
+    )
+
+    if variants is not None:
+        quiz_key = _save_variant(lesson["key"], len(variants) + 1, questions, generation_ms)
+        if quiz_key:
+            _record_quizzed(student_id, quiz_key, from_store=False)
+
+    return questions, True
+
+
+def choose_variant(variants: list[dict]) -> dict | None:
+    """Which stored version to hand this student, or None to write a new one."""
+    served = [v for v in variants if v.get("served_at")]
+
+    def served_recently(variant: dict) -> bool:
+        # An explicit None check. `age or inf` read a quiz served moments ago as
+        # never served, because on a coarse clock "moments ago" measures 0.0 -
+        # so a student coming straight back was handed a newly written quiz.
+        age = content_store.age_seconds(variant["served_at"])
+        return age is not None and age < RESUME_WINDOW_SECONDS
+
+    # 1. The one they were given recently: they are coming back to it.
+    recent = [v for v in served if served_recently(v)]
+    if recent:
+        return max(recent, key=lambda v: v["served_at"])
+
+    # 2. A version they have not had.
+    unseen = [v for v in variants if not v.get("served_at")]
+    if unseen:
+        return unseen[0]
+
+    # 3. They have had every version: write another, until there are enough.
+    if len(variants) < content_store.MAX_QUIZ_VARIANTS:
+        return None
+
+    # 4. Enough versions: the one they saw longest ago.
+    return min(served, key=lambda v: v["served_at"])
+
+
+# ── Best effort around the store ─────────────────────────────────────────────
+# Any of these failing costs a stored quiz, never the quiz itself.
+def _taught_lesson(student_id: str, error_type: str) -> dict | None:
+    try:
+        return content_store.lesson_taught(student_id, error_type)
+    except Exception as error:
+        print(f"⚠️ Could not read which lesson was taught: {error}")
+        return None
+
+
+def _variants(lesson_key: str, student_id: str) -> list[dict] | None:
+    try:
+        return content_store.quiz_variants(lesson_key, student_id)
+    except Exception as error:
+        print(f"⚠️ Could not read stored quizzes: {error}")
+        return None
+
+
+def _save_variant(lesson_key: str, variant: int, questions: list[dict], generation_ms: int) -> str | None:
+    try:
+        return content_store.save_quiz(lesson_key, variant, questions, generation_ms)
+    except Exception as error:
+        print(f"⚠️ Could not store the quiz: {error}")
+        return None
+
+
+def _record_quizzed(student_id: str, quiz_key: str, *, from_store: bool) -> None:
+    try:
+        content_store.record_quizzed(student_id, quiz_key, from_store=from_store)
+    except Exception as error:
+        print(f"⚠️ Could not record which quiz was given: {error}")

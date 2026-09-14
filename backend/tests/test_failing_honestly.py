@@ -202,6 +202,7 @@ def test_a_lesson_written_while_the_graph_is_down_says_what_it_lacked(monkeypatc
         raise GraphUnavailable("down for this test")
 
     monkeypatch.setattr(rag_service, "search", search_unreachable)
+    monkeypatch.setattr(rag_service, "search_with_prerequisites", search_unreachable)
 
     lesson = lesson_service.generate_real_lesson(
         "student-1", "OFF_BY_ONE_LOOP_BOUNDARY", "for (int i = 0; i <= n; i++)", 3, "loop_boundaries"
@@ -229,12 +230,14 @@ def test_a_grounded_lesson_is_cached_and_an_ungrounded_one_is_not(monkeypatch):
         return [params for query, params in queries if "MERGE (l:Lesson {key: $key})" in query]
 
     monkeypatch.setattr(rag_service, "search", lambda *_a, **_k: [{"text": "Loops stop at n - 1.", "source": "loop_boundaries.txt"}])
+    monkeypatch.setattr(rag_service, "search_with_prerequisites", lambda *_a, **_k: [{"text": "Loops stop at n - 1.", "source": "loop_boundaries.txt"}])
     grounded = lesson_service.generate_real_lesson("student-1", "OFF_BY_ONE_LOOP_BOUNDARY", "x", 3, "loop_boundaries")
     assert grounded["grounding"] == {"syllabus_notes": "found", "student_record": "read"}
     assert len(cache_writes()) == 1
     assert cache_writes()[0]["properties"]["syllabus_notes"] == "found"
 
     monkeypatch.setattr(rag_service, "search", lambda *_a, **_k: [])
+    monkeypatch.setattr(rag_service, "search_with_prerequisites", lambda *_a, **_k: [])
     ungrounded = lesson_service.generate_real_lesson(
         "student-1", "OFF_BY_ONE_LOOP_BOUNDARY", "x", 3, "loop_boundaries", force_regenerate=True
     )

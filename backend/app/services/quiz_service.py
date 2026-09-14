@@ -278,11 +278,13 @@ def select_questions(questions: list[dict]) -> list[dict]:
     )
 
 
-def _write_quiz(prompt: str) -> tuple[list[dict], int]:
+def _write_quiz(prompt: str) -> tuple[list[dict], int, int]:
+    """The chosen questions, how long they took, and how many could be marked at all."""
     started = time.monotonic()
     text = generate(prompt)
     generation_ms = int((time.monotonic() - started) * 1000)
-    return select_questions(_normalise(_extract_json(text))), generation_ms
+    markable = _normalise(_extract_json(text))
+    return select_questions(markable), generation_ms, len(markable)
 
 
 def generate_validation_quiz(
@@ -301,7 +303,7 @@ def quiz_for(student_id: str, error_type: str, code_snippet: str = "") -> tuple[
         # No lesson on record - the quiz page opened directly, or the lesson
         # could not be stored. Written from the mistake itself, and not kept:
         # there is nothing to hang it on that another student would look up.
-        questions, _ = _write_quiz(
+        questions, _, _ = _write_quiz(
             ERROR_TYPE_PROMPT.format(
                 error_type=error_type,
                 code_snippet=code_snippet,
@@ -317,7 +319,7 @@ def quiz_for(student_id: str, error_type: str, code_snippet: str = "") -> tuple[
             _record_quizzed(student_id, chosen["key"], from_store=True)
             return chosen["questions"], False
 
-    questions, generation_ms = _write_quiz(
+    questions, generation_ms, markable = _write_quiz(
         LESSON_PROMPT.format(
             error_type=error_type,
             issue=lesson.get("issue", ""),
@@ -329,7 +331,7 @@ def quiz_for(student_id: str, error_type: str, code_snippet: str = "") -> tuple[
     )
 
     if variants is not None:
-        quiz_key = _save_variant(lesson["key"], len(variants) + 1, questions, generation_ms)
+        quiz_key = _save_variant(lesson["key"], len(variants) + 1, questions, generation_ms, markable)
         if quiz_key:
             _record_quizzed(student_id, quiz_key, from_store=False)
 
@@ -383,9 +385,11 @@ def _variants(lesson_key: str, student_id: str) -> list[dict] | None:
         return None
 
 
-def _save_variant(lesson_key: str, variant: int, questions: list[dict], generation_ms: int) -> str | None:
+def _save_variant(
+    lesson_key: str, variant: int, questions: list[dict], generation_ms: int, markable: int
+) -> str | None:
     try:
-        return content_store.save_quiz(lesson_key, variant, questions, generation_ms)
+        return content_store.save_quiz(lesson_key, variant, questions, generation_ms, candidates=markable)
     except Exception as error:
         print(f"⚠️ Could not store the quiz: {error}")
         return None

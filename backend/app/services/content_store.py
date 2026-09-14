@@ -179,7 +179,14 @@ def quiz_variants(lesson_key_value: str, student_id: str) -> list[dict]:
     return variants
 
 
-def save_quiz(lesson_key_value: str, variant: int, questions: list[dict], generation_ms: int) -> str:
+def save_quiz(
+    lesson_key_value: str,
+    variant: int,
+    questions: list[dict],
+    generation_ms: int,
+    candidates: int | None = None,
+) -> str:
+    """Store one version. `candidates` is how many of the model's questions could be marked."""
     key = f"{lesson_key_value}_quiz{variant}"
     neo4j_db.execute_query(
         """
@@ -190,6 +197,7 @@ def save_quiz(lesson_key_value: str, variant: int, questions: list[dict], genera
             q.question_count = $question_count,
             q.generated_at = $generated_at,
             q.generation_ms = $generation_ms,
+            q.candidates = $candidates,
             q.hits = 0
         MERGE (l)-[:HAS_QUIZ]->(q)
         """,
@@ -201,6 +209,7 @@ def save_quiz(lesson_key_value: str, variant: int, questions: list[dict], genera
             "question_count": len(questions),
             "generated_at": _now(),
             "generation_ms": generation_ms,
+            "candidates": candidates,
         },
     )
     return key

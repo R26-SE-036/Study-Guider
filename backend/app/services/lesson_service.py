@@ -49,6 +49,9 @@ direct correction.
 === SYLLABUS NOTES (Use ONLY as background context) ===
 {context}
 ======================
+Each note above begins with an id such as [N1]. In "sources", list the ids of
+the notes this lesson actually draws on, and only those. If it uses none, give
+an empty list rather than guessing.
 
 === THIS STUDENT'S RECORD (from the knowledge graph) ===
 {graph_context}
@@ -86,7 +89,8 @@ Respond with JSON only, exactly in this shape:
     "mermaidDiagram": "graph TD\\n A[Step 1] --> B[Step 2]",
     "videoUrl": "A YouTube URL relevant to {error_type}",
     "referenceLink": "A documentation link relevant to {error_type}",
-    "hint": "A guiding question specific to {error_type}"
+    "hint": "A guiding question specific to {error_type}",
+    "sources": ["N1"]
 }}
 """
 
@@ -239,7 +243,7 @@ def past_score_for(student_id: str) -> int:
 
 # Bump when PROMPT changes in a way that should retire the lessons already
 # stored. It is part of every lesson's key, so old lessons simply stop matching.
-PROMPT_VERSION = "2026-09-14"
+PROMPT_VERSION = "2026-09-14-cited"
 
 # Whether the student's record was actually read, for the lesson's grounding.
 RECORD_READ = "read"
@@ -435,7 +439,8 @@ def lesson_for(
             _record_taught(student_id, key, error_type)
             return _lesson_response(stored, cognitive_state, situation, cached=True)
 
-    notes = retrieve_notes(f"{error_type} {code_snippet}", k=2)
+    # Within the concept and its prerequisites, not across the whole syllabus.
+    notes = retrieve_notes(f"{error_type} {code_snippet}", concept=concept_tag or None, k=3)
 
     started = time.monotonic()
     text = generate(
@@ -468,6 +473,22 @@ def lesson_for(
     if not (incorrect and correct) and example:
         incorrect, correct = split_legacy_example(example)
 
+    # The notes the lesson says it used, kept only if they were actually given
+    # to it. A model will cite "N4" when there were three notes, and a citation
+    # to a note that does not exist is not a source - it is an invention the
+    # page would repeat to the student as fact.
+    offered = {chunk["id"]: chunk for chunk in notes.chunks}
+    cited = [ref for ref in (lesson.get("sources") or []) if isinstance(ref, str)]
+    sources = [
+        {
+            "id": ref,
+            "concept": offered[ref].get("concept") or "",
+            "source": offered[ref].get("source") or "",
+        }
+        for ref in dict.fromkeys(cited)
+        if ref in offered
+    ]
+
     fields = {
         "issue": lesson.get("issue", ""),
         "explanation": lesson.get("explanation", ""),
@@ -482,6 +503,7 @@ def lesson_for(
         "hint": lesson.get("hint", ""),
         "syllabus_notes": notes.status,
         "student_record": situation.record,
+        "sources_json": json.dumps(sources),
     }
 
     # Only a lesson written with the notes and the student's record in front of
@@ -517,6 +539,7 @@ def _lesson_response(
             "student_record": stored.get("student_record") or "unknown",
         },
         "unmet_prerequisites": list(situation.gaps),
+        "sources": json.loads(stored.get("sources_json") or "[]"),
     }
 
 

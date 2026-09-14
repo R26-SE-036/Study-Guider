@@ -77,7 +77,7 @@ class FakeStore:
             for quiz in self.quizzes.get(lesson_key, [])
         ]
 
-    def save_quiz(self, lesson_key, variant, quiz_questions, generation_ms):
+    def save_quiz(self, lesson_key, variant, quiz_questions, generation_ms, candidates=None):
         key = f"{lesson_key}_quiz{variant}"
         self.quizzes.setdefault(lesson_key, []).append({"key": key, "variant": variant, "questions": quiz_questions})
         return key
@@ -107,6 +107,7 @@ def graph(monkeypatch):
     monkeypatch.setattr(progress_service, "get_concept_mastery", mastery)
     monkeypatch.setattr(learning_path_service, "unmastered_prerequisites", gaps)
     monkeypatch.setattr(rag_service, "search", lambda *_a, **_k: [{"text": "Loops stop at n - 1."}])
+    monkeypatch.setattr(rag_service, "search_with_prerequisites", lambda *_a, **_k: [{"text": "Loops stop at n - 1."}])
     return records
 
 

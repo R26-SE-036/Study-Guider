@@ -54,6 +54,10 @@ ERROR_TYPE_TO_CONCEPT = {
     "CONSTANT_FALSE_LOOP_CONDITION": "loop_initialization",
     "DUPLICATE_IF_ELSE_CONDITION": "conditional_logic",
     "WHILE_VARIABLE_NOT_UPDATED": "loop_termination",
+    "INTEGER_DIVISION_IN_DECIMAL_CONTEXT": "arithmetic_operations",
+    "DECIMAL_EQUALITY_COMPARISON": "arithmetic_operations",
+    "POSTFIX_INCREMENT_ASSIGNED_BACK": "assignment_logic",
+    "ALWAYS_FALSE_AND_CONDITION": "boolean_logic",
 }
 
 # The 14 canonical concept tags - the values above, deduplicated.

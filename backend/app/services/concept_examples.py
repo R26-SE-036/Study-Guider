@@ -38,7 +38,11 @@ CONCEPT_EXAMPLES: dict[str, str] = {
         "    System.out.println(\"Total is ten\");\n"
         "}"
     ),
-    "MISSING_BREAK": (
+    # These two were keyed MISSING_BREAK and WHILE_NOT_UPDATED - names Code
+    # Coach has never sent - so both lessons silently taught from the default
+    # off-by-one example instead. tests/test_concept_examples.py now holds
+    # every key to a real error type.
+    "MISSING_BREAK_IN_SWITCH": (
         "switch (grade) {\n"
         "    case 'A':\n"
         "        System.out.println(\"Excellent\");\n"
@@ -48,11 +52,37 @@ CONCEPT_EXAMPLES: dict[str, str] = {
         "        break;\n"
         "}"
     ),
-    "WHILE_NOT_UPDATED": (
+    "WHILE_VARIABLE_NOT_UPDATED": (
         "int count = 0;\n"
         "// count never changes, so this never ends\n"
         "while (count < 5) {\n"
         "    System.out.println(count);\n"
+        "}"
+    ),
+    "INTEGER_DIVISION_IN_DECIMAL_CONTEXT": (
+        "int total = 7;\n"
+        "int count = 2;\n"
+        "// both are ints, so 7 / 2 is 3 before it ever becomes a double\n"
+        "double average = total / count;"
+    ),
+    "DECIMAL_EQUALITY_COMPARISON": (
+        "double price = 0.1 + 0.2;\n"
+        "// 0.1 + 0.2 is 0.30000000000000004, not exactly 0.3\n"
+        "if (price == 0.3) {\n"
+        "    System.out.println(\"Exactly thirty cents\");\n"
+        "}"
+    ),
+    "POSTFIX_INCREMENT_ASSIGNED_BACK": (
+        "int count = 0;\n"
+        "// count++ hands back the old value, which is stored straight back\n"
+        "count = count++;\n"
+        "System.out.println(count);"
+    ),
+    "ALWAYS_FALSE_AND_CONDITION": (
+        "int age = 20;\n"
+        "// no age is both over 65 and under 18\n"
+        "if (age > 65 && age < 18) {\n"
+        "    System.out.println(\"Discount applies\");\n"
         "}"
     ),
 }

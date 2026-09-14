@@ -17,6 +17,10 @@ class Settings:
     NEO4J_URI = os.getenv("NEO4J_URI")
     NEO4J_USERNAME = os.getenv("NEO4J_USERNAME")
     NEO4J_PASSWORD = os.getenv("NEO4J_PASSWORD")
+    # An Aura instance has exactly one database, "neo4j". Naming it saves the
+    # driver a routing round trip to discover the home database on every
+    # session; unset, the server's default is used.
+    NEO4J_DATABASE = os.getenv("NEO4J_DATABASE") or None
 
     # The Gemini model used for lessons and quizzes.
     #

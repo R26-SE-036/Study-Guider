@@ -128,7 +128,7 @@ class Neo4jConnection:
                 raise GraphUnavailable("The graph database could not be reached.") from retry_error
 
     def _run(self, query, parameters) -> list[dict]:
-        with self.driver.session() as session:
+        with self.driver.session(database=settings.NEO4J_DATABASE) as session:
             result = session.run(query, parameters)
             return [record.data() for record in result]
 

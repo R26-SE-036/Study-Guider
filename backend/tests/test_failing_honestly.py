@@ -119,7 +119,8 @@ class _Driver:
     def __init__(self, outcomes):
         self.outcomes = outcomes
 
-    def session(self):
+    def session(self, **_options):
+        # The real driver takes options - database=NEO4J_DATABASE among them.
         return _Session(self.outcomes)
 
     def close(self):

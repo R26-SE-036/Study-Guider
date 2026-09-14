@@ -27,11 +27,11 @@ import json
 from datetime import datetime, timezone
 
 from app.core.config import settings
-from app.db.neo4j_connection import neo4j_db
+from app.db.neo4j_connection import GraphUnavailable, neo4j_db
 from app.services.llm import LLMUnavailable, generate, strip_code_fence
 from app.services import learning_path_service, progress_service
 from app.services.ml_service import predict_cognitive_state
-from app.services.rag_service import retrieve_context
+from app.services.rag_service import FOUND, UNAVAILABLE, RetrievedNotes, retrieve_notes
 
 PROMPT = """
 You are 'Code Guru', an expert computer science tutor for first-year IT students.
@@ -218,22 +218,31 @@ def past_score_for(student_id: str) -> int:
     50 for a student with no history: neutral, and the same midpoint the rest of
     the platform treats as the pass mark.
     """
-    if not neo4j_db.driver:
+    try:
+        rows = neo4j_db.execute_query(
+            """
+            MATCH (:Student {student_id: $student_id})-[a:ATTEMPTED]->(:Concept)
+            RETURN avg(a.percentage) AS average
+            """,
+            {"student_id": student_id},
+        )
+    except GraphUnavailable:
+        # Unknown rather than "no history", but the cognitive-state rubric needs
+        # a number, and the neutral midpoint is the one that sways it least. The
+        # lesson already reports that the student's record could not be read.
         return 50
-
-    rows = neo4j_db.execute_query(
-        """
-        MATCH (:Student {student_id: $student_id})-[a:ATTEMPTED]->(:Concept)
-        RETURN avg(a.percentage) AS average
-        """,
-        {"student_id": student_id},
-    )
 
     average = (rows or [{}])[0].get("average") if rows else None
     return int(average) if average is not None else 50
 
 
-def build_graph_context(student_id: str, concept_tag: str) -> str:
+# Whether the student's record was actually read, for the lesson's grounding.
+RECORD_READ = "read"
+RECORD_UNAVAILABLE = "unavailable"
+RECORD_NOT_LOOKED_UP = "no_concept"
+
+
+def build_graph_context(student_id: str, concept_tag: str) -> tuple[str, str]:
     """What the knowledge graph knows about THIS student and THIS concept.
 
     This is the "Graph" half of Graph RAG, and it was missing. The pipeline
@@ -247,19 +256,27 @@ def build_graph_context(student_id: str, concept_tag: str) -> str:
     loop boundaries needs to be taught loop boundaries, and no amount of
     explaining array indexing will do it.
 
-    Returns plain prose rather than JSON: it is going into a prompt, and a
-    model reads a sentence more reliably than it reads a nested object.
+    Returns the prose, and whether the record was really read. "Could not read
+    it" used to come out as "no quiz attempts yet - this is the first time they
+    are being taught it", so whenever the graph was unreachable a student with
+    six attempts behind them was taught from scratch, and told so.
     """
     if not concept_tag:
-        return "No concept tag was supplied, so no record could be looked up."
-
-    lines: list[str] = []
+        return "No concept tag was supplied, so no record could be looked up.", RECORD_NOT_LOOKED_UP
 
     try:
         mastery = progress_service.get_concept_mastery(student_id, concept_tag)
-    except Exception as error:  # pragma: no cover - the lesson matters more
-        print(f"⚠️ Could not read mastery for the prompt: {error}")
-        mastery = None
+        gaps = learning_path_service.unmastered_prerequisites(student_id, concept_tag)
+    except Exception as error:  # the lesson matters more than the record
+        print(f"⚠️ Student record unavailable for the prompt: {error}")
+        return (
+            "- This student's record could not be read, so nothing is known about "
+            "their history with this concept. Do not assume this is their first "
+            "time, and do not mention past attempts, progress or prerequisites.",
+            RECORD_UNAVAILABLE,
+        )
+
+    lines: list[str] = []
 
     if mastery:
         lines.append(
@@ -274,19 +291,29 @@ def build_graph_context(student_id: str, concept_tag: str) -> str:
             "time they are being taught it."
         )
 
-    try:
-        gaps = learning_path_service.unmastered_prerequisites(student_id, concept_tag)
-    except Exception as error:  # pragma: no cover
-        print(f"⚠️ Could not read prerequisites for the prompt: {error}")
-        gaps = []
-
     if gaps:
         listed = ", ".join(gap["concept"] for gap in gaps)
         lines.append(f"- Prerequisites they have NOT mastered: {listed}.")
     else:
         lines.append("- No unmastered prerequisites stand in front of this concept.")
 
-    return "\n".join(lines)
+    return "\n".join(lines), RECORD_READ
+
+
+def _notes_for_prompt(notes: RetrievedNotes) -> str:
+    """The notes, or an instruction not to pretend there were any."""
+    if notes.status == FOUND:
+        return notes.text
+    if notes.status == UNAVAILABLE:
+        return (
+            "No syllabus notes could be retrieved for this lesson. Explain from "
+            "general Java knowledge, and do not refer to the notes, the syllabus "
+            "or course material."
+        )
+    return (
+        "The syllabus has no notes on this particular error. Explain from general "
+        "Java knowledge, and do not claim to be quoting course material."
+    )
 
 
 def generate_real_lesson(
@@ -306,6 +333,11 @@ def generate_real_lesson(
     `error_count` is the real repeat count behind the trigger, passed down from
     the caller, and `past_score` comes from this student's own attempt history.
     Both used to be constants derived from the error type's spelling.
+
+    The result carries `grounding`: whether the syllabus notes were found, found
+    nothing, or could not be reached, and whether the student's record was read.
+    A lesson written without them is still a lesson, but it is not the grounded,
+    personalised one the rest of the page implies, and the page says so.
     """
     cognitive_state = predict_cognitive_state(
         error_count, code_snippet, past_score_for(student_id)
@@ -320,15 +352,15 @@ def generate_real_lesson(
             print(f"Lesson cache HIT for {error_type} / {cognitive_state}")
             return {**cached, "cognitive_state": cognitive_state, "cached": True}
 
-    context = retrieve_context(f"{error_type} {code_snippet}", k=2)
-    graph_context = build_graph_context(student_id, concept_tag)
+    notes = retrieve_notes(f"{error_type} {code_snippet}", k=2)
+    graph_context, student_record = build_graph_context(student_id, concept_tag)
 
     text = generate(
         PROMPT.format(
             error_type=error_type,
             code_snippet=code_snippet,
             cognitive_state=cognitive_state,
-            context=context,
+            context=_notes_for_prompt(notes),
             graph_context=graph_context,
         )
     )
@@ -352,6 +384,8 @@ def generate_real_lesson(
     if not (incorrect and correct) and example:
         incorrect, correct = split_legacy_example(example)
 
+    grounding = {"syllabus_notes": notes.status, "student_record": student_record}
+
     result = {
         "cached": False,
         "issue": lesson.get("issue", ""),
@@ -366,9 +400,14 @@ def generate_real_lesson(
         "referenceLink": lesson.get("referenceLink", ""),
         "hint": lesson.get("hint", ""),
         "cognitive_state": cognitive_state,
+        "grounding": grounding,
     }
 
-    _cache_lesson(student_id, error_type, cognitive_state, result)
+    # Only a lesson written with the notes and the student's record in front of
+    # it is kept. One written during an outage would otherwise go on being
+    # served - still ungrounded - for seven days after the graph came back.
+    if notes.status == FOUND and student_record != RECORD_UNAVAILABLE:
+        _cache_lesson(student_id, error_type, cognitive_state, result, grounding)
     return result
 
 
@@ -412,16 +451,14 @@ def _cached_lesson(student_id: str, error_type: str, cognitive_state: str) -> di
     lesson is pitched, so a lesson written for "Needs Simple Basics" is not the
     one to hand back when the student is now on "Minor Syntax Error".
     """
-    if not neo4j_db.driver:
-        return None
-
     try:
         rows = neo4j_db.execute_query(
             """
             MATCH (s:Student {student_id: $student_id})
                   -[c:CACHED_LESSON {error_type: $error_type,
                                      cognitive_state: $cognitive_state}]->(l:Lesson)
-            RETURN l AS lesson, c.generated_at AS generated_at
+            RETURN l AS lesson, c.generated_at AS generated_at,
+                   c.syllabus_notes AS syllabus_notes, c.student_record AS student_record
             ORDER BY c.generated_at DESC
             LIMIT 1
             """,
@@ -465,20 +502,27 @@ def _cached_lesson(student_id: str, error_type: str, cognitive_state: str) -> di
             cached["incorrectCode"] = incorrect
             cached["correctCode"] = correct
 
+    # Lessons cached before grounding was recorded say "unknown", not "found":
+    # nothing is known about what they were written with.
+    cached["grounding"] = {
+        "syllabus_notes": row.get("syllabus_notes") or "unknown",
+        "student_record": row.get("student_record") or "unknown",
+    }
     return cached
 
 
 def _cache_lesson(
-    student_id: str, error_type: str, cognitive_state: str, lesson: dict
+    student_id: str,
+    error_type: str,
+    cognitive_state: str,
+    lesson: dict,
+    grounding: dict,
 ) -> None:
     """Record the lesson so the next request does not have to generate it.
 
     Best effort. A cache write that fails must not cost the student the lesson
     that was just generated for them.
     """
-    if not neo4j_db.driver:
-        return
-
     try:
         neo4j_db.execute_query(
             """
@@ -497,7 +541,9 @@ def _cache_lesson(
             CREATE (s)-[:CACHED_LESSON {
                 error_type: $error_type,
                 cognitive_state: $cognitive_state,
-                generated_at: $generated_at
+                generated_at: $generated_at,
+                syllabus_notes: $syllabus_notes,
+                student_record: $student_record
             }]->(l)
             """,
             {
@@ -505,6 +551,8 @@ def _cache_lesson(
                 "error_type": error_type,
                 "cognitive_state": cognitive_state,
                 "generated_at": datetime.now(timezone.utc).isoformat(),
+                "syllabus_notes": grounding.get("syllabus_notes", "unknown"),
+                "student_record": grounding.get("student_record", "unknown"),
                 **{field: lesson.get(field, "") for field in LESSON_FIELDS},
             },
         )

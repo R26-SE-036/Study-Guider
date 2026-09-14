@@ -64,19 +64,11 @@ def get_learning_path(student_id: str, concept: str):
     ORDER BY steps_away ASC, concept ASC
     """
 
-    try:
-        rows = neo4j_db.execute_query(
-            query, {"target": target, "student_id": student_id}
-        )
-    except Exception as error:  # pragma: no cover - driver/network failure
-        print(f"❌ Learning Path Error: {error}")
-        return {"success": False, "error": str(error)}
-
-    if rows is None:
-        # execute_query returns None when the driver is absent - a
-        # configuration or connectivity failure, not an empty result. Saying
-        # "no prerequisites" here would read as "you are ready for this".
-        return {"success": False, "error": "Graph database unavailable."}
+    # GraphUnavailable propagates and main.py answers 503. Saying "no
+    # prerequisites" here instead would read as "you are ready for this".
+    rows = neo4j_db.execute_query(
+        query, {"target": target, "student_id": student_id}
+    )
 
     # One concept can sit on several paths to the target at different depths
     # (arithmetic_operations reaches loop_boundaries directly and via
@@ -103,9 +95,9 @@ def get_learning_path(student_id: str, concept: str):
 def unmastered_prerequisites(student_id: str, concept: str) -> list[dict]:
     """Just the gaps, for callers that do not need the whole envelope.
 
-    Used by the lesson prompt. Returns [] rather than raising when the graph is
-    unreachable: a lesson pitched without the student's prerequisites is worse
-    than one pitched with them, but far better than no lesson at all.
+    Used by the lesson prompt. Raises GraphUnavailable when the graph cannot be
+    reached, so the caller can tell "no gaps" from "could not look" - and the
+    lesson reports which one it was written with.
     """
     result = get_learning_path(student_id, concept)
     if not result.get("success"):

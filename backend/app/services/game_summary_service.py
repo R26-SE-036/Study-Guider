@@ -115,12 +115,12 @@ def record_game_summary(student_id: str, summary: dict) -> dict:
     RETURN g.game_session_id AS game_session_id
     """
 
-    try:
-        result = neo4j_db.execute_query(query, parameters)
-        return {"success": True, "data": (result or [{}])[0]}
-    except Exception as error:
-        print(f"❌ Game summary write failed: {error}")
-        return {"success": False, "error": str(error)}
+    # Not caught. A failed write answered 200 with success False, and an
+    # unreachable graph answered 200 with success True - so the engine had no
+    # reason to send the round again, and it was lost. A 503 is something a
+    # sender can retry, and MERGE on game_session_id makes the retry safe.
+    result = neo4j_db.execute_query(query, parameters)
+    return {"success": True, "data": (result or [{}])[0]}
 
 
 def get_game_summaries(student_id: str, limit: int = 50) -> dict:
@@ -159,15 +159,12 @@ def get_game_summaries(student_id: str, limit: int = 50) -> dict:
     LIMIT $limit
     """
 
-    try:
-        rows = neo4j_db.execute_query(
-            query,
-            {"student_id": student_id, "limit": min(int(limit or 50), MAX_SUMMARIES)},
-        )
-        return {"success": True, "data": rows or []}
-    except Exception as error:
-        print(f"❌ Game summary read failed: {error}")
-        return {"success": False, "error": str(error)}
+    # Not caught: an unreachable graph is a 503, not "you have played nothing".
+    rows = neo4j_db.execute_query(
+        query,
+        {"student_id": student_id, "limit": min(int(limit or 50), MAX_SUMMARIES)},
+    )
+    return {"success": True, "data": rows}
 
 
 def _number(value) -> float:

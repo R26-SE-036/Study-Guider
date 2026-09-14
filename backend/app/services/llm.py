@@ -40,6 +40,25 @@ class LLMUnavailable(RuntimeError):
     """Generation could not happen. Never substitute content for this."""
 
 
+class LLMQuotaExhausted(LLMUnavailable):
+    """The provider's usage limit is used up. Waiting, not retrying, fixes it.
+
+    Its own type because the student needs to be told something different. "Try
+    again shortly" is wrong advice when the free tier allows twenty generations
+    a day for the whole project: shortly, it fails the same way.
+    """
+
+
+# What a student is told when the daily limit is reached. Not a time: the
+# allowance resets on the provider's clock, and a promise of "tomorrow morning"
+# would be wrong for most of the day.
+DAILY_LIMIT_MESSAGE = (
+    "Code Guru has used up today's allowance for writing new lessons and quizzes. "
+    "Anything you have already opened still works, and new ones can be written "
+    "again when the daily allowance resets."
+)
+
+
 _client = None
 
 
@@ -101,6 +120,11 @@ def _text_from(response) -> str:
     return "".join(collected)
 
 
+def _is_quota_error(error: Exception) -> bool:
+    """A 429 / RESOURCE_EXHAUSTED from Gemini (google.genai.errors.ClientError)."""
+    return getattr(error, "code", None) == 429 or str(getattr(error, "status", "")) == "RESOURCE_EXHAUSTED"
+
+
 def generate(prompt: str) -> str:
     """Run a prompt and return the text, or raise LLMUnavailable."""
     client = get_client()
@@ -111,9 +135,10 @@ def generate(prompt: str) -> str:
             contents=prompt,
         )
     except Exception as error:
-        # Quota, network, a model id that is no longer served to this key. All
-        # the same to the caller: no content was generated, and none should be
-        # invented.
+        if _is_quota_error(error):
+            raise LLMQuotaExhausted(f"The language model's usage limit is reached: {error}") from error
+        # Network, a model id that is no longer served to this key, a server
+        # error. No content was generated, and none should be invented.
         raise LLMUnavailable(f"The language model did not answer: {error}") from error
 
     text = _text_from(response)

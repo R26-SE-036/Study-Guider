@@ -67,12 +67,13 @@ def update_student_progress(student_id: str, concept: str, score: int, total: in
         "seconds_on_lesson": seconds_on_lesson,
     }
     
-    try:
-        result = neo4j_db.execute_query(query, parameters)
-        return {"success": True, "data": result}
-    except Exception as e:
-        print(f"❌ Progress Update Error: {e}")
-        return {"success": False, "error": str(e)}
+    # Not caught. This caught everything and answered 200 either way - and since
+    # execute_query returned None rather than raising when the graph was
+    # unreachable, the success branch ran as well: the quiz page said "Progress
+    # saved." and nothing had been written. GraphUnavailable now reaches the
+    # handler in main.py, and the student is told it was not saved.
+    result = neo4j_db.execute_query(query, parameters)
+    return {"success": True, "data": result}
 
 def get_student_progress(student_id: str):
     """Retrieves all past attempts for the dashboard timeline."""
@@ -86,12 +87,9 @@ def get_student_progress(student_id: str):
            a.seconds_on_lesson AS seconds_on_lesson
     ORDER BY a.timestamp DESC
     """
-    try:
-        result = neo4j_db.execute_query(query, {"student_id": student_id})
-        return {"success": True, "data": result}
-    except Exception as e:
-        print(f"❌ Progress Fetch Error: {e}")
-        return {"success": False, "error": str(e)}
+    # Not caught: an unreachable graph is a 503, not an empty history.
+    result = neo4j_db.execute_query(query, {"student_id": student_id})
+    return {"success": True, "data": result}
 
 def get_mastery_estimates(student_id: str) -> dict:
     """Per-concept Knowledge Tracing estimates for this student.
@@ -109,11 +107,10 @@ def get_mastery_estimates(student_id: str) -> dict:
     ORDER BY a.timestamp ASC
     """
 
-    try:
-        rows = neo4j_db.execute_query(query, {"student_id": student_id}) or []
-    except Exception as e:
-        print(f"❌ Mastery Fetch Error: {e}")
-        return {"success": False, "error": str(e)}
+    # Not caught. "Could not read the attempts" used to become "there are no
+    # attempts", so the estimates - and the curriculum and lesson prompt built on
+    # them - described a student with no history at all.
+    rows = neo4j_db.execute_query(query, {"student_id": student_id})
 
     # ORDER BY above is ASC on purpose and load-bearing: BKT is sequential, so
     # feeding it newest-first would trace the student's history backwards and
@@ -262,8 +259,10 @@ def get_curriculum(student_id: str) -> dict:
     }
 
     # Direct prerequisites per concept, from the same hand-written edges that
-    # are seeded into the graph - read here rather than queried so the page
-    # still renders the map when Neo4j is unreachable.
+    # are seeded into the graph - read here rather than queried, so the map does
+    # not depend on the prerequisite graph having been seeded. The estimates
+    # above do need the graph, and raise without it: fourteen untouched concepts
+    # for a student who has passed six would be a false map, not a partial one.
     prerequisites: dict[str, list[str]] = {tag: [] for tag in CONCEPT_TAGS}
     for prereq, dependent in PREREQUISITE_EDGES:
         prerequisites.setdefault(dependent, []).append(prereq)

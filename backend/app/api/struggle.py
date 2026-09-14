@@ -4,7 +4,7 @@ from app.core.auth import CurrentUser, get_current_user
 from app.models.schemas import DiagnosticPayload
 from app.services.concept_examples import example_for
 from app.services.lesson_service import generate_real_lesson
-from app.services.llm import LLMUnavailable
+from app.services.llm import DAILY_LIMIT_MESSAGE, LLMQuotaExhausted, LLMUnavailable
 
 router = APIRouter()
 
@@ -51,10 +51,16 @@ def detect_struggle(
                 # and every student with the same error gets the same lesson.
                 concept_tag=data.concept_tag or "",
             )
+        except LLMQuotaExhausted as error:
+            print(f"⚠️ Lesson not written, daily limit reached: {error}")
+            raise HTTPException(status_code=429, detail=DAILY_LIMIT_MESSAGE) from error
         except LLMUnavailable as error:
+            # The reason goes to the log, not to the student: it is a provider's
+            # error text, sometimes with a request id, and nothing they can act on.
+            print(f"⚠️ Lesson not written: {error}")
             raise HTTPException(
                 status_code=503,
-                detail=f"The lesson could not be generated right now. {error}",
+                detail="The lesson could not be written right now. Please try again in a few minutes.",
             ) from error
 
         return {

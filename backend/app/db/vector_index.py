@@ -203,20 +203,29 @@ def index_knowledge_base() -> dict:
     return {"success": True, "chunks_indexed": indexed}
 
 
-def search(query: str, k: int = 2) -> list[dict]:
-    """Nearest syllabus chunks to `query`. Empty list rather than raising."""
-    if not neo4j_db.driver:
-        return []
+class NotesUnavailable(RuntimeError):
+    """The syllabus search could not run: no embeddings model, or the embedding failed."""
 
+
+def _embed(query: str) -> list[float]:
     embeddings = get_embeddings_model()
     if embeddings is None:
-        return []
-
+        raise NotesUnavailable("No embeddings model is configured.")
     try:
-        vector = embeddings.embed_query(query)
+        return embeddings.embed_query(query)
     except Exception as error:
-        print(f"⚠️ Could not embed the query: {error}")
-        return []
+        raise NotesUnavailable(f"The query could not be embedded: {error}") from error
+
+
+def search(query: str, k: int = 2) -> list[dict]:
+    """Nearest syllabus chunks to `query`.
+
+    An empty list means the search ran and nothing matched. When it could not run
+    at all it raises NotesUnavailable or GraphUnavailable instead. Both used to
+    come back as an empty list, so a lesson written with no notes because the
+    graph was down looked exactly like one for which the syllabus had nothing.
+    """
+    vector = _embed(query)
 
     rows = neo4j_db.execute_query(
         f"""
@@ -244,20 +253,8 @@ def search_with_prerequisites(query: str, concept: str, k: int = 2) -> list[dict
     populated, so it degrades to exactly the previous behaviour rather than
     returning nothing.
     """
-    if not neo4j_db.driver:
-        return []
-
-    embeddings = get_embeddings_model()
-    if embeddings is None:
-        return []
-
     target = normalise_concept(concept)
-
-    try:
-        vector = embeddings.embed_query(query)
-    except Exception as error:
-        print(f"⚠️ Could not embed the query: {error}")
-        return []
+    vector = _embed(query)
 
     rows = neo4j_db.execute_query(
         f"""

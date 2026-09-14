@@ -35,5 +35,14 @@ def test_the_renamed_examples_are_found_under_code_coachs_names():
         assert example_for(error_type) != DEFAULT_EXAMPLE, error_type
 
 
+def test_every_error_type_has_an_example_of_its_own():
+    missing = sorted(set(ERROR_TYPE_TO_CONCEPT) - set(CONCEPT_EXAMPLES))
+    assert missing == [], f"taught from the off-by-one default: {missing}"
+
+    examples = list(CONCEPT_EXAMPLES.values())
+    assert DEFAULT_EXAMPLE not in examples
+    assert len(set(examples)) == len(examples), "two error types share one example"
+
+
 def test_an_unknown_error_type_still_gets_an_example():
     assert example_for("NOT_A_REAL_ERROR_TYPE") == DEFAULT_EXAMPLE

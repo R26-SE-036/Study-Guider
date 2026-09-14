@@ -85,6 +85,81 @@ CONCEPT_EXAMPLES: dict[str, str] = {
         "    System.out.println(\"Discount applies\");\n"
         "}"
     ),
+    # The ten below were taught from DEFAULT_EXAMPLE - an off-by-one for loop -
+    # so a lesson on string comparison or unreachable code was illustrated with
+    # a loop boundary. Every mapped error type now has its own.
+    "ALWAYS_TRUE_OR_CONDITION": (
+        "int score = 40;\n"
+        "// every score is above 0 or below 100, so this is always true\n"
+        "if (score > 0 || score < 100) {\n"
+        "    System.out.println(\"Valid score\");\n"
+        "}"
+    ),
+    "CONSTANT_FALSE_LOOP_CONDITION": (
+        "// i starts at 10, which is not less than 0, so the body never runs\n"
+        "for (int i = 10; i < 0; i++) {\n"
+        "    System.out.println(i);\n"
+        "}"
+    ),
+    "DIVISION_BY_ZERO_LITERAL": (
+        "int total = 90;\n"
+        "// dividing an int by 0 throws ArithmeticException\n"
+        "int average = total / 0;"
+    ),
+    "DUPLICATE_IF_ELSE_CONDITION": (
+        "int mark = 75;\n"
+        "if (mark >= 50) {\n"
+        "    System.out.println(\"Pass\");\n"
+        "} else if (mark >= 50) {\n"
+        "    // the same test again, so this branch can never run\n"
+        "    System.out.println(\"Merit\");\n"
+        "}"
+    ),
+    "EMPTY_CONDITIONAL_BODY": (
+        "int age = 15;\n"
+        "// the semicolon ends the if, so the block below always runs\n"
+        "if (age >= 18);\n"
+        "{\n"
+        "    System.out.println(\"Allowed to vote\");\n"
+        "}"
+    ),
+    "IGNORED_STRING_METHOD_RESULT": (
+        "String name = \"  ada  \";\n"
+        "// trim() returns a new string; this one is thrown away\n"
+        "name.trim();\n"
+        "System.out.println(\"[\" + name + \"]\");"
+    ),
+    "LOOP_UPDATE_WRONG_DIRECTION": (
+        "// i starts below 10 and counts down, so it never reaches 10\n"
+        "for (int i = 0; i < 10; i--) {\n"
+        "    System.out.println(i);\n"
+        "}"
+    ),
+    "SELF_ASSIGNMENT": (
+        "public class Student {\n"
+        "    private String name;\n"
+        "\n"
+        "    public Student(String name) {\n"
+        "        // assigns the parameter to itself; the field stays null\n"
+        "        name = name;\n"
+        "    }\n"
+        "}"
+    ),
+    "STRING_EQUALITY_WITH_OPERATOR": (
+        "Scanner input = new Scanner(System.in);\n"
+        "String answer = input.nextLine();\n"
+        "// == compares references, not the characters\n"
+        "if (answer == \"yes\") {\n"
+        "    System.out.println(\"Confirmed\");\n"
+        "}"
+    ),
+    "UNREACHABLE_CODE_AFTER_RETURN": (
+        "static int square(int n) {\n"
+        "    return n * n;\n"
+        "    // the method has already returned, so this never runs\n"
+        "    System.out.println(\"Squared \" + n);\n"
+        "}"
+    ),
 }
 
 DEFAULT_EXAMPLE = (

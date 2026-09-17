@@ -67,12 +67,13 @@ def update_student_progress(student_id: str, concept: str, score: int, total: in
         "seconds_on_lesson": seconds_on_lesson,
     }
     
-    try:
-        result = neo4j_db.execute_query(query, parameters)
-        return {"success": True, "data": result}
-    except Exception as e:
-        print(f"❌ Progress Update Error: {e}")
-        return {"success": False, "error": str(e)}
+    # Not caught. This caught everything and answered 200 either way - and since
+    # execute_query returned None rather than raising when the graph was
+    # unreachable, the success branch ran as well: the quiz page said "Progress
+    # saved." and nothing had been written. GraphUnavailable now reaches the
+    # handler in main.py, and the student is told it was not saved.
+    result = neo4j_db.execute_query(query, parameters)
+    return {"success": True, "data": result}
 
 def get_student_progress(student_id: str):
     """Retrieves all past attempts for the dashboard timeline."""
@@ -86,12 +87,9 @@ def get_student_progress(student_id: str):
            a.seconds_on_lesson AS seconds_on_lesson
     ORDER BY a.timestamp DESC
     """
-    try:
-        result = neo4j_db.execute_query(query, {"student_id": student_id})
-        return {"success": True, "data": result}
-    except Exception as e:
-        print(f"❌ Progress Fetch Error: {e}")
-        return {"success": False, "error": str(e)}
+    # Not caught: an unreachable graph is a 503, not an empty history.
+    result = neo4j_db.execute_query(query, {"student_id": student_id})
+    return {"success": True, "data": result}
 
 def get_mastery_estimates(student_id: str) -> dict:
     """Per-concept Knowledge Tracing estimates for this student.
@@ -109,11 +107,10 @@ def get_mastery_estimates(student_id: str) -> dict:
     ORDER BY a.timestamp ASC
     """
 
-    try:
-        rows = neo4j_db.execute_query(query, {"student_id": student_id}) or []
-    except Exception as e:
-        print(f"❌ Mastery Fetch Error: {e}")
-        return {"success": False, "error": str(e)}
+    # Not caught. "Could not read the attempts" used to become "there are no
+    # attempts", so the estimates - and the curriculum and lesson prompt built on
+    # them - described a student with no history at all.
+    rows = neo4j_db.execute_query(query, {"student_id": student_id})
 
     # ORDER BY above is ASC on purpose and load-bearing: BKT is sequential, so
     # feeding it newest-first would trace the student's history backwards and
@@ -130,6 +127,8 @@ def get_mastery_estimates(student_id: str) -> dict:
             round(sum(percentages) / len(percentages), 1) if percentages else None
         )
         estimate["attempts"] = len(attempts)
+        # Newest, because the query is oldest-first. What review_due measures from.
+        estimate["last_attempt"] = attempts[-1].get("timestamp")
         estimates.append(estimate)
 
     estimates.sort(key=lambda item: item["probability_known"])
@@ -232,6 +231,56 @@ def _seconds_on_lesson(student_id: str, concept: str) -> float | None:
     return round(elapsed, 1)
 
 
+# ── When a concept is due for review ────────────────────────────────────────
+# Not yet known: due a day after the last attempt. Straight after a lesson and
+# quiz is not review, and the remediation trigger is still on the student's list.
+# Known: due after two weeks without practice. BKT has no forgetting term - its
+# belief never falls on its own - so this is a stated spacing convention, not
+# something the model predicts.
+REVIEW_NOT_YET_KNOWN_AFTER_DAYS = 1
+REVIEW_KNOWN_AFTER_DAYS = 14
+
+
+def _days_since(timestamp: str | None, now: datetime) -> int | None:
+    try:
+        then = datetime.fromisoformat(timestamp)
+    except (TypeError, ValueError):
+        return None
+    if then.tzinfo is None:
+        then = then.replace(tzinfo=timezone.utc)
+    return max(0, (now - then).days)
+
+
+def review_due(estimates: list[dict], now: datetime | None = None) -> list[dict]:
+    """Attempted concepts worth coming back to, most in need first.
+
+    Concepts not yet known come first, weakest belief first; then known ones,
+    longest unpractised first. A concept never attempted is not "due" - it has
+    not been learned to be reviewed - and the curriculum's suggested_next already
+    covers what to start.
+    """
+    now = now or datetime.now(timezone.utc)
+    not_yet_known, not_practised = [], []
+
+    for estimate in estimates:
+        days = _days_since(estimate.get("last_attempt"), now)
+        item = {
+            "concept": estimate["concept"],
+            "probability_known": estimate["probability_known"],
+            "days_since_practice": days,
+        }
+        if not estimate.get("mastered"):
+            # An unreadable timestamp leans towards review: nothing says it is recent.
+            if days is None or days >= REVIEW_NOT_YET_KNOWN_AFTER_DAYS:
+                not_yet_known.append({**item, "reason": "not_yet_known"})
+        elif days is not None and days >= REVIEW_KNOWN_AFTER_DAYS:
+            not_practised.append({**item, "reason": "not_practised_recently"})
+
+    not_yet_known.sort(key=lambda item: item["probability_known"])
+    not_practised.sort(key=lambda item: -item["days_since_practice"])
+    return not_yet_known + not_practised
+
+
 def get_curriculum(student_id: str) -> dict:
     """Every concept, where the student stands on it, and what it depends on.
 
@@ -262,8 +311,10 @@ def get_curriculum(student_id: str) -> dict:
     }
 
     # Direct prerequisites per concept, from the same hand-written edges that
-    # are seeded into the graph - read here rather than queried so the page
-    # still renders the map when Neo4j is unreachable.
+    # are seeded into the graph - read here rather than queried, so the map does
+    # not depend on the prerequisite graph having been seeded. The estimates
+    # above do need the graph, and raise without it: fourteen untouched concepts
+    # for a student who has passed six would be a false map, not a partial one.
     prerequisites: dict[str, list[str]] = {tag: [] for tag in CONCEPT_TAGS}
     for prereq, dependent in PREREQUISITE_EDGES:
         prerequisites.setdefault(dependent, []).append(prereq)
@@ -324,5 +375,6 @@ def get_curriculum(student_id: str) -> dict:
                 (c["concept"] for c in concepts if c["state"] == "ready"),
                 next((c["concept"] for c in concepts if c["state"] == "in_progress"), None),
             ),
+            "review_due": review_due(list(estimates.values())),
         },
     }

@@ -203,27 +203,36 @@ def index_knowledge_base() -> dict:
     return {"success": True, "chunks_indexed": indexed}
 
 
-def search(query: str, k: int = 2) -> list[dict]:
-    """Nearest syllabus chunks to `query`. Empty list rather than raising."""
-    if not neo4j_db.driver:
-        return []
+class NotesUnavailable(RuntimeError):
+    """The syllabus search could not run: no embeddings model, or the embedding failed."""
 
+
+def _embed(query: str) -> list[float]:
     embeddings = get_embeddings_model()
     if embeddings is None:
-        return []
-
+        raise NotesUnavailable("No embeddings model is configured.")
     try:
-        vector = embeddings.embed_query(query)
+        return embeddings.embed_query(query)
     except Exception as error:
-        print(f"⚠️ Could not embed the query: {error}")
-        return []
+        raise NotesUnavailable(f"The query could not be embedded: {error}") from error
+
+
+def search(query: str, k: int = 2) -> list[dict]:
+    """Nearest syllabus chunks to `query`.
+
+    An empty list means the search ran and nothing matched. When it could not run
+    at all it raises NotesUnavailable or GraphUnavailable instead. Both used to
+    come back as an empty list, so a lesson written with no notes because the
+    graph was down looked exactly like one for which the syllabus had nothing.
+    """
+    vector = _embed(query)
 
     rows = neo4j_db.execute_query(
         f"""
         CALL db.index.vector.queryNodes('{VECTOR_INDEX_NAME}', $k, $vector)
         YIELD node, score
         OPTIONAL MATCH (node)-[:EXPLAINS]->(concept:Concept)
-        RETURN node.text AS text, node.source AS source,
+        RETURN node.text AS text, node.source AS source, node.position AS position,
                concept.name AS concept, score
         ORDER BY score DESC
         """,
@@ -232,45 +241,43 @@ def search(query: str, k: int = 2) -> list[dict]:
     return rows or []
 
 
-def search_with_prerequisites(query: str, concept: str, k: int = 2) -> list[dict]:
-    """Chunks for `concept` and for the concepts it depends on.
+# How many nearest chunks the concept filter chooses from. The whole syllabus is
+# a few dozen chunks, so this is effectively all of them: a smaller pool could
+# hold none of the target concept's chunks and report "no notes" for a concept
+# that has them.
+CANDIDATE_POOL = 50
+
+
+def search_with_prerequisites(query: str, concept: str, k: int = 3) -> list[dict]:
+    """Chunks about `concept` and the concepts it depends on, nearest first.
 
     This is the query that only exists because the vectors live in the graph:
     a similarity search whose candidate set is restricted by a variable-depth
     walk up the prerequisite chain. With the vectors in a separate store it
     would be a search, a traversal, and a join in Python.
 
-    Falls back to a plain search when the prerequisite graph has not been
-    populated, so it degrades to exactly the previous behaviour rather than
-    returning nothing.
+    ── No fallback to a plain search ───────────────────────────────────────
+    It used to fall back whenever nothing matched, and a plain search returns
+    the nearest chunks from ANY concept - so a lesson on switch statements
+    could be written from, and cite, the notes on loop boundaries. It was also
+    never called: lessons used the plain search throughout. Nothing matching is
+    now reported as nothing matching, and the lesson says it had no notes.
     """
-    if not neo4j_db.driver:
-        return []
-
-    embeddings = get_embeddings_model()
-    if embeddings is None:
-        return []
-
     target = normalise_concept(concept)
-
-    try:
-        vector = embeddings.embed_query(query)
-    except Exception as error:
-        print(f"⚠️ Could not embed the query: {error}")
-        return []
+    vector = _embed(query)
 
     rows = neo4j_db.execute_query(
         f"""
-        CALL db.index.vector.queryNodes('{VECTOR_INDEX_NAME}', $k, $vector)
+        CALL db.index.vector.queryNodes('{VECTOR_INDEX_NAME}', $pool, $vector)
         YIELD node, score
         MATCH (node)-[:EXPLAINS]->(chunk_concept:Concept)
         WHERE chunk_concept.name = $target
            OR (chunk_concept)-[:PREREQUISITE_OF*1..4]->(:Concept {{name: $target}})
-        RETURN node.text AS text, node.source AS source,
+        RETURN node.text AS text, node.source AS source, node.position AS position,
                chunk_concept.name AS concept, score
         ORDER BY score DESC
+        LIMIT $k
         """,
-        {"k": k * 4, "vector": vector, "target": target},
+        {"pool": CANDIDATE_POOL, "vector": vector, "target": target, "k": k},
     )
-
-    return rows or search(query, k)
+    return rows

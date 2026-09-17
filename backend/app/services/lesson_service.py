@@ -24,14 +24,15 @@ makes a broken API key visible.
 """
 
 import json
-from datetime import datetime, timezone
+import time
+from dataclasses import dataclass
 
 from app.core.config import settings
-from app.db.neo4j_connection import neo4j_db
+from app.db.neo4j_connection import GraphUnavailable, neo4j_db
 from app.services.llm import LLMUnavailable, generate, strip_code_fence
-from app.services import learning_path_service, progress_service
+from app.services import content_store, learning_path_service, progress_service
 from app.services.ml_service import predict_cognitive_state
-from app.services.rag_service import retrieve_context
+from app.services.rag_service import FOUND, UNAVAILABLE, RetrievedNotes, retrieve_notes
 
 PROMPT = """
 You are 'Code Guru', an expert computer science tutor for first-year IT students.
@@ -48,6 +49,9 @@ direct correction.
 === SYLLABUS NOTES (Use ONLY as background context) ===
 {context}
 ======================
+Each note above begins with an id such as [N1]. In "sources", list the ids of
+the notes this lesson actually draws on, and only those. If it uses none, give
+an empty list rather than guessing.
 
 === THIS STUDENT'S RECORD (from the knowledge graph) ===
 {graph_context}
@@ -85,7 +89,8 @@ Respond with JSON only, exactly in this shape:
     "mermaidDiagram": "graph TD\\n A[Step 1] --> B[Step 2]",
     "videoUrl": "A YouTube URL relevant to {error_type}",
     "referenceLink": "A documentation link relevant to {error_type}",
-    "hint": "A guiding question specific to {error_type}"
+    "hint": "A guiding question specific to {error_type}",
+    "sources": ["N1"]
 }}
 """
 
@@ -218,75 +223,154 @@ def past_score_for(student_id: str) -> int:
     50 for a student with no history: neutral, and the same midpoint the rest of
     the platform treats as the pass mark.
     """
-    if not neo4j_db.driver:
+    try:
+        rows = neo4j_db.execute_query(
+            """
+            MATCH (:Student {student_id: $student_id})-[a:ATTEMPTED]->(:Concept)
+            RETURN avg(a.percentage) AS average
+            """,
+            {"student_id": student_id},
+        )
+    except GraphUnavailable:
+        # Unknown rather than "no history", but the cognitive-state rubric needs
+        # a number, and the neutral midpoint is the one that sways it least. The
+        # lesson already reports that the student's record could not be read.
         return 50
-
-    rows = neo4j_db.execute_query(
-        """
-        MATCH (:Student {student_id: $student_id})-[a:ATTEMPTED]->(:Concept)
-        RETURN avg(a.percentage) AS average
-        """,
-        {"student_id": student_id},
-    )
 
     average = (rows or [{}])[0].get("average") if rows else None
     return int(average) if average is not None else 50
 
 
-def build_graph_context(student_id: str, concept_tag: str) -> str:
-    """What the knowledge graph knows about THIS student and THIS concept.
+# Bump when PROMPT changes in a way that should retire the lessons already
+# stored. It is part of every lesson's key, so old lessons simply stop matching.
+PROMPT_VERSION = "2026-09-14-cited"
 
-    This is the "Graph" half of Graph RAG, and it was missing. The pipeline
-    retrieved syllabus text and stopped there, so every student with the same
-    error got the same lesson - which is retrieval-augmented, but not
-    personalised, and the proposal claims both.
+# Whether the student's record was actually read, for the lesson's grounding.
+RECORD_READ = "read"
+RECORD_UNAVAILABLE = "unavailable"
+RECORD_NOT_LOOKED_UP = "no_concept"
 
-    Two things go in: how well BKT believes they know the concept, and which of
-    its prerequisites they have not mastered. The second is the more useful of
-    the two, because a student failing at array indexing because they never got
-    loop boundaries needs to be taught loop boundaries, and no amount of
+# Knowledge-tracing belief below this reads as "still finds it hard".
+EARLY_BELIEF = 0.5
+
+
+@dataclass(frozen=True)
+class StudentSituation:
+    """What a lesson may assume about a student, at a grain students can share.
+
+    ── Why bands, not numbers ──────────────────────────────────────────────
+    The prompt used to carry "3 quiz attempts, average 55%, 41% belief". That
+    made every lesson one student's, so none could be reused - and at twenty
+    generations a day for the whole project, a lesson per student per mistake
+    is most of the budget gone by the tenth student.
+
+    A band is what the lesson actually changes on: never quizzed, still finds
+    it hard, part of the way there, or probably a slip. Together with the
+    prerequisites they have not mastered, it is everything the lesson needs to
+    be pitched right, and it is the same for every student in it.
+    """
+
+    record: str
+    band: str = "unknown"
+    gaps: tuple[str, ...] = ()
+
+    @property
+    def key(self) -> str:
+        return f"{self.record}|{self.band}|{','.join(self.gaps)}"
+
+
+def student_situation(student_id: str, concept_tag: str) -> StudentSituation:
+    """This student's situation on this concept, from the knowledge graph.
+
+    The "Graph" half of Graph RAG: how well BKT believes they know the concept,
+    and which of its prerequisites they have not mastered. The second is the
+    more useful, because a student failing at array indexing because they never
+    got loop boundaries needs loop boundaries taught, and no amount of
     explaining array indexing will do it.
 
-    Returns plain prose rather than JSON: it is going into a prompt, and a
-    model reads a sentence more reliably than it reads a nested object.
+    "Could not read it" is its own situation. It used to come out as "no quiz
+    attempts yet - this is the first time they are being taught it", so while
+    the graph was unreachable a student with six attempts was taught from
+    scratch, and told so.
     """
     if not concept_tag:
-        return "No concept tag was supplied, so no record could be looked up."
-
-    lines: list[str] = []
+        return StudentSituation(RECORD_NOT_LOOKED_UP)
 
     try:
         mastery = progress_service.get_concept_mastery(student_id, concept_tag)
-    except Exception as error:  # pragma: no cover - the lesson matters more
-        print(f"⚠️ Could not read mastery for the prompt: {error}")
-        mastery = None
-
-    if mastery:
-        lines.append(
-            f"- Concept '{concept_tag}': {mastery['attempts']} quiz attempt(s), "
-            f"average {mastery['average_percentage']}%. Knowledge-tracing belief "
-            f"they know it: {mastery['probability_known']:.0%}"
-            f"{' (mastered)' if mastery['mastered'] else ' (not yet mastered)'}."
-        )
-    else:
-        lines.append(
-            f"- Concept '{concept_tag}': no quiz attempts yet. This is the first "
-            "time they are being taught it."
-        )
-
-    try:
         gaps = learning_path_service.unmastered_prerequisites(student_id, concept_tag)
-    except Exception as error:  # pragma: no cover
-        print(f"⚠️ Could not read prerequisites for the prompt: {error}")
-        gaps = []
+    except Exception as error:  # the lesson matters more than the record
+        print(f"⚠️ Student record unavailable for the prompt: {error}")
+        return StudentSituation(RECORD_UNAVAILABLE)
 
-    if gaps:
-        listed = ", ".join(gap["concept"] for gap in gaps)
-        lines.append(f"- Prerequisites they have NOT mastered: {listed}.")
+    if not mastery:
+        band = "none"
+    elif mastery["mastered"]:
+        band = "mastered"
+    elif mastery["probability_known"] < EARLY_BELIEF:
+        band = "early"
+    else:
+        band = "developing"
+
+    return StudentSituation(
+        RECORD_READ,
+        band,
+        tuple(sorted({gap["concept"] for gap in gaps})),
+    )
+
+
+_BAND_PROMPT = {
+    "none": "- They have not taken a quiz on '{concept}' yet, so teach it as new.",
+    "early": (
+        "- They have met '{concept}' before and still find it hard: knowledge "
+        "tracing believes they probably do not know it yet. Say that they have "
+        "seen it before, and rebuild it from the ground up."
+    ),
+    "developing": (
+        "- They have met '{concept}' before and are part of the way there: "
+        "knowledge tracing is not yet confident they know it. Say so, and "
+        "concentrate on the part that still trips them up."
+    ),
+    "mastered": (
+        "- Knowledge tracing believes they know '{concept}', so this is probably "
+        "a slip. Keep the lesson short and direct."
+    ),
+}
+
+
+def situation_prompt(concept_tag: str, situation: StudentSituation) -> str:
+    """The student's record in words that stay true for everyone sharing the lesson."""
+    if situation.record == RECORD_NOT_LOOKED_UP:
+        return "No concept tag was supplied, so no record could be looked up."
+    if situation.record == RECORD_UNAVAILABLE:
+        return (
+            "- This student's record could not be read, so nothing is known about "
+            "their history with this concept. Do not assume this is their first "
+            "time, and do not mention past attempts, progress or prerequisites."
+        )
+
+    lines = [_BAND_PROMPT[situation.band].format(concept=concept_tag)]
+    if situation.gaps:
+        lines.append(f"- Prerequisites they have NOT mastered: {', '.join(situation.gaps)}.")
     else:
         lines.append("- No unmastered prerequisites stand in front of this concept.")
-
     return "\n".join(lines)
+
+
+def _notes_for_prompt(notes: RetrievedNotes) -> str:
+    """The notes, or an instruction not to pretend there were any."""
+    if notes.status == FOUND:
+        return notes.text
+    if notes.status == UNAVAILABLE:
+        return (
+            "No syllabus notes could be retrieved for this lesson. Explain from "
+            "general Java knowledge, and do not refer to the notes, the syllabus "
+            "or course material."
+        )
+    return (
+        "The syllabus has no notes on this particular error. Explain from general "
+        "Java knowledge, and do not claim to be quoting course material."
+    )
 
 
 def generate_real_lesson(
@@ -310,28 +394,65 @@ def generate_real_lesson(
     cognitive_state = predict_cognitive_state(
         error_count, code_snippet, past_score_for(student_id)
     )
+    return lesson_for(
+        student_id,
+        error_type,
+        code_snippet,
+        concept_tag,
+        cognitive_state,
+        force_regenerate=force_regenerate,
+    )
 
-    # Before spending a model call, check whether this exact lesson already
-    # exists. Lessons were being cached and never read, so a page refresh cost
-    # a full generation - which is where most of the API quota was going.
-    if not force_regenerate:
-        cached = _cached_lesson(student_id, error_type, cognitive_state)
-        if cached:
-            print(f"Lesson cache HIT for {error_type} / {cognitive_state}")
-            return {**cached, "cognitive_state": cognitive_state, "cached": True}
 
-    context = retrieve_context(f"{error_type} {code_snippet}", k=2)
-    graph_context = build_graph_context(student_id, concept_tag)
+def lesson_for(
+    student_id: str,
+    error_type: str,
+    code_snippet: str,
+    concept_tag: str,
+    cognitive_state: str,
+    *,
+    force_regenerate: bool = False,
+) -> dict:
+    """The lesson for this student's situation: a stored one if there is one.
 
+    Separate from generate_real_lesson so pregeneration can ask for a given
+    cognitive state directly and land on exactly the key a real student in that
+    state will look up.
+
+    The result carries `grounding` - whether syllabus notes were found, found
+    nothing, or could not be reached, and whether the student's record was read -
+    and `unmet_prerequisites`, which the lesson page shows as what to look at
+    first.
+    """
+    situation = student_situation(student_id, concept_tag)
+    key = content_store.lesson_key(
+        PROMPT_VERSION, error_type, cognitive_state, code_snippet, situation.key
+    )
+    # A lesson written without the student's record cannot be matched to anyone
+    # else's situation, so it is neither served from the store nor added to it.
+    shareable = situation.record != RECORD_UNAVAILABLE
+
+    if shareable and not force_regenerate:
+        stored = _stored_lesson(key)
+        if stored:
+            print(f"Lesson store HIT for {error_type} / {cognitive_state} / {situation.key}")
+            _record_taught(student_id, key, error_type)
+            return _lesson_response(stored, cognitive_state, situation, cached=True)
+
+    # Within the concept and its prerequisites, not across the whole syllabus.
+    notes = retrieve_notes(f"{error_type} {code_snippet}", concept=concept_tag or None, k=3)
+
+    started = time.monotonic()
     text = generate(
         PROMPT.format(
             error_type=error_type,
             code_snippet=code_snippet,
             cognitive_state=cognitive_state,
-            context=context,
-            graph_context=graph_context,
+            context=_notes_for_prompt(notes),
+            graph_context=situation_prompt(concept_tag, situation),
         )
     )
+    generation_ms = int((time.monotonic() - started) * 1000)
 
     lesson = _extract_json(text)
 
@@ -352,8 +473,23 @@ def generate_real_lesson(
     if not (incorrect and correct) and example:
         incorrect, correct = split_legacy_example(example)
 
-    result = {
-        "cached": False,
+    # The notes the lesson says it used, kept only if they were actually given
+    # to it. A model will cite "N4" when there were three notes, and a citation
+    # to a note that does not exist is not a source - it is an invention the
+    # page would repeat to the student as fact.
+    offered = {chunk["id"]: chunk for chunk in notes.chunks}
+    cited = [ref for ref in (lesson.get("sources") or []) if isinstance(ref, str)]
+    sources = [
+        {
+            "id": ref,
+            "concept": offered[ref].get("concept") or "",
+            "source": offered[ref].get("source") or "",
+        }
+        for ref in dict.fromkeys(cited)
+        if ref in offered
+    ]
+
+    fields = {
         "issue": lesson.get("issue", ""),
         "explanation": lesson.get("explanation", ""),
         "incorrectCode": incorrect,
@@ -365,148 +501,68 @@ def generate_real_lesson(
         "videoUrl": lesson.get("videoUrl", ""),
         "referenceLink": lesson.get("referenceLink", ""),
         "hint": lesson.get("hint", ""),
-        "cognitive_state": cognitive_state,
+        "syllabus_notes": notes.status,
+        "student_record": situation.record,
+        "sources_json": json.dumps(sources),
     }
 
-    _cache_lesson(student_id, error_type, cognitive_state, result)
-    return result
-
-
-# How long a cached lesson stays usable. Seven days: long enough that a student
-# working through one concept over a week never pays for regeneration, short
-# enough that a change to the prompt or the syllabus reaches everyone quickly.
-CACHE_TTL_SECONDS = 7 * 24 * 60 * 60
-
-# Fields that make up a lesson, in one place so the read and the write cannot
-# disagree about what a cached lesson contains.
-LESSON_FIELDS = (
-    "issue",
-    "explanation",
-    "incorrectCode",
-    "correctCode",
-    "exampleCode",
-    "mermaidDiagram",
-    "videoUrl",
-    "referenceLink",
-    "hint",
-)
-
-
-def _cached_lesson(student_id: str, error_type: str, cognitive_state: str) -> dict | None:
-    """A lesson already generated for this student, error and state.
-
-    ── Why this function did not exist, and why it matters ──────────────────
-    Lessons were being WRITTEN to the graph and never read back. Every request
-    called the model, including a page refresh on a lesson the student had just
-    read - so re-opening a lesson cost a full generation, and the API quota was
-    being spent on content that already existed.
-
-    ── Why the key includes the student ─────────────────────────────────────
-    It would be cheaper to cache per error type alone, and that is what the
-    write did. It is now wrong to: the prompt carries this student's mastery
-    and their unmastered prerequisites, so a generated lesson can open with
-    "you have practiced this before". Serving that to a different student would
-    be a lie the cache invented, which is worse than the cost it saves.
-
-    Cognitive state is in the key for the same reason - it changes how the
-    lesson is pitched, so a lesson written for "Needs Simple Basics" is not the
-    one to hand back when the student is now on "Minor Syntax Error".
-    """
-    if not neo4j_db.driver:
-        return None
-
-    try:
-        rows = neo4j_db.execute_query(
-            """
-            MATCH (s:Student {student_id: $student_id})
-                  -[c:CACHED_LESSON {error_type: $error_type,
-                                     cognitive_state: $cognitive_state}]->(l:Lesson)
-            RETURN l AS lesson, c.generated_at AS generated_at
-            ORDER BY c.generated_at DESC
-            LIMIT 1
-            """,
+    # Only a lesson written with the notes and the student's record in front of
+    # it is kept. One written during an outage would otherwise go on being
+    # served - still ungrounded - for a week after the graph came back.
+    if notes.status == FOUND and shareable:
+        _store_lesson(
+            key,
             {
-                "student_id": student_id,
+                **fields,
                 "error_type": error_type,
+                "concept_tag": concept_tag,
                 "cognitive_state": cognitive_state,
+                "situation": situation.key,
+                "prompt_version": PROMPT_VERSION,
+                "generation_ms": generation_ms,
             },
         )
-    except Exception as error:  # pragma: no cover - a cache miss is not fatal
-        print(f"⚠️ Could not read the lesson cache: {error}")
-        return None
+        _record_taught(student_id, key, error_type)
 
-    row = (rows or [None])[0]
-    if not row or not row.get("lesson"):
-        return None
-
-    generated_at = row.get("generated_at")
-    if generated_at:
-        try:
-            age = (
-                datetime.now(timezone.utc) - datetime.fromisoformat(generated_at)
-            ).total_seconds()
-            if age > CACHE_TTL_SECONDS:
-                return None
-        except (TypeError, ValueError):
-            # An unparseable timestamp means we cannot prove it is fresh, and a
-            # stale lesson is worse than paying for a new one.
-            return None
-
-    lesson = dict(row["lesson"])
-    cached = {field: lesson.get(field, "") for field in LESSON_FIELDS}
-
-    # Lessons cached before the example was split into two fields carry only the
-    # old commented-out blob. Splitting on READ as well as on generate means the
-    # up-to-seven-days of them already in the graph render in the new format
-    # rather than falling back to the blob until they expire.
-    if not (cached.get("incorrectCode") and cached.get("correctCode")):
-        incorrect, correct = split_legacy_example(cached.get("exampleCode", ""))
-        if incorrect and correct:
-            cached["incorrectCode"] = incorrect
-            cached["correctCode"] = correct
-
-    return cached
+    return _lesson_response(fields, cognitive_state, situation, cached=False)
 
 
-def _cache_lesson(
-    student_id: str, error_type: str, cognitive_state: str, lesson: dict
-) -> None:
-    """Record the lesson so the next request does not have to generate it.
+def _lesson_response(
+    stored: dict, cognitive_state: str, situation: StudentSituation, *, cached: bool
+) -> dict:
+    return {
+        "cached": cached,
+        **{field: stored.get(field, "") or "" for field in content_store.LESSON_FIELDS},
+        "cognitive_state": cognitive_state,
+        "grounding": {
+            "syllabus_notes": stored.get("syllabus_notes") or "unknown",
+            "student_record": stored.get("student_record") or "unknown",
+        },
+        "unmet_prerequisites": list(situation.gaps),
+        "sources": json.loads(stored.get("sources_json") or "[]"),
+    }
 
-    Best effort. A cache write that fails must not cost the student the lesson
-    that was just generated for them.
-    """
-    if not neo4j_db.driver:
-        return
 
+# ── Best effort around the store ─────────────────────────────────────────────
+# A lesson that was just written, or could have been, must never be lost
+# because the store could not be read or written. Each failure is logged.
+def _stored_lesson(key: str) -> dict | None:
     try:
-        neo4j_db.execute_query(
-            """
-            MERGE (s:Student {student_id: $student_id})
-            CREATE (l:Lesson {
-                issue: $issue,
-                explanation: $explanation,
-                incorrectCode: $incorrectCode,
-                correctCode: $correctCode,
-                exampleCode: $exampleCode,
-                mermaidDiagram: $mermaidDiagram,
-                videoUrl: $videoUrl,
-                referenceLink: $referenceLink,
-                hint: $hint
-            })
-            CREATE (s)-[:CACHED_LESSON {
-                error_type: $error_type,
-                cognitive_state: $cognitive_state,
-                generated_at: $generated_at
-            }]->(l)
-            """,
-            {
-                "student_id": student_id,
-                "error_type": error_type,
-                "cognitive_state": cognitive_state,
-                "generated_at": datetime.now(timezone.utc).isoformat(),
-                **{field: lesson.get(field, "") for field in LESSON_FIELDS},
-            },
-        )
-    except Exception as error:  # pragma: no cover - cache is not load-bearing
-        print(f"⚠️ Could not cache the lesson: {error}")
+        return content_store.find_lesson(key)
+    except Exception as error:
+        print(f"⚠️ Could not read the lesson store: {error}")
+        return None
+
+
+def _store_lesson(key: str, properties: dict) -> None:
+    try:
+        content_store.save_lesson(key, properties)
+    except Exception as error:
+        print(f"⚠️ Could not store the lesson: {error}")
+
+
+def _record_taught(student_id: str, key: str, error_type: str) -> None:
+    try:
+        content_store.record_taught(student_id, key, error_type)
+    except Exception as error:
+        print(f"⚠️ Could not record which lesson was taught: {error}")

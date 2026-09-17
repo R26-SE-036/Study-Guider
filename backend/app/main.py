@@ -1,8 +1,9 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
+from fastapi.responses import JSONResponse
 
 from app.api import dashboard, games, progress, quiz, remediation, struggle
 from app.core.config import settings
-from app.db.neo4j_connection import neo4j_db
+from app.db.neo4j_connection import GraphUnavailable, neo4j_db
 
 app = FastAPI(
     title="Code Guru - Student Progress Tracker API",
@@ -22,6 +23,25 @@ app = FastAPI(
 # React frontend on its own port; that frontend is gone, and an allow-list
 # nobody is checked against is just a config value to keep in step for no
 # reason.
+
+@app.exception_handler(GraphUnavailable)
+def graph_unavailable(_request: Request, _error: GraphUnavailable) -> JSONResponse:
+    """One answer for every route that needs the graph and cannot reach it.
+
+    A 503, which the web app already reads as "could not check" rather than
+    "refused". The wording matters most for a quiz result: the student must know
+    it was not saved, which is exactly what the old 200 hid from them.
+    """
+    return JSONResponse(
+        status_code=503,
+        content={
+            "detail": (
+                "Study Guider could not reach its database, so nothing was read "
+                "or saved. Please try again in a few minutes."
+            )
+        },
+    )
+
 
 # Routers
 app.include_router(struggle.router, prefix="/api/struggle", tags=["Struggle Detection"])
@@ -68,8 +88,10 @@ def check_required_configuration():
 
 @app.get("/api/health")
 def health_check():
-    # Whether the graph database is actually connected.
-    connected = bool(neo4j_db.driver)
+    # Whether the graph database is connected - and, if it was not, whether it
+    # is back. Without the retry here a service that lost Neo4j went on
+    # reporting Degraded until a student request happened to reconnect it.
+    connected = neo4j_db.reconnect_if_due()
 
     # "Active" used to be hardcoded. A health check that says Active while the
     # database is Disconnected is worse than none: behind a load balancer it
@@ -84,6 +106,8 @@ def health_check():
         "status": "Active" if connected else "Degraded",
         "component": "Student Progress Tracker (SPT)",
         "database": "Connected" if connected else "Disconnected",
-        "degraded_routes": [] if connected else ["/api/progress", "/api/struggle"],
+        # Progress and games answer 503. Lessons are still written, but
+        # without the syllabus notes or the student's record, and say so.
+        "degraded_routes": [] if connected else ["/api/progress", "/api/games", "/api/struggle"],
         "identity_provider": settings.CODE_COACH_URL,
     }

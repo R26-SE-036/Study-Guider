@@ -3,7 +3,7 @@ from pydantic import BaseModel
 
 from app.core.auth import CurrentUser, get_current_user
 from app.services.concept_examples import example_for
-from app.services.llm import LLMUnavailable
+from app.services.llm import DAILY_LIMIT_MESSAGE, LLMQuotaExhausted, LLMUnavailable
 from app.services.quiz_service import generate_validation_quiz
 
 router = APIRouter()
@@ -33,10 +33,14 @@ def create_quiz(
             error_type=data.error_type,
             code_snippet=data.code_snippet or example_for(data.error_type),
         )
+    except LLMQuotaExhausted as error:
+        print(f"⚠️ Quiz not written, daily limit reached: {error}")
+        raise HTTPException(status_code=429, detail=DAILY_LIMIT_MESSAGE) from error
     except LLMUnavailable as error:
+        print(f"⚠️ Quiz not written: {error}")
         raise HTTPException(
             status_code=503,
-            detail=f"The quiz could not be generated right now. {error}",
+            detail="The quiz could not be written right now. Please try again in a few minutes.",
         ) from error
 
     return {

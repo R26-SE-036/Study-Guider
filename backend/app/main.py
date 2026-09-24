@@ -1,7 +1,7 @@
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 
-from app.api import dashboard, games, progress, quiz, remediation, struggle
+from app.api import dashboard, games, progress, quiz, remediation, session_review, struggle
 from app.core.config import settings
 from app.db.neo4j_connection import GraphUnavailable, neo4j_db
 
@@ -54,6 +54,10 @@ app.include_router(dashboard.router, prefix="/api/dashboard", tags=["Dashboard"]
 # progress graph on purpose - a game score is not a knowledge-tracing
 # observation. See app/services/game_summary_service.py.
 app.include_router(games.router, prefix="/api/games", tags=["Game Summaries"])
+
+# The review after a PairPath session. Called by PairPath's server with a
+# shared key, not by a student - see app/core/internal_auth.py.
+app.include_router(session_review.router, prefix="/api/session-review", tags=["Session Review"])
 
 @app.get("/")
 def read_root():

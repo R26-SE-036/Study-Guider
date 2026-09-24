@@ -56,6 +56,14 @@ class Settings:
     # request; see app/core/auth.py.
     AUTH_CACHE_TTL_SECONDS = float(os.getenv("AUTH_CACHE_TTL_SECONDS", "60"))
 
+    # ── Calls from other Code Guru services ──
+    # PairPath asks for the review a student sees after a pair session. That
+    # request carries the exercise's model solution, so it comes from PairPath's
+    # server rather than from a browser, and proves it with this shared key.
+    # Unset, the session-review endpoint answers 503 and PairPath falls back to
+    # the exercise's fixed review questions. See app/core/internal_auth.py.
+    INTERNAL_SERVICE_KEY = (os.getenv("INTERNAL_SERVICE_KEY") or "").strip() or None
+
 
 # Global settings instance
 settings = Settings()

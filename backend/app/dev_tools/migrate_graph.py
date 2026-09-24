@@ -208,11 +208,32 @@ class Migration:
     # ── 4. make the above impossible again ─────────────────────────────────
     def add_constraints(self):
         print("\n[4] Uniqueness constraints")
+        # The last three are the keys the services MERGE on
+        # (game_summary_service, content_store). Without a constraint a MERGE
+        # racing another MERGE can create two nodes for one round or one
+        # cached lesson, and nothing would say so.
         for name, label, prop in (
             ("student_id_unique", "Student", "student_id"),
             ("concept_name_unique", "Concept", "name"),
             ("error_type_name_unique", "ErrorType", "name"),
+            ("game_play_session_unique", "GamePlay", "game_session_id"),
+            ("lesson_key_unique", "Lesson", "key"),
+            ("quiz_key_unique", "Quiz", "key"),
         ):
+            # Creating the constraint fails outright if duplicates already
+            # exist, so they are looked for first - in a dry run too - and the
+            # constraint is skipped with the values named rather than aborting
+            # the whole migration halfway.
+            duplicates = self.read(
+                f"MATCH (n:{label}) WHERE n.{prop} IS NOT NULL "
+                f"WITH n.{prop} AS value, count(*) AS copies WHERE copies > 1 "
+                f"RETURN value, copies LIMIT 10"
+            )
+            if duplicates:
+                listed = ", ".join(f"{row['value']} (x{row['copies']})" for row in duplicates)
+                print(f"  SKIPPED {name}: duplicate :{label}({prop}) values - {listed}")
+                continue
+
             self.note(f"CONSTRAINT {name} on :{label}({prop})")
             self.run_query(
                 f"CREATE CONSTRAINT {name} IF NOT EXISTS "

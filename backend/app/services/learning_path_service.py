@@ -14,20 +14,22 @@ cannot return the path as a first-class value. In Cypher it is the few lines
 below.
 """
 
-from app.core.concepts import normalise_concept
+from app.core.concepts import longest_chain, normalise_concept
 from app.db.neo4j_connection import neo4j_db
 from app.services import progress_service
 
 # How far back up the chain to look.
 #
-# The graph is four layers deep (assignment_logic -> boolean_logic ->
-# conditional_logic -> loop_initialization -> loop_control -> ...), so 4 reaches
-# the root from anywhere in it. Unbounded `*` would work today and become a
-# performance question the moment the graph grows, and an unbounded traversal
-# over a cyclic graph does not terminate at all - the bootstrap script checks
-# for cycles, but the bound is what makes that a safety net rather than the only
-# defence.
-MAX_PREREQUISITE_DEPTH = 4
+# The longest chain in the graph (assignment_logic -> boolean_logic ->
+# conditional_logic -> loop_initialization -> loop_control -> loop_boundaries ->
+# array_indexing), measured from PREREQUISITE_EDGES rather than written down.
+# It was a hand-set 4, which the graph had already outgrown: boolean_logic sits
+# five steps before array_indexing and was missing from its path. Unbounded `*`
+# would work today and become a performance question the moment the graph
+# grows, and an unbounded traversal over a cyclic graph does not terminate at
+# all - the bootstrap script checks for cycles, but the bound is what makes that
+# a safety net rather than the only defence.
+MAX_PREREQUISITE_DEPTH = longest_chain()
 
 
 def mastered_concepts(student_id: str) -> set[str]:

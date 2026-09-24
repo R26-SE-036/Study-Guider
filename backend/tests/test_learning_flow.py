@@ -134,3 +134,33 @@ def test_estimates_record_the_newest_attempt(monkeypatch):
     [only] = progress_service.get_mastery_estimates("ana")["data"]
 
     assert only["last_attempt"] == "2026-09-09T10:00:00+00:00"
+
+
+def test_traversal_bound_reaches_every_prerequisite():
+    """The Cypher bound must be at least the farthest any prerequisite sits.
+
+    It was a hand-set 4 while boolean_logic sat five steps before
+    array_indexing, so it silently dropped out of that learning path.
+    """
+    from collections import deque
+
+    from app.core.concepts import PREREQUISITE_EDGES
+
+    parents: dict = {}
+    for prereq, dependent in PREREQUISITE_EDGES:
+        parents.setdefault(dependent, []).append(prereq)
+
+    farthest = 0
+    for target in parents:
+        distance = {target: 0}
+        queue = deque([target])
+        while queue:
+            node = queue.popleft()
+            for prereq in parents.get(node, []):
+                if prereq not in distance:
+                    distance[prereq] = distance[node] + 1
+                    queue.append(prereq)
+        farthest = max(farthest, *distance.values())
+
+    assert farthest == 5
+    assert learning_path_service.MAX_PREREQUISITE_DEPTH >= farthest

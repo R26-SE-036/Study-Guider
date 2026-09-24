@@ -171,3 +171,33 @@ def find_cycles() -> list:
         if cycle:
             return cycle
     return []
+
+
+def longest_chain() -> int:
+    """The number of edges in the longest prerequisite chain.
+
+    The learning-path traversal is bounded by this, so every prerequisite of
+    every concept is reachable however the edges above are edited. It used to be
+    a hand-set 4 while the graph was already deeper, and boolean_logic - five
+    steps before array_indexing - silently dropped out of that concept's path.
+
+    Assumes no cycles (see find_cycles). A node already on the current walk is
+    skipped rather than followed, so a cycle cannot make this loop forever.
+    """
+    adjacency: dict = {}
+    for prereq, dependent in PREREQUISITE_EDGES:
+        adjacency.setdefault(prereq, []).append(dependent)
+
+    memo: dict = {}
+
+    def depth(node, trail):
+        if node in memo:
+            return memo[node]
+        best = 0
+        for nxt in adjacency.get(node, []):
+            if nxt not in trail:
+                best = max(best, 1 + depth(nxt, trail | {nxt}))
+        memo[node] = best
+        return best
+
+    return max((depth(node, {node}) for node in adjacency), default=0)

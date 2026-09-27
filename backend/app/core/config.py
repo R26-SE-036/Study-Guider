@@ -11,7 +11,22 @@ load_dotenv(ENV_PATH)
 class Settings:
     """Application configuration settings loaded from environment variables."""
     # API Keys
+    # Gemini's key is needed whichever provider writes the lessons: the
+    # syllabus embeddings behind the Neo4j vector index are Gemini's, and
+    # switching them would mean re-embedding every note.
     GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+    OPENAI_API_KEY = (os.getenv("OPENAI_API_KEY") or "").strip() or None
+
+    # Who writes lessons, quizzes and session reviews: "gemini" or "openai".
+    # The free Gemini tier turns requests away with 503 "high demand" when
+    # Google is busy - a quiz failed for every lesson during testing - and paid
+    # OpenAI credit is the cheaper way out than Gemini's prepay minimum.
+    LLM_PROVIDER = (os.getenv("LLM_PROVIDER") or "gemini").strip().lower()
+
+    # How hard an OpenAI reasoning model thinks: "low", "medium" or "high".
+    # Unset, the model's own default. Reasoning tokens are billed as output and
+    # were three quarters of every generation's cost, so this is the cost knob.
+    OPENAI_REASONING_EFFORT = (os.getenv("OPENAI_REASONING_EFFORT") or "").strip().lower() or None
 
     # Neo4j Database
     NEO4J_URI = os.getenv("NEO4J_URI")
@@ -36,7 +51,12 @@ class Settings:
     # update your code to use models/gemini-3.6-flash". An older key
     # keeps working, so this only bites on a newly issued one - which is
     # exactly when someone is least likely to suspect the model name.
-    MODEL_NAME = os.getenv("MODEL_NAME", "gemini-3.6-flash")
+    #
+    # With LLM_PROVIDER=openai the default is gpt-6-luna, OpenAI's cheapest
+    # current model: about $0.002 a lesson or quiz against Gemini's $0.012.
+    MODEL_NAME = os.getenv("MODEL_NAME") or (
+        "gpt-6-luna" if LLM_PROVIDER == "openai" else "gemini-3.6-flash"
+    )
 
     # Directory paths.
     # CHROMA_DB_DIR is gone with Chroma: the syllabus vectors live in Neo4j's

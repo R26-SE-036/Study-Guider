@@ -29,6 +29,9 @@ langchain-core==1.6.1
 # langchain-openai removed: generation moved to Gemini, which the platform
 # already uses for embeddings. One provider, one key.
 langchain-google-genai==4.3.7
+# Used only with LLM_PROVIDER=openai (app/services/llm.py). Called directly,
+# not through langchain, for the same reason Gemini is.
+openai==3.8.0
 langchain-text-splitters==1.1.2
 
 # ── Cognitive-state model + Java parsing ──

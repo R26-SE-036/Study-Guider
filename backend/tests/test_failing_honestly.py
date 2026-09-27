@@ -260,8 +260,126 @@ def test_a_quota_error_from_gemini_is_its_own_failure(monkeypatch):
         models = Models()
 
     monkeypatch.setattr(llm, "get_client", lambda: Client())
+    monkeypatch.setattr(llm.settings, "LLM_PROVIDER", "gemini")
 
     with pytest.raises(LLMQuotaExhausted):
+        llm.generate("anything")
+
+
+class _GeminiAnswer:
+    text = "the answer"
+
+
+def _gemini_that_fails(monkeypatch, *errors):
+    """A Gemini client that raises each of `errors` in turn, then answers."""
+    remaining = list(errors)
+    calls = []
+
+    class Models:
+        def generate_content(self, **_kwargs):
+            calls.append(1)
+            if remaining:
+                raise remaining.pop(0)
+            return _GeminiAnswer()
+
+    class Client:
+        models = Models()
+
+    monkeypatch.setattr(llm, "get_client", lambda: Client())
+    monkeypatch.setattr(llm.settings, "LLM_PROVIDER", "gemini")
+    monkeypatch.setattr(llm.time, "sleep", lambda _seconds: None)
+    return calls
+
+
+def _gemini_busy():
+    return genai_errors.ServerError(
+        503, {"error": {"code": 503, "status": "UNAVAILABLE", "message": "This model is currently experiencing high demand."}}
+    )
+
+
+def test_a_busy_gemini_is_asked_again(monkeypatch):
+    calls = _gemini_that_fails(monkeypatch, _gemini_busy())
+
+    assert llm.generate("anything") == "the answer"
+    assert len(calls) == 2
+
+
+def test_a_gemini_that_stays_busy_fails_after_its_retries(monkeypatch):
+    calls = _gemini_that_fails(monkeypatch, _gemini_busy(), _gemini_busy(), _gemini_busy())
+
+    with pytest.raises(LLMUnavailable):
+        llm.generate("anything")
+    assert len(calls) == 3
+
+
+def test_a_request_gemini_rejects_is_not_retried(monkeypatch):
+    missing = genai_errors.ClientError(404, {"error": {"code": 404, "status": "NOT_FOUND", "message": "no such model"}})
+    calls = _gemini_that_fails(monkeypatch, missing)
+
+    with pytest.raises(LLMUnavailable):
+        llm.generate("anything")
+    assert len(calls) == 1
+
+
+def _openai_client(monkeypatch, create):
+    class Responses:
+        def create(self, **kwargs):
+            return create(**kwargs)
+
+    class Client:
+        responses = Responses()
+
+    monkeypatch.setattr(llm.settings, "LLM_PROVIDER", "openai")
+    monkeypatch.setattr(llm, "get_openai_client", lambda: Client())
+
+
+def test_openai_writes_when_it_is_the_provider(monkeypatch):
+    sent = {}
+
+    class Response:
+        output_text = "from openai"
+
+    def create(**kwargs):
+        sent.update(kwargs)
+        return Response()
+
+    _openai_client(monkeypatch, create)
+    monkeypatch.setattr(llm.settings, "MODEL_NAME", "gpt-6-luna")
+    monkeypatch.setattr(llm.settings, "OPENAI_REASONING_EFFORT", "low")
+
+    assert llm.generate("the prompt") == "from openai"
+    assert sent == {"model": "gpt-6-luna", "input": "the prompt", "reasoning": {"effort": "low"}}
+
+
+def test_openai_out_of_credit_is_the_usage_limit(monkeypatch):
+    class NoCredit(Exception):
+        status_code = 429
+
+    def create(**_kwargs):
+        raise NoCredit("insufficient_quota")
+
+    _openai_client(monkeypatch, create)
+
+    with pytest.raises(LLMQuotaExhausted):
+        llm.generate("anything")
+
+
+def test_an_empty_openai_answer_is_a_failure_not_a_lesson(monkeypatch):
+    class Response:
+        output_text = ""
+        status = "incomplete"
+        incomplete_details = None
+
+    _openai_client(monkeypatch, lambda **_kwargs: Response())
+
+    with pytest.raises(LLMUnavailable, match="incomplete"):
+        llm.generate("anything")
+
+
+def test_an_unknown_provider_is_named(monkeypatch):
+    monkeypatch.setattr(llm.settings, "LLM_PROVIDER", "anthropic")
+
+    with pytest.raises(LLMUnavailable, match="anthropic"):
         llm.generate("anything")
 
 

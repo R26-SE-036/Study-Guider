@@ -1,9 +1,12 @@
+from typing import Literal
+
 from fastapi import APIRouter, Depends
-from pydantic import BaseModel
+from pydantic import BaseModel, model_validator
 
 from app.core.auth import CurrentUser, get_current_user
 from app.services.learning_path_service import get_learning_path
 from app.services.progress_service import (
+    get_calibration,
     get_curriculum,
     get_mastery_estimates,
     get_student_progress,
@@ -15,10 +18,28 @@ router = APIRouter()
 
 # Data model for incoming progress update. As with the other routes, the
 # student is taken from the token rather than the body.
+class QuizAnswer(BaseModel):
+    correct: bool
+    confidence: Literal["low", "medium", "high"]
+
+
 class ProgressRequest(BaseModel):
     concept: str
     score: int
     total_questions: int
+    # One per question, in the order answered. Optional, so a caller that only
+    # knows the score still works; when present it must agree with the score,
+    # or knowledge tracing would read a different quiz from the one recorded.
+    answers: list[QuizAnswer] | None = None
+
+    @model_validator(mode="after")
+    def answers_match_the_score(self):
+        if self.answers is not None:
+            if len(self.answers) != self.total_questions:
+                raise ValueError("answers must have one entry per question")
+            if sum(a.correct for a in self.answers) != self.score:
+                raise ValueError("answers do not add up to the score")
+        return self
 
 
 @router.post("/update")
@@ -31,7 +52,8 @@ def update_progress(
         student_id=user.student_id,
         concept=data.concept,
         score=data.score,
-        total=data.total_questions
+        total=data.total_questions,
+        answers=[a.model_dump() for a in data.answers] if data.answers else None,
     )
     return result
 
@@ -83,3 +105,13 @@ def get_my_curriculum(user: CurrentUser = Depends(get_current_user)):
     is and where to start rather than an empty page.
     """
     return get_curriculum(user.student_id)
+
+
+@router.get("/me/calibration")
+def get_my_calibration(user: CurrentUser = Depends(get_current_user)):
+    """How well the student knows what they know (metacognition).
+
+    A Brier score over every quiz answer given with a confidence, and how
+    often they were right at each confidence level. Lower is better.
+    """
+    return get_calibration(user.student_id)

@@ -17,7 +17,13 @@ from datetime import datetime, timezone
 PASS_MARK_PERCENT = 70
 
 
-def update_student_progress(student_id: str, concept: str, score: int, total: int):
+def update_student_progress(
+    student_id: str,
+    concept: str,
+    score: int,
+    total: int,
+    answers: list[dict] | None = None,
+):
     """
     Saves a new Quiz Attempt node for the student to maintain a history of their progress,
     instead of overwriting the previous score.
@@ -42,6 +48,14 @@ def update_student_progress(student_id: str, concept: str, score: int, total: in
     # when no lesson-open was recorded, which is a different finding from zero.
     seconds_on_lesson = _seconds_on_lesson(student_id, concept)
 
+    # Per question, in the order answered: was it right, and how sure the
+    # student said they were. Two parallel lists, because a relationship
+    # property in Neo4j can hold a list of booleans or of strings but not a
+    # list of maps. Null on attempts made before confidence was asked, which
+    # knowledge tracing reads as "score only".
+    answers_correct = [bool(a["correct"]) for a in answers] if answers else None
+    answers_confidence = [str(a["confidence"]) for a in answers] if answers else None
+
     query = """
     MERGE (s:Student {student_id: $student_id})
     MERGE (c:Concept {name: $concept})
@@ -51,7 +65,9 @@ def update_student_progress(student_id: str, concept: str, score: int, total: in
         percentage: $percentage,
         status: $status,
         timestamp: $timestamp,
-        seconds_on_lesson: $seconds_on_lesson
+        seconds_on_lesson: $seconds_on_lesson,
+        answers_correct: $answers_correct,
+        answers_confidence: $answers_confidence
     }]->(c)
     RETURN a
     """
@@ -65,6 +81,8 @@ def update_student_progress(student_id: str, concept: str, score: int, total: in
         "status": status,
         "timestamp": timestamp,
         "seconds_on_lesson": seconds_on_lesson,
+        "answers_correct": answers_correct,
+        "answers_confidence": answers_confidence,
     }
     
     # Not caught. This caught everything and answered 200 either way - and since
@@ -103,7 +121,9 @@ def get_mastery_estimates(student_id: str) -> dict:
     query = """
     MATCH (s:Student {student_id: $student_id})-[a:ATTEMPTED]->(c:Concept)
     RETURN c.name AS concept, a.score AS score, a.total AS total,
-           a.percentage AS percentage, a.timestamp AS timestamp
+           a.percentage AS percentage, a.timestamp AS timestamp,
+           a.answers_correct AS answers_correct,
+           a.answers_confidence AS answers_confidence
     ORDER BY a.timestamp ASC
     """
 
@@ -117,7 +137,7 @@ def get_mastery_estimates(student_id: str) -> dict:
     # report a learner as a forgetter.
     by_concept: dict[str, list[dict]] = {}
     for row in rows:
-        by_concept.setdefault(row["concept"], []).append(row)
+        by_concept.setdefault(row["concept"], []).append({**row, "answers": _answers_of(row)})
 
     estimates = []
     for concept, attempts in by_concept.items():
@@ -133,6 +153,33 @@ def get_mastery_estimates(student_id: str) -> dict:
 
     estimates.sort(key=lambda item: item["probability_known"])
     return {"success": True, "data": estimates}
+
+
+def _answers_of(row: dict) -> list[dict] | None:
+    """An attempt's stored answers as [{correct, confidence}], or None if it has none."""
+    correct = row.get("answers_correct")
+    confidence = row.get("answers_confidence")
+    if not correct or not confidence or len(correct) != len(confidence):
+        return None
+    return [{"correct": bool(c), "confidence": f} for c, f in zip(correct, confidence)]
+
+
+def get_calibration(student_id: str) -> dict:
+    """How well this student's confidence matches their results, across every quiz.
+
+    The metacognition measure: see knowledge_tracing.calibration. Only answers
+    given with a confidence count; attempts from before it was asked have none.
+    """
+    query = """
+    MATCH (s:Student {student_id: $student_id})-[a:ATTEMPTED]->(:Concept)
+    WHERE a.answers_correct IS NOT NULL
+    RETURN a.answers_correct AS answers_correct,
+           a.answers_confidence AS answers_confidence
+    ORDER BY a.timestamp ASC
+    """
+    rows = neo4j_db.execute_query(query, {"student_id": student_id})
+    answers = [answer for row in rows for answer in (_answers_of(row) or [])]
+    return {"success": True, "data": knowledge_tracing.calibration(answers)}
 
 
 def get_concept_mastery(student_id: str, concept: str):

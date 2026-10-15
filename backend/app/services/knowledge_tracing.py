@@ -57,6 +57,30 @@ PROBABILITY_OF_LEARNING = 0.15
 PROBABILITY_OF_GUESS = 0.25
 PROBABILITY_OF_SLIP = 0.10
 
+# ========================= CONFIDENCE (metacognition) =========================
+# Before each answer the student says how sure they are: low, medium or high.
+# That changes what the answer is evidence OF, so two of the four parameters
+# move for two of the six cases:
+#
+#   right, LOW confidence    a lucky guess is the likelier story, so a correct
+#                            answer is weaker evidence: guess 0.40, not 0.25.
+#   wrong, HIGH confidence   not a slip but a misconception - the student is
+#                            sure of the wrong idea - so slip 0.05, not 0.10,
+#                            and mastery drops further.
+#
+# Every other case, and every answer stored before confidence existed, uses
+# the four parameters above unchanged. Like them, these are starting values
+# chosen from what the cases mean, not fitted ones: fitting needs real answers
+# with confidence attached, which this feature is what starts collecting.
+# =============================================================================
+CONFIDENCE_LEVELS = ("low", "medium", "high")
+PROBABILITY_OF_GUESS_UNSURE = 0.40
+PROBABILITY_OF_SLIP_CONFIDENT = 0.05
+
+# What each level means as a probability of being right, for the calibration
+# score: "low" is close to a guess on four options, "high" is certainty.
+CONFIDENCE_PROBABILITY = {"low": 0.33, "medium": 0.66, "high": 1.0}
+
 # At or above this, the concept is treated as mastered. 0.95 is the usual BKT
 # convention and is deliberately far stricter than the old rule, which called a
 # single 50% quiz "MASTERED".
@@ -83,20 +107,34 @@ class MasteryEstimate:
         }
 
 
-def _observe(probability_known: float, correct: bool) -> float:
+def _parameters(correct: bool, confidence: str | None) -> tuple[float, float]:
+    """(guess, slip) for one answer, given how sure the student said they were."""
+    guess, slip = PROBABILITY_OF_GUESS, PROBABILITY_OF_SLIP
+    if correct and confidence == "low":
+        guess = PROBABILITY_OF_GUESS_UNSURE
+    if not correct and confidence == "high":
+        slip = PROBABILITY_OF_SLIP_CONFIDENT
+    return guess, slip
+
+
+def _observe(probability_known: float, correct: bool, confidence: str | None = None) -> float:
     """One Bayesian update: belief before an answer -> belief after it.
 
     The two branches are Bayes' rule with the slip and guess parameters as the
     likelihoods, followed by the learning step. Splitting them is what makes
     BKT more than a running average: a correct answer raises the belief a lot
     when guessing is unlikely and barely at all when it is not.
+
+    `confidence` ("low", "medium", "high", or None when it was not asked)
+    adjusts guess and slip for that one answer - see CONFIDENCE above.
     """
+    guess, slip = _parameters(correct, confidence)
     if correct:
-        numerator = probability_known * (1 - PROBABILITY_OF_SLIP)
-        denominator = numerator + (1 - probability_known) * PROBABILITY_OF_GUESS
+        numerator = probability_known * (1 - slip)
+        denominator = numerator + (1 - probability_known) * guess
     else:
-        numerator = probability_known * PROBABILITY_OF_SLIP
-        denominator = numerator + (1 - probability_known) * (1 - PROBABILITY_OF_GUESS)
+        numerator = probability_known * slip
+        denominator = numerator + (1 - probability_known) * (1 - guess)
 
     # Only reachable if slip and guess are both set to impossible values, but a
     # ZeroDivisionError inside a mastery calculation would surface as a 500 on
@@ -137,6 +175,15 @@ def trace(attempts: list[dict]) -> float:
     probability = PRIOR_KNOWN
 
     for attempt in attempts:
+        # An attempt saved with its answers is replayed answer by answer, in
+        # the order they were given, each with its confidence. Older attempts
+        # only have a score, and keep the convention below.
+        answers = attempt.get("answers")
+        if answers:
+            for answer in answers:
+                probability = _observe(probability, bool(answer.get("correct")), answer.get("confidence"))
+            continue
+
         total = int(attempt.get("total") or 0)
         score = int(attempt.get("score") or 0)
 
@@ -151,6 +198,44 @@ def trace(attempts: list[dict]) -> float:
             probability = _observe(probability, correct=False)
 
     return probability
+
+
+def calibration(answers: list[dict]) -> dict:
+    """How well a student knows what they know: a Brier score over their answers.
+
+    Each answer's confidence becomes a probability of being right
+    (CONFIDENCE_PROBABILITY) and is compared with whether it was right:
+    Brier = mean((p - outcome)^2). 0 is perfect calibration; saying "medium"
+    to everything on questions you get right half the time scores about 0.25.
+    Lower is better.
+
+    Also returned per level, how often the student was right when they said
+    it, which is what the progress page explains the score with.
+    """
+    rated = [a for a in answers if a.get("confidence") in CONFIDENCE_PROBABILITY]
+    by_level = {
+        level: {"answers": 0, "correct": 0}
+        for level in CONFIDENCE_LEVELS
+    }
+    squared = 0.0
+    for answer in rated:
+        level = answer["confidence"]
+        right = bool(answer.get("correct"))
+        squared += (CONFIDENCE_PROBABILITY[level] - (1.0 if right else 0.0)) ** 2
+        by_level[level]["answers"] += 1
+        by_level[level]["correct"] += int(right)
+
+    for level in by_level.values():
+        level["accuracy"] = round(level["correct"] / level["answers"], 4) if level["answers"] else None
+
+    return {
+        "answers": len(rated),
+        "brier": round(squared / len(rated), 4) if rated else None,
+        "by_confidence": by_level,
+        # Confident and wrong: the misconceptions, the case worth a teacher's eye.
+        "confident_but_wrong": sum(1 for a in rated if a["confidence"] == "high" and not a.get("correct")),
+        "unsure_but_right": sum(1 for a in rated if a["confidence"] == "low" and a.get("correct")),
+    }
 
 
 def estimate(concept: str, attempts: list[dict]) -> MasteryEstimate:

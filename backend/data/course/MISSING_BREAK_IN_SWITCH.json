@@ -1,0 +1,270 @@
+{
+  "id": "MISSING_BREAK_IN_SWITCH",
+  "concept": "switch_statements",
+  "title": "Missing break in a switch",
+  "summary": "How a switch jumps to a case and keeps going, and three ways to make it stop where you mean.",
+  "minutes": 14,
+  "status": "published",
+  "objectives": [
+    "Describe how a switch statement jumps to a case and then runs downwards.",
+    "Predict the output of a switch with missing `break` statements.",
+    "Use `break`, grouped cases and the arrow form correctly.",
+    "Recognise when falling through is deliberate."
+  ],
+  "sources": [
+    "switch_statements.txt",
+    "conditionals.txt"
+  ],
+  "sections": [
+    {
+      "id": "the-mistake",
+      "title": "The mistake",
+      "blocks": [
+        {
+          "type": "text",
+          "text": "A switch picks one case to run based on a value. Without `break`, it does not stop at the end of that case: it carries on into every case below it. Java calls this falling through."
+        },
+        {
+          "type": "compare",
+          "bad": {
+            "title": "Falls through",
+            "code": "public class Day {\n    public static void main(String[] args) {\n        int day = 2;\n        switch (day) {\n            case 1:\n                System.out.println(\"Monday\");\n            case 2:\n                System.out.println(\"Tuesday\");\n            case 3:\n                System.out.println(\"Wednesday\");\n            default:\n                System.out.println(\"Another day\");\n        }\n    }\n}",
+            "runnable": true,
+            "output": "Tuesday\nWednesday\nAnother day"
+          },
+          "good": {
+            "title": "Stops after its case",
+            "code": "public class Day {\n    public static void main(String[] args) {\n        int day = 2;\n        switch (day) {\n            case 1:\n                System.out.println(\"Monday\");\n                break;\n            case 2:\n                System.out.println(\"Tuesday\");\n                break;\n            case 3:\n                System.out.println(\"Wednesday\");\n                break;\n            default:\n                System.out.println(\"Another day\");\n        }\n    }\n}",
+            "runnable": true,
+            "output": "Tuesday"
+          },
+          "note": "The day is 2, so only Tuesday should print. Without `break`, the switch prints three lines."
+        }
+      ]
+    },
+    {
+      "id": "how-it-runs",
+      "title": "How a switch really runs",
+      "blocks": [
+        {
+          "type": "text",
+          "text": "A case label is not a box around some code. It is a place to jump to. The switch finds the label that matches, jumps there, and then runs line after line, straight past the next labels, until it reaches a `break` or the end of the switch."
+        },
+        {
+          "type": "diagram",
+          "caption": "switch (day) with day = 2 and no break",
+          "mermaid": "flowchart TD\n  A([switch on day, which is 2]) --> B[Jump to case 2]\n  B --> C[Print Tuesday]\n  C --> D{break here?}\n  D -- yes --> X([Leave the switch])\n  D -- no --> E[Fall into case 3: print Wednesday]\n  E --> F[Fall into default: print Another day]\n  F --> X"
+        },
+        {
+          "type": "table",
+          "caption": "Tracing the version without break, day = 2",
+          "columns": [
+            "Step",
+            "Where the switch is",
+            "Prints",
+            "Why it continues"
+          ],
+          "rows": [
+            [
+              "1",
+              "jumps to case 2",
+              "",
+              "2 matches case 2"
+            ],
+            [
+              "2",
+              "case 2 body",
+              "Tuesday",
+              "no break, so carry on"
+            ],
+            [
+              "3",
+              "case 3 body",
+              "Wednesday",
+              "labels do not stop anything"
+            ],
+            [
+              "4",
+              "default body",
+              "Another day",
+              "end of the switch"
+            ]
+          ],
+          "highlight": [
+            2,
+            3
+          ]
+        }
+      ]
+    },
+    {
+      "id": "how-many-lines",
+      "title": "How far each value falls",
+      "blocks": [
+        {
+          "type": "text",
+          "text": "Without any `break`, the earlier the matching case, the more lines run. With a `break` after every case, each value prints exactly one line."
+        },
+        {
+          "type": "chart",
+          "caption": "Lines printed by the switch above, for each value of day",
+          "x_label": "Value of day",
+          "y_label": "Lines printed",
+          "categories": [
+            "1",
+            "2",
+            "3",
+            "any other"
+          ],
+          "series": [
+            {
+              "name": "Without break",
+              "values": [
+                4,
+                3,
+                2,
+                1
+              ]
+            },
+            {
+              "name": "With break",
+              "values": [
+                1,
+                1,
+                1,
+                1
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "on-purpose",
+      "title": "When falling through is on purpose",
+      "blocks": [
+        {
+          "type": "text",
+          "text": "Falling through is not always a mistake. Putting several labels on top of each other lets them share one body, which is the one common use of it."
+        },
+        {
+          "type": "code",
+          "title": "Two labels, one body",
+          "code": "public class Weekend {\n    public static void main(String[] args) {\n        int day = 7;\n        switch (day) {\n            case 6:\n            case 7:\n                System.out.println(\"Weekend\");\n                break;\n            default:\n                System.out.println(\"Weekday\");\n        }\n    }\n}",
+          "runnable": true,
+          "output": "Weekend"
+        },
+        {
+          "type": "callout",
+          "tone": "tip",
+          "title": "Say so when you mean it",
+          "text": "If a case really should continue into the next one after doing some work, write a comment such as `// falls through` on that line. Readers, and tools like Code Coach, then know it is deliberate."
+        }
+      ]
+    },
+    {
+      "id": "arrow-switch",
+      "title": "The modern fix: the arrow switch",
+      "blocks": [
+        {
+          "type": "text",
+          "text": "Since Java 14 a switch can use `->` instead of a colon. An arrow case runs only its own code and never falls through, so there is no `break` to forget. Several values can share one arrow, separated by commas."
+        },
+        {
+          "type": "code",
+          "title": "No break needed",
+          "code": "public class ArrowDay {\n    public static void main(String[] args) {\n        int day = 2;\n        switch (day) {\n            case 1 -> System.out.println(\"Monday\");\n            case 2 -> System.out.println(\"Tuesday\");\n            case 6, 7 -> System.out.println(\"Weekend\");\n            default -> System.out.println(\"Another day\");\n        }\n    }\n}",
+          "runnable": true,
+          "output": "Tuesday"
+        }
+      ]
+    },
+    {
+      "id": "in-disguise",
+      "title": "The same bug in disguise",
+      "blocks": [
+        {
+          "type": "compare",
+          "bad": {
+            "title": "One break missing: pass becomes F",
+            "code": "case \"pass\":\n    grade = \"P\";\ncase \"fail\":\n    grade = \"F\";\n    break;",
+            "runnable": false
+          },
+          "good": {
+            "title": "Each case stops",
+            "code": "case \"pass\":\n    grade = \"P\";\n    break;\ncase \"fail\":\n    grade = \"F\";\n    break;",
+            "runnable": false
+          },
+          "note": "Only one `break` is missing, and the effect is quiet: the value is set and then immediately overwritten by the case below."
+        },
+        {
+          "type": "callout",
+          "tone": "info",
+          "title": "return also stops a case",
+          "text": "Inside a method, `return` leaves the method and so leaves the switch too. A case that ends with `return` does not need a `break` after it."
+        }
+      ]
+    },
+    {
+      "id": "check-yourself",
+      "title": "Check yourself",
+      "blocks": [
+        {
+          "type": "check",
+          "question": "day is 3 and the switch has no break statements. What prints?",
+          "code": "switch (day) {\n    case 1: System.out.println(\"Monday\");\n    case 2: System.out.println(\"Tuesday\");\n    case 3: System.out.println(\"Wednesday\");\n    default: System.out.println(\"Another day\");\n}",
+          "options": [
+            "Wednesday",
+            "Wednesday, then Another day",
+            "Monday, Tuesday, Wednesday",
+            "Nothing"
+          ],
+          "answer": 1,
+          "explanation": "The switch jumps to case 3, prints Wednesday, then falls into default and prints Another day."
+        },
+        {
+          "type": "check",
+          "question": "Which statement stops a colon-style case from falling into the next one?",
+          "code": "",
+          "options": [
+            "continue",
+            "break",
+            "stop",
+            "a closing brace"
+          ],
+          "answer": 1,
+          "explanation": "`break` leaves the switch. `continue` belongs to loops, and there is no brace around a case."
+        },
+        {
+          "type": "check",
+          "question": "Which switch can never fall through?",
+          "code": "",
+          "options": [
+            "One with a default case",
+            "One that switches on a String",
+            "One written with case ... ->",
+            "One with only two cases"
+          ],
+          "answer": 2,
+          "explanation": "Arrow cases run only their own code. The others can all fall through if a break is missing."
+        }
+      ]
+    },
+    {
+      "id": "key-points",
+      "title": "Key points",
+      "blocks": [
+        {
+          "type": "keypoints",
+          "items": [
+            "A case label is a jump target, not a fence: the switch runs on until break or the end.",
+            "Put `break` at the end of every colon-style case unless you mean it to fall through.",
+            "Stacking labels (`case 6: case 7:`) is the deliberate, common use of falling through.",
+            "The arrow form, `case 1 ->`, never falls through and needs no `break`.",
+            "A case that ends with `return` does not need a `break`."
+          ]
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,306 @@
+{
+  "id": "POSTFIX_INCREMENT_ASSIGNED_BACK",
+  "concept": "assignment_logic",
+  "title": "count = count++",
+  "summary": "Why assigning a variable to its own postfix increment leaves it unchanged, and what to write instead.",
+  "minutes": 15,
+  "status": "published",
+  "objectives": [
+    "Explain what value `count++` produces and what it does to `count`.",
+    "Trace how `count = count++` changes, or fails to change, a variable.",
+    "Replace this mistake with a clear increment.",
+    "Recognize the same mistake when another variable name is used."
+  ],
+  "sections": [
+    {
+      "id": "the-mistake",
+      "title": "The mistake",
+      "blocks": [
+        {
+          "type": "text",
+          "text": "Suppose `count` is `5`, and you want to increase it by one. It may seem natural to write `count = count++;`. But after this statement, `count` is still `5`, not `6`."
+        },
+        {
+          "type": "compare",
+          "bad": {
+            "title": "The value stays the same",
+            "code": "public class CountDemo {\n    public static void main(String[] args) {\n        int count = 5;\n        count = count++;\n        System.out.println(count);\n    }\n}",
+            "runnable": true,
+            "output": "5",
+            "error": null,
+            "compile_error": null
+          },
+          "good": {
+            "title": "The value increases",
+            "code": "public class CountDemo {\n    public static void main(String[] args) {\n        int count = 5;\n        count++;\n        System.out.println(count);\n    }\n}",
+            "runnable": true,
+            "output": "6",
+            "error": null,
+            "compile_error": null
+          },
+          "note": "Both programs compile and run. The mistake is not a compile-time error. It is a run-time logic mistake: the first program prints `5` because its assignment puts the old value back into `count`."
+        }
+      ]
+    },
+    {
+      "id": "why-it-happens",
+      "title": "Why it happens",
+      "blocks": [
+        {
+          "type": "text",
+          "text": "The `++` after a variable is called postfix increment. It increases the variable, but the expression itself produces the value from before the increase. In `count = count++;`, the assignment then stores that old value back in `count`."
+        },
+        {
+          "type": "diagram",
+          "caption": "What happens when count starts at 5",
+          "mermaid": "flowchart TD\n  A[\"Start with count at 5\"] --> B[\"Postfix expression produces old value 5\"]\n  B --> C[\"Postfix increment changes count to 6\"]\n  C --> D[\"Assignment stores old value 5 in count\"]\n  D --> E[\"Final count is 5\"]"
+        },
+        {
+          "type": "chart",
+          "caption": "Final count after starting at 5",
+          "x_label": "Statement",
+          "y_label": "Final count",
+          "categories": [
+            "`count = count++`",
+            "`count++`",
+            "`count += 1`"
+          ],
+          "series": [
+            {
+              "name": "Final count",
+              "values": [
+                5.0,
+                6.0,
+                6.0
+              ]
+            }
+          ]
+        },
+        {
+          "type": "callout",
+          "tone": "tip",
+          "title": "A useful question",
+          "text": "Ask what value the whole expression produces. With `count++`, that value is the old value. Use `count++` by itself when you only want to increase `count`."
+        }
+      ]
+    },
+    {
+      "id": "trace",
+      "title": "Trace it, one step at a time",
+      "blocks": [
+        {
+          "type": "text",
+          "text": "Write down the current value, the value produced by `count++`, and what the assignment stores. This makes it easier to see why the increment does not remain."
+        },
+        {
+          "type": "table",
+          "caption": "Tracing count = count++ when count starts at 5",
+          "columns": [
+            "Step",
+            "What happens",
+            "Value of count"
+          ],
+          "rows": [
+            [
+              "Start",
+              "`count` is assigned `5`",
+              "`5`"
+            ],
+            [
+              "1",
+              "`count++` produces the old value `5`",
+              "`5`"
+            ],
+            [
+              "2",
+              "The postfix increment changes `count`",
+              "`6`"
+            ],
+            [
+              "3",
+              "The assignment stores the produced value `5` in `count`",
+              "`5`"
+            ]
+          ],
+          "highlight": [
+            3
+          ]
+        },
+        {
+          "type": "text",
+          "text": "The last step is the one to watch. The assignment uses the value produced by the right-hand side, which is the old value `5`. That overwrites the temporary increase."
+        }
+      ]
+    },
+    {
+      "id": "worked-examples",
+      "title": "Worked examples",
+      "blocks": [
+        {
+          "type": "text",
+          "text": "Here are two ways to apply the trace. In the first, only the final count matters. In the second, the old value is useful too."
+        },
+        {
+          "type": "compare",
+          "bad": {
+            "title": "Trying to increase count",
+            "code": "public class IncreaseCount {\n    public static void main(String[] args) {\n        int count = 2;\n        count = count++;\n        System.out.println(count);\n    }\n}",
+            "runnable": true,
+            "output": "2",
+            "error": null,
+            "compile_error": null
+          },
+          "good": {
+            "title": "Increase count directly",
+            "code": "public class IncreaseCount {\n    public static void main(String[] args) {\n        int count = 2;\n        count++;\n        System.out.println(count);\n    }\n}",
+            "runnable": true,
+            "output": "3",
+            "error": null,
+            "compile_error": null
+          },
+          "note": "In the first program, `count++` produces `2`, and the assignment stores `2` back into `count`. If you only want to increase the variable, write `count++;`."
+        },
+        {
+          "type": "compare",
+          "bad": {
+            "title": "The assignment loses the increase",
+            "code": "public class SaveOldCount {\n    public static void main(String[] args) {\n        int count = 4;\n        int oldCount = count = count++;\n        System.out.println(\"oldCount=\" + oldCount);\n        System.out.println(\"count=\" + count);\n    }\n}",
+            "runnable": true,
+            "output": "oldCount=4\ncount=4",
+            "error": null,
+            "compile_error": null
+          },
+          "good": {
+            "title": "Save the old value and keep the increase",
+            "code": "public class SaveOldCount {\n    public static void main(String[] args) {\n        int count = 4;\n        int oldCount = count++;\n        System.out.println(\"oldCount=\" + oldCount);\n        System.out.println(\"count=\" + count);\n    }\n}",
+            "runnable": true,
+            "output": "oldCount=4\ncount=5",
+            "error": null,
+            "compile_error": null
+          },
+          "note": "Here the old value is useful, so assigning the result of `count++` to a different variable makes sense. In the good version, `oldCount` receives `4` and `count` keeps its new value, `5`."
+        }
+      ]
+    },
+    {
+      "id": "in-disguise",
+      "title": "The same bug in disguise",
+      "blocks": [
+        {
+          "type": "text",
+          "text": "The variable does not have to be called `count`. Any time you assign a variable to its own postfix increment, the old value is put back. This is valid Java, so the compiler accepts it; the problem shows up when the program runs."
+        },
+        {
+          "type": "compare",
+          "bad": {
+            "title": "Same variable, different name",
+            "code": "score = score++;",
+            "runnable": false,
+            "output": null,
+            "error": null,
+            "compile_error": null
+          },
+          "good": {
+            "title": "Increase the score",
+            "code": "score++;",
+            "runnable": false,
+            "output": null,
+            "error": null,
+            "compile_error": null
+          },
+          "note": "If `score` starts at `10`, the bad statement leaves it at `10`. The good statement leaves it at `11`."
+        },
+        {
+          "type": "compare",
+          "bad": {
+            "title": "The loop count never advances",
+            "code": "while (count < 3) {\n    count = count++;\n}",
+            "runnable": false,
+            "output": null,
+            "error": null,
+            "compile_error": null
+          },
+          "good": {
+            "title": "The loop count advances",
+            "code": "while (count < 3) {\n    count++;\n}",
+            "runnable": false,
+            "output": null,
+            "error": null,
+            "compile_error": null
+          },
+          "note": "If `count` starts below `3`, the bad loop keeps its value unchanged, so its condition stays true. The good version increases `count` on each pass."
+        },
+        {
+          "type": "callout",
+          "tone": "info",
+          "title": "When the old value is needed",
+          "text": "Use `int oldCount = count++;` to save the old value in `oldCount` while increasing `count`. Do not assign that result back to `count`."
+        }
+      ]
+    },
+    {
+      "id": "check-yourself",
+      "title": "Check yourself",
+      "blocks": [
+        {
+          "type": "check",
+          "question": "If `count` starts at `7`, what is its value after `count = count++;`?",
+          "code": "",
+          "options": [
+            "`6`",
+            "`7`",
+            "`8`",
+            "The code does not compile"
+          ],
+          "answer": 1,
+          "explanation": "`count++` produces the old value `7`. The assignment stores `7` back into `count`, so it remains `7`. This is valid Java and compiles."
+        },
+        {
+          "type": "check",
+          "question": "If `count` starts at `4`, what are the values after `int oldCount = count++;`?",
+          "code": "",
+          "options": [
+            "`oldCount` is `5`; `count` is `4`",
+            "`oldCount` is `4`; `count` is `5`",
+            "`oldCount` is `5`; `count` is `5`",
+            "`oldCount` is `4`; `count` is `4`"
+          ],
+          "answer": 1,
+          "explanation": "Postfix increment produces the old value `4` for the assignment to `oldCount`, then increases `count` to `5`."
+        },
+        {
+          "type": "check",
+          "question": "You want to increase `total` by one and do not need its old value. Which statement should you use?",
+          "code": "",
+          "options": [
+            "`total = total++;`",
+            "`total++;`",
+            "`total = total;`",
+            "`total == total++;`"
+          ],
+          "answer": 1,
+          "explanation": "`total++;` increases `total` directly. The first option assigns the old value back, and `==` asks a question rather than assigning."
+        }
+      ]
+    },
+    {
+      "id": "key-points",
+      "title": "Key points",
+      "blocks": [
+        {
+          "type": "keypoints",
+          "items": [
+            "`count++` is postfix increment: it increases `count` and produces the old value.",
+            "`count = count++;` stores the old value back into `count`, so `count` ends unchanged.",
+            "This is valid Java. The compiler accepts it, but the result can be wrong when the program runs.",
+            "To increase a variable by one, use `count++;` or `count += 1;`.",
+            "To save the old value while increasing the variable, use `int oldCount = count++;`."
+          ]
+        }
+      ]
+    }
+  ],
+  "sources": [
+    "assignment_logic.txt"
+  ]
+}

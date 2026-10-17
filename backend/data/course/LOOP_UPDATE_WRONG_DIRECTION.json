@@ -1,0 +1,321 @@
+{
+  "id": "LOOP_UPDATE_WRONG_DIRECTION",
+  "concept": "loop_control",
+  "title": "Counting the wrong way",
+  "summary": "Learn how a loop’s update can move away from its stopping condition, how to trace the problem, and how to choose the right direction.",
+  "minutes": 15,
+  "status": "published",
+  "objectives": [
+    "Explain how a loop’s update changes the value tested by its condition.",
+    "Trace a loop to see whether its counter moves toward the stopping condition.",
+    "Choose an update that matches the loop’s starting value and condition.",
+    "Recognise wrong-direction updates in `for` and `while` loops."
+  ],
+  "sections": [
+    {
+      "id": "the-mistake",
+      "title": "The mistake",
+      "blocks": [
+        {
+          "type": "text",
+          "text": "A counting loop needs to move its counter toward the point where its condition becomes false. A common mistake is to move the counter the other way. This loop is meant to print the numbers from 0 to 3:"
+        },
+        {
+          "title": "",
+          "code": "for (int i = 0; i < 4; i--) {\n    System.out.println(i);\n}",
+          "runnable": false,
+          "output": null,
+          "error": null,
+          "compile_error": null,
+          "type": "code"
+        },
+        {
+          "type": "text",
+          "text": "The condition is `i < 4`, but `i--` makes `i` smaller. The condition stays true instead of stopping when `i` reaches 4. The code compiles: `javac` does not warn that the update goes the wrong way. The problem shows up when the program runs."
+        },
+        {
+          "type": "callout",
+          "tone": "warn",
+          "title": "A Java detail",
+          "text": "This example uses an `int`. Java `int` values eventually wrap around, so this exact loop is not literally endless. It runs for an enormous number of passes before the condition becomes false. That is still a serious bug."
+        }
+      ]
+    },
+    {
+      "id": "why-it-happens",
+      "title": "Why it happens",
+      "blocks": [
+        {
+          "type": "text",
+          "text": "A `for` loop runs its update after the body, then checks its condition again. In this example, `i` starts at 0. The condition asks whether `i` is less than 4, so the loop body runs. But `i--` changes `i` to −1, then −2, and so on. Those values are still less than 4."
+        },
+        {
+          "type": "diagram",
+          "caption": "The wrong update keeps the condition true",
+          "mermaid": "flowchart TD\n  A[Set i to zero] --> B{Is i less than 4}\n  B -- yes --> C[Print i]\n  C --> D[Subtract one from i]\n  D --> B\n  B -- no --> E[Leave the loop]"
+        },
+        {
+          "type": "steps",
+          "title": "Check the direction",
+          "items": [
+            "Read the condition: `i < 4` means the loop continues while `i` is below 4.",
+            "Read the update: `i--` subtracts 1 from `i` after each pass.",
+            "Ask whether the update moves `i` toward a value that makes `i < 4` false. It does not."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "trace",
+      "title": "Trace it, one pass at a time",
+      "blocks": [
+        {
+          "type": "text",
+          "text": "A trace is a record of a loop’s values, condition checks, and actions. Here are the first passes of the broken loop. The condition remains true because each new value is still less than 4."
+        },
+        {
+          "type": "table",
+          "caption": "Tracing `for (int i = 0; i < 4; i--)`",
+          "columns": [
+            "Pass",
+            "`i` at the condition",
+            "`i < 4`?",
+            "After the body and update"
+          ],
+          "rows": [
+            [
+              "1",
+              "0",
+              "true",
+              "Print 0; `i` becomes −1"
+            ],
+            [
+              "2",
+              "−1",
+              "true",
+              "Print −1; `i` becomes −2"
+            ],
+            [
+              "3",
+              "−2",
+              "true",
+              "Print −2; `i` becomes −3"
+            ],
+            [
+              "4",
+              "−3",
+              "true",
+              "Print −3; `i` becomes −4"
+            ]
+          ],
+          "highlight": [
+            1,
+            2,
+            3
+          ]
+        },
+        {
+          "type": "chart",
+          "caption": "Counter values at the start of the first four passes",
+          "x_label": "Pass",
+          "y_label": "Value of `i`",
+          "categories": [
+            "Pass 1",
+            "Pass 2",
+            "Pass 3",
+            "Pass 4"
+          ],
+          "series": [
+            {
+              "name": "Wrong update `i--`",
+              "values": [
+                0.0,
+                -1.0,
+                -2.0,
+                -3.0
+              ]
+            },
+            {
+              "name": "Correct update `i++`",
+              "values": [
+                0.0,
+                1.0,
+                2.0,
+                3.0
+              ]
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "text": "The loop does not reach 4 by subtracting 1. For the intended count from 0 up to 3, change the update to `i++`. That adds 1 each time, so the condition eventually becomes false."
+        }
+      ]
+    },
+    {
+      "id": "worked-examples",
+      "title": "Two worked examples",
+      "blocks": [
+        {
+          "type": "text",
+          "text": "The right update depends on the direction of the count. Counting upward usually adds 1. Counting downward usually subtracts 1. In both cases, check that the counter moves toward a value that makes the condition false."
+        },
+        {
+          "type": "compare",
+          "bad": {
+            "title": "Counting upward with a downward update",
+            "code": "for (int i = 0; i < 4; i--) {\n    System.out.println(i);\n}",
+            "runnable": false,
+            "output": null,
+            "error": null,
+            "compile_error": null
+          },
+          "good": {
+            "title": "Count from 0 up to 3",
+            "code": "public class CountUp {\n    public static void main(String[] args) {\n        for (int i = 0; i < 4; i++) {\n            System.out.println(i);\n        }\n    }\n}",
+            "runnable": true,
+            "output": "0\n1\n2\n3",
+            "error": null,
+            "compile_error": null
+          },
+          "note": "The condition `i < 4` needs `i` to grow toward 4. The update `i++` adds 1 after each pass. When `i` reaches 4, the condition is false and the loop stops."
+        },
+        {
+          "type": "compare",
+          "bad": {
+            "title": "Counting downward with an upward update",
+            "code": "for (int i = 3; i >= 1; i++) {\n    System.out.println(i);\n}",
+            "runnable": false,
+            "output": null,
+            "error": null,
+            "compile_error": null
+          },
+          "good": {
+            "title": "Count from 3 down to 1",
+            "code": "public class CountDown {\n    public static void main(String[] args) {\n        for (int i = 3; i >= 1; i--) {\n            System.out.println(i);\n        }\n    }\n}",
+            "runnable": true,
+            "output": "3\n2\n1",
+            "error": null,
+            "compile_error": null
+          },
+          "note": "The condition `i >= 1` stays true while `i` is at least 1. To reach a value below 1, subtract 1 with `i--`. Adding 1 moves away from that stopping point."
+        }
+      ]
+    },
+    {
+      "id": "in-disguise",
+      "title": "The same bug in disguise",
+      "blocks": [
+        {
+          "type": "text",
+          "text": "The same direction check works in other loops too. A `while` loop also repeats while its condition is true. Look at the condition and find which value changes inside the body."
+        },
+        {
+          "type": "compare",
+          "bad": {
+            "title": "A while loop moves away from its stop",
+            "code": "int i = 0;\nwhile (i < 3) {\n    System.out.println(i);\n    i--;\n}",
+            "runnable": false,
+            "output": null,
+            "error": null,
+            "compile_error": null
+          },
+          "good": {
+            "title": "The update moves toward the stop",
+            "code": "int i = 0;\nwhile (i < 3) {\n    System.out.println(i);\n    i++;\n}",
+            "runnable": false,
+            "output": null,
+            "error": null,
+            "compile_error": null
+          },
+          "note": "The loop type changed, but the reasoning did not. With `i < 3`, adding 1 moves `i` toward a value that makes the condition false."
+        },
+        {
+          "type": "compare",
+          "bad": {
+            "title": "A countdown condition with an upward update",
+            "code": "int i = 5;\nwhile (i > 0) {\n    System.out.println(i);\n    i++;\n}",
+            "runnable": false,
+            "output": null,
+            "error": null,
+            "compile_error": null
+          },
+          "good": {
+            "title": "A countdown update matches the condition",
+            "code": "int i = 5;\nwhile (i > 0) {\n    System.out.println(i);\n    i--;\n}",
+            "runnable": false,
+            "output": null,
+            "error": null,
+            "compile_error": null
+          },
+          "note": "For `i > 0`, the loop stops when `i` reaches 0 or less. Subtracting 1 moves toward that point; adding 1 moves away from it."
+        }
+      ]
+    },
+    {
+      "id": "check-yourself",
+      "title": "Check yourself",
+      "blocks": [
+        {
+          "type": "check",
+          "question": "What update makes this loop count from 1 to 5?",
+          "code": "for (int i = 1; i <= 5; ___) {\n    System.out.println(i);\n}",
+          "options": [
+            "`i--`",
+            "`i++`",
+            "`i = 1`",
+            "No update is needed"
+          ],
+          "answer": 1,
+          "explanation": "The condition `i <= 5` stays true until `i` becomes greater than 5. Adding 1 moves toward that stopping point."
+        },
+        {
+          "type": "check",
+          "question": "A loop starts at 4 and should count down while `i >= 1`. Which update moves toward the stopping point?",
+          "code": "",
+          "options": [
+            "`i++`",
+            "`i--`",
+            "`i = 4`",
+            "Neither update changes `i`"
+          ],
+          "answer": 1,
+          "explanation": "The condition becomes false when `i` drops below 1. Subtracting 1 moves toward that value."
+        },
+        {
+          "type": "check",
+          "question": "What is the main problem with this loop?",
+          "code": "for (int i = 0; i < 3; i--) {\n    System.out.println(i);\n}",
+          "options": [
+            "It moves `i` away from the value that would stop the loop.",
+            "It does not have an initial value.",
+            "The condition is checked after the body.",
+            "A `for` loop cannot print numbers."
+          ],
+          "answer": 0,
+          "explanation": "The condition keeps going while `i` is less than 3. Subtracting 1 makes `i` smaller, so it does not move toward a value that makes the condition false."
+        }
+      ]
+    },
+    {
+      "id": "key-points",
+      "title": "Key points",
+      "blocks": [
+        {
+          "type": "keypoints",
+          "items": [
+            "A loop repeats while its condition is true.",
+            "A `for` loop runs its update after the body and before the next condition check.",
+            "Match the update to the condition: `i++` moves upward, and `i--` moves downward.",
+            "Trace a few passes. Check whether the counter moves toward a value that makes the condition false.",
+            "A wrong-direction update usually compiles. The bug appears when the loop runs."
+          ]
+        }
+      ]
+    }
+  ],
+  "sources": [
+    "loop_control.txt",
+    "loop_initialization.txt"
+  ]
+}

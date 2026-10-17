@@ -1,0 +1,289 @@
+{
+  "id": "ALWAYS_FALSE_AND_CONDITION",
+  "concept": "boolean_logic",
+  "title": "An AND that is never true",
+  "summary": "Learn why two conditions joined by AND can contradict each other, how to trace them, and how to choose the right fix.",
+  "minutes": 15,
+  "status": "published",
+  "objectives": [
+    "Explain why `&&` requires both conditions to be true.",
+    "Trace a condition and predict whether its code branch runs.",
+    "Spot contradictory comparisons of the same variable.",
+    "Choose between `&&` and `||` based on the values you want to accept."
+  ],
+  "sections": [
+    {
+      "id": "the-mistake",
+      "title": "The mistake",
+      "blocks": [
+        {
+          "type": "text",
+          "text": "A common mistake is joining two opposite limits with `&&`. For example, `score < 0 && score > 100` asks for a score that is below 0 and above 100 at the same time. No number can meet both conditions."
+        },
+        {
+          "type": "callout",
+          "tone": "warn",
+          "title": "It is a run-time logic bug",
+          "text": "Java compiles this condition. It does not reject it just because the comparisons contradict each other. When the program runs, the condition is always `false`, so the `if` body never runs."
+        },
+        {
+          "title": "A condition that cannot be true",
+          "code": "if (score < 0 && score > 100) {\n    System.out.println(\"Invalid score\");\n}",
+          "runnable": false,
+          "output": null,
+          "error": null,
+          "compile_error": null,
+          "type": "code"
+        }
+      ]
+    },
+    {
+      "id": "why-it-happens",
+      "title": "Why the condition fails",
+      "blocks": [
+        {
+          "type": "text",
+          "text": "A boolean is a value that is either `true` or `false`. The operator `&&` means AND: the whole expression is true only when both sides are true. For one variable, a value cannot be below 0 and above 100 at once."
+        },
+        {
+          "type": "diagram",
+          "caption": "The two requirements for an invalid score do not overlap",
+          "mermaid": "flowchart TD\n  A[Check score below zero] --> B{Is it below zero and above one hundred?}\n  C[Check score above one hundred] --> B\n  B -- no --> D[The AND condition is false]\n  B -- yes --> E[Run the if body]"
+        },
+        {
+          "type": "text",
+          "text": "Try the scores `-1`, `0`, `50`, `100` and `101`. One is below 0 and one is above 100, but none is both at once. The same reasoning applies to every number."
+        }
+      ]
+    },
+    {
+      "id": "trace-the-condition",
+      "title": "Trace it one step at a time",
+      "blocks": [
+        {
+          "type": "text",
+          "text": "Check each side of `&&` separately. If the left side is `false`, Java short-circuits: it already knows the whole AND is false, so it does not evaluate the right side."
+        },
+        {
+          "type": "table",
+          "caption": "Tracing `score < 0 && score > 100`",
+          "columns": [
+            "score",
+            "`score < 0`",
+            "`score > 100`",
+            "Whole condition",
+            "What happens"
+          ],
+          "rows": [
+            [
+              "`-5`",
+              "`true`",
+              "`false`",
+              "`false`",
+              "The `if` body is skipped"
+            ],
+            [
+              "`50`",
+              "`false`",
+              "Not evaluated",
+              "`false`",
+              "Short-circuit; the `if` body is skipped"
+            ],
+            [
+              "`105`",
+              "`false`",
+              "Not evaluated",
+              "`false`",
+              "Short-circuit; the `if` body is skipped"
+            ]
+          ],
+          "highlight": [
+            0,
+            1,
+            2
+          ]
+        },
+        {
+          "type": "steps",
+          "title": "A quick way to check an AND",
+          "items": [
+            "Write down what each comparison requires.",
+            "Ask whether one value of the variable can meet both requirements.",
+            "If the conditions describe two separate cases, consider whether `||` is what you mean."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "worked-examples",
+      "title": "Worked examples",
+      "blocks": [
+        {
+          "type": "text",
+          "text": "In each example, decide what values should make the message appear. Then compare that goal with the condition."
+        },
+        {
+          "type": "compare",
+          "bad": {
+            "title": "Score of -5 is incorrectly accepted",
+            "code": "public class ScoreCheck {\n    public static void main(String[] args) {\n        int score = -5;\n        if (score < 0 && score > 100) {\n            System.out.println(\"Invalid score\");\n        } else {\n            System.out.println(\"Score accepted\");\n        }\n    }\n}",
+            "runnable": true,
+            "output": "Score accepted",
+            "error": null,
+            "compile_error": null
+          },
+          "good": {
+            "title": "Use OR for either invalid case",
+            "code": "public class ScoreCheck {\n    public static void main(String[] args) {\n        int score = -5;\n        if (score < 0 || score > 100) {\n            System.out.println(\"Invalid score\");\n        } else {\n            System.out.println(\"Score accepted\");\n        }\n    }\n}",
+            "runnable": true,
+            "output": "Invalid score",
+            "error": null,
+            "compile_error": null
+          },
+          "note": "An invalid score is below 0 or above 100. Either case is enough, so the fixed condition uses `||`. The bad program compiles, but its condition is `false` for `score` equal to `-5`."
+        },
+        {
+          "type": "compare",
+          "bad": {
+            "title": "Age 10 is incorrectly called in range",
+            "code": "public class AgeCheck {\n    public static void main(String[] args) {\n        int age = 10;\n        if (age < 13 && age >= 18) {\n            System.out.println(\"Outside range\");\n        } else {\n            System.out.println(\"In range\");\n        }\n    }\n}",
+            "runnable": true,
+            "output": "In range",
+            "error": null,
+            "compile_error": null
+          },
+          "good": {
+            "title": "Use OR for either side of the range",
+            "code": "public class AgeCheck {\n    public static void main(String[] args) {\n        int age = 10;\n        if (age < 13 || age >= 18) {\n            System.out.println(\"Outside range\");\n        } else {\n            System.out.println(\"In range\");\n        }\n    }\n}",
+            "runnable": true,
+            "output": "Outside range",
+            "error": null,
+            "compile_error": null
+          },
+          "note": "The bad condition asks the same age to be less than 13 and at least 18. That cannot happen. To test whether an age is outside the range from 13 up to but not including 18, either comparison can be true, so use `||`."
+        }
+      ]
+    },
+    {
+      "id": "same-bug-in-disguise",
+      "title": "The same bug in disguise",
+      "blocks": [
+        {
+          "type": "text",
+          "text": "The exact numbers may change, but the clue stays the same: one variable is required to be on opposite sides of two limits at once."
+        },
+        {
+          "type": "compare",
+          "bad": {
+            "title": "Impossible: n cannot equal both values",
+            "code": "if (n == 2 && n == 7) {\n    System.out.println(\"Match\");\n}",
+            "runnable": false,
+            "output": null,
+            "error": null,
+            "compile_error": null
+          },
+          "good": {
+            "title": "Either value is a match",
+            "code": "if (n == 2 || n == 7) {\n    System.out.println(\"Match\");\n}",
+            "runnable": false,
+            "output": null,
+            "error": null,
+            "compile_error": null
+          },
+          "note": "If either value should count, use `||`. If both conditions really must be true, keep `&&`."
+        },
+        {
+          "type": "compare",
+          "bad": {
+            "title": "Impossible temperature limits",
+            "code": "if (temperature < 0 && temperature > 30) {\n    System.out.println(\"Outside range\");\n}",
+            "runnable": false,
+            "output": null,
+            "error": null,
+            "compile_error": null
+          },
+          "good": {
+            "title": "Below 0 or above 30",
+            "code": "if (temperature < 0 || temperature > 30) {\n    System.out.println(\"Outside range\");\n}",
+            "runnable": false,
+            "output": null,
+            "error": null,
+            "compile_error": null
+          },
+          "note": "The first condition is impossible for one `temperature`. The second checks two separate ways to be outside the range."
+        },
+        {
+          "type": "callout",
+          "tone": "tip",
+          "title": "AND can also be correct",
+          "text": "To check that `n` is between 5 and 10, not counting 5 and 10 themselves, use `n > 5 && n < 10`. Both comparisons can be true together. Do not replace every `&&` with `||`; first decide which values you want."
+        }
+      ]
+    },
+    {
+      "id": "check-yourself",
+      "title": "Check yourself",
+      "blocks": [
+        {
+          "type": "check",
+          "question": "What does this condition evaluate to when `x` is 3?",
+          "code": "x < 0 && x > 10",
+          "options": [
+            "`true`",
+            "`false`",
+            "It does not compile",
+            "It changes the value of `x`"
+          ],
+          "answer": 1,
+          "explanation": "The first comparison is `false` because 3 is not less than 0. An AND with a false left side is false. The condition compiles; it does not assign a new value to `x`."
+        },
+        {
+          "type": "check",
+          "question": "A score is invalid if it is below 0 or above 100. Which condition checks that?",
+          "code": "",
+          "options": [
+            "`score < 0 && score > 100`",
+            "`score < 0 || score > 100`",
+            "`score == 0 && score == 100`",
+            "`score >= 0 && score <= 100`"
+          ],
+          "answer": 1,
+          "explanation": "Either being below 0 or being above 100 makes the score invalid. Either case can be true, so join the comparisons with `||`."
+        },
+        {
+          "type": "check",
+          "question": "You want to check that `age` is at least 18 and less than 65. Which condition fits?",
+          "code": "",
+          "options": [
+            "`age >= 18 && age < 65`",
+            "`age >= 18 || age < 65`",
+            "`age < 18 && age >= 65`",
+            "`age == 18 && age == 65`"
+          ],
+          "answer": 0,
+          "explanation": "An age in the requested range must meet both limits: it must be at least 18 and less than 65. Those two requirements can be true together, so use `&&`."
+        }
+      ]
+    },
+    {
+      "id": "key-points",
+      "title": "Key points",
+      "blocks": [
+        {
+          "type": "keypoints",
+          "items": [
+            "`&&` is true only when both sides are true.",
+            "A condition such as `x < 0 && x > 100` cannot be true for one value of `x`.",
+            "Use `||` when either of two separate cases is enough.",
+            "Use `&&` when one value must meet both compatible requirements, such as `x > 5 && x < 10`.",
+            "These logic mistakes usually compile. Trace the comparisons to find what happens when the program runs."
+          ]
+        }
+      ]
+    }
+  ],
+  "sources": [
+    "boolean_logic.txt",
+    "assignment_logic.txt"
+  ]
+}

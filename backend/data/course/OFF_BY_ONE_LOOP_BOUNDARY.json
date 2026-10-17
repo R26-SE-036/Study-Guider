@@ -1,0 +1,340 @@
+{
+  "id": "OFF_BY_ONE_LOOP_BOUNDARY",
+  "concept": "loop_boundaries",
+  "title": "Off-by-one loop boundaries",
+  "summary": "Why a loop runs one time too many or one too few, and how to count it right before you run it.",
+  "minutes": 15,
+  "status": "published",
+  "objectives": [
+    "Explain why an array of length n has positions 0 to n − 1.",
+    "Predict how many times a for loop runs from its start, its condition and its update.",
+    "Choose between `<` and `<=` by counting, not by guessing.",
+    "Find and fix off-by-one mistakes in loops over arrays and number ranges."
+  ],
+  "sources": [
+    "loop_boundaries.txt",
+    "loop_control.txt",
+    "arithmetic_operations.txt"
+  ],
+  "sections": [
+    {
+      "id": "the-mistake",
+      "title": "The mistake",
+      "blocks": [
+        {
+          "type": "text",
+          "text": "An off-by-one error is a loop that runs one time too many or one time too few. It is the most common loop mistake there is, for beginners and professionals alike, because the code looks almost right. Here is the classic version: printing every score in an array."
+        },
+        {
+          "type": "compare",
+          "bad": {
+            "title": "Runs one time too many",
+            "code": "public class Scores {\n    public static void main(String[] args) {\n        int[] scores = {72, 85, 90};\n        for (int i = 0; i <= scores.length; i++) {\n            System.out.println(scores[i]);\n        }\n    }\n}",
+            "runnable": true,
+            "output": "72\n85\n90",
+            "error": "ArrayIndexOutOfBoundsException: Index 3 out of bounds for length 3"
+          },
+          "good": {
+            "title": "Runs exactly three times",
+            "code": "public class Scores {\n    public static void main(String[] args) {\n        int[] scores = {72, 85, 90};\n        for (int i = 0; i < scores.length; i++) {\n            System.out.println(scores[i]);\n        }\n    }\n}",
+            "runnable": true,
+            "output": "72\n85\n90"
+          },
+          "note": "The only difference is one character: `<=` became `<`. The first version prints all three scores and then crashes, because on its fourth pass it asks for `scores[3]`, which does not exist."
+        }
+      ]
+    },
+    {
+      "id": "why-length-minus-one",
+      "title": "Why the last position is length − 1",
+      "blocks": [
+        {
+          "type": "text",
+          "text": "Java numbers the positions in an array from 0, not from 1. So an array of 3 values has positions 0, 1 and 2. The length tells you how many boxes there are; it is never a position itself."
+        },
+        {
+          "type": "array",
+          "caption": "int[] scores = {72, 85, 90};",
+          "name": "scores",
+          "values": [
+            "72",
+            "85",
+            "90"
+          ],
+          "highlight": [
+            2
+          ],
+          "outside": 3,
+          "note": "`scores.length` is 3, but the last box is `scores[2]`. `scores[3]` is one past the end."
+        },
+        {
+          "type": "callout",
+          "tone": "tip",
+          "title": "A sentence to remember",
+          "text": "Length counts the boxes. An index names a box, counting from zero. The last box is always at length − 1."
+        }
+      ]
+    },
+    {
+      "id": "trace",
+      "title": "Trace it, one pass at a time",
+      "blocks": [
+        {
+          "type": "text",
+          "text": "The surest way to find an off-by-one error is to trace the loop on paper: write down `i`, check the condition, and say what the body does. Here is the broken loop with `<=`."
+        },
+        {
+          "type": "table",
+          "caption": "Tracing for (int i = 0; i <= scores.length; i++) with scores.length = 3",
+          "columns": [
+            "Pass",
+            "i",
+            "`i <= 3?`",
+            "What the body does"
+          ],
+          "rows": [
+            [
+              "1",
+              "0",
+              "true",
+              "prints `scores[0]` = 72"
+            ],
+            [
+              "2",
+              "1",
+              "true",
+              "prints `scores[1]` = 85"
+            ],
+            [
+              "3",
+              "2",
+              "true",
+              "prints `scores[2]` = 90"
+            ],
+            [
+              "4",
+              "3",
+              "true",
+              "asks for `scores[3]`: crash"
+            ]
+          ],
+          "highlight": [
+            3
+          ]
+        },
+        {
+          "type": "text",
+          "text": "The fourth row is the bug. With `<` the condition on that row is `3 < 3`, which is false, so the loop stops before it ever touches `scores[3]`."
+        }
+      ]
+    },
+    {
+      "id": "count-before-you-code",
+      "title": "Count before you code",
+      "blocks": [
+        {
+          "type": "text",
+          "text": "You can work out how many times a counting loop runs without running it. For a loop that starts at start and adds 1 each time:"
+        },
+        {
+          "type": "table",
+          "caption": "How many times a counting loop runs",
+          "columns": [
+            "Loop",
+            "Runs",
+            "Values of i"
+          ],
+          "rows": [
+            [
+              "`for (int i = 0; i < 5; i++)`",
+              "`5 − 0 = 5`",
+              "0, 1, 2, 3, 4"
+            ],
+            [
+              "`for (int i = 0; i <= 5; i++)`",
+              "`5 − 0 + 1 = 6`",
+              "0, 1, 2, 3, 4, 5"
+            ],
+            [
+              "`for (int i = 1; i < 5; i++)`",
+              "`5 − 1 = 4`",
+              "1, 2, 3, 4"
+            ],
+            [
+              "`for (int i = 1; i <= 5; i++)`",
+              "`5 − 1 + 1 = 5`",
+              "1, 2, 3, 4, 5"
+            ]
+          ],
+          "highlight": []
+        },
+        {
+          "type": "chart",
+          "caption": "One character, one extra pass",
+          "x_label": "Loop condition",
+          "y_label": "Times the body runs",
+          "categories": [
+            "0 to < 5",
+            "0 to <= 5",
+            "1 to < 5",
+            "1 to <= 5"
+          ],
+          "series": [
+            {
+              "name": "Times the body runs",
+              "values": [
+                5,
+                6,
+                4,
+                5
+              ]
+            }
+          ]
+        },
+        {
+          "type": "callout",
+          "tone": "info",
+          "title": "The rule behind the table",
+          "text": "With `<`, the loop runs end − start times. With `<=`, it runs end − start + 1 times. For an array you want exactly length passes starting at 0, which is why the loop is `i = 0; i < length`."
+        }
+      ]
+    },
+    {
+      "id": "how-it-decides",
+      "title": "How the loop decides",
+      "blocks": [
+        {
+          "type": "text",
+          "text": "A for loop checks its condition before every pass, including the first. The update runs after the body and before the next check. Following that cycle is how the extra pass sneaks in."
+        },
+        {
+          "type": "diagram",
+          "caption": "The cycle of for (int i = 0; i < scores.length; i++)",
+          "mermaid": "flowchart TD\n  A([Start: i = 0]) --> B{i < scores.length?}\n  B -- yes --> C[Run the body with this i]\n  C --> D[Add 1 to i]\n  D --> B\n  B -- no --> E([Leave the loop])"
+        },
+        {
+          "type": "steps",
+          "title": "Three questions before you write a loop",
+          "items": [
+            "What is the first value i should have? For an array, 0.",
+            "What is the last value i should have? For an array, length − 1.",
+            "Is that last value included by my condition? `i < length` includes length − 1 and stops there."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "in-disguise",
+      "title": "The same bug in disguise",
+      "blocks": [
+        {
+          "type": "text",
+          "text": "Off-by-one errors do not always crash. Some quietly skip a value or include one too many, which is harder to notice. Here are three versions you will meet."
+        },
+        {
+          "type": "compare",
+          "bad": {
+            "title": "Starts at 1: skips the first name",
+            "code": "for (int i = 1; i < names.length; i++) {\n    System.out.println(names[i]);\n}",
+            "runnable": false
+          },
+          "good": {
+            "title": "Starts at 0: every name",
+            "code": "for (int i = 0; i < names.length; i++) {\n    System.out.println(names[i]);\n}",
+            "runnable": false
+          },
+          "note": "No crash and no warning, just a missing first item. Arrays start at 0."
+        },
+        {
+          "type": "compare",
+          "bad": {
+            "title": "One past the end",
+            "code": "int last = prices[prices.length];",
+            "runnable": false
+          },
+          "good": {
+            "title": "The last box",
+            "code": "int last = prices[prices.length - 1];",
+            "runnable": false
+          },
+          "note": "The same rule outside a loop: the last position is length − 1."
+        },
+        {
+          "type": "compare",
+          "bad": {
+            "title": "Meant 1 to 10, prints 1 to 9",
+            "code": "for (int i = 1; i < 10; i++) {\n    System.out.println(i);\n}",
+            "runnable": false
+          },
+          "good": {
+            "title": "Prints 1 to 10",
+            "code": "for (int i = 1; i <= 10; i++) {\n    System.out.println(i);\n}",
+            "runnable": false
+          },
+          "note": "Here `<=` is right. When you count a range that includes both ends, such as 1 to 10, use `<=`. The question is always which values you want, not which symbol looks safer."
+        }
+      ]
+    },
+    {
+      "id": "check-yourself",
+      "title": "Check yourself",
+      "blocks": [
+        {
+          "type": "check",
+          "question": "How many times does this loop print?",
+          "code": "for (int i = 0; i < 4; i++) {\n    System.out.println(i);\n}",
+          "options": [
+            "3",
+            "4",
+            "5",
+            "It never stops"
+          ],
+          "answer": 1,
+          "explanation": "It starts at 0 and stops when i reaches 4, so it runs for 0, 1, 2 and 3: four times."
+        },
+        {
+          "type": "check",
+          "question": "Which index holds the value 8?",
+          "code": "int[] a = {5, 6, 7, 8};",
+          "options": [
+            "4",
+            "3",
+            "8",
+            "a.length"
+          ],
+          "answer": 1,
+          "explanation": "Positions count from 0: 5 is at 0, 6 at 1, 7 at 2 and 8 at 3. `a.length` is 4, one past the end."
+        },
+        {
+          "type": "check",
+          "question": "You want to print the numbers 1 to 10, including 10, starting from i = 1. Which condition?",
+          "code": "",
+          "options": [
+            "i < 10",
+            "i <= 10",
+            "i <= 9",
+            "i < 9"
+          ],
+          "answer": 1,
+          "explanation": "You want 10 included, and it is the last value, so the condition must be true when `i` is 10: `i <= 10`."
+        }
+      ]
+    },
+    {
+      "id": "key-points",
+      "title": "Key points",
+      "blocks": [
+        {
+          "type": "keypoints",
+          "items": [
+            "Arrays start at position 0, so the last position is length − 1.",
+            "`for (int i = 0; i < array.length; i++)` visits every element exactly once.",
+            "With `<` a loop runs end − start times; with `<=` it runs one more.",
+            "Trace the last pass on paper: if it touches `array[length]`, it is one too many.",
+            "Use `<=` when you count a range that includes its end, such as 1 to 10."
+          ]
+        }
+      ]
+    }
+  ]
+}

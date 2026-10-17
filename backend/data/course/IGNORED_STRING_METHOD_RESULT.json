@@ -1,0 +1,321 @@
+{
+  "id": "IGNORED_STRING_METHOD_RESULT",
+  "concept": "immutable_strings",
+  "title": "Ignoring a String method's result",
+  "summary": "Why calling a String method may leave your text unchanged, and how to keep the new result.",
+  "minutes": 15,
+  "status": "published",
+  "objectives": [
+    "Explain that a Java `String` cannot be changed after it is created.",
+    "Trace what happens when a `String` method returns a new value that is not saved.",
+    "Fix code by assigning a method's result back to a variable.",
+    "Spot the same mistake with methods such as `trim`, `replace`, `substring` and `concat`."
+  ],
+  "sections": [
+    {
+      "id": "the-mistake",
+      "title": "The mistake",
+      "blocks": [
+        {
+          "type": "text",
+          "text": "You call `toUpperCase()` because you want a name in capital letters. But the name stays the same. This is a common beginner mistake: the method returns the new text, and the program throws that result away."
+        },
+        {
+          "type": "compare",
+          "bad": {
+            "title": "The returned text is ignored",
+            "code": "public class UppercaseBad {\n    public static void main(String[] args) {\n        String name = \"Ada\";\n        name.toUpperCase();\n        System.out.println(name);\n    }\n}",
+            "runnable": true,
+            "output": "Ada",
+            "error": null,
+            "compile_error": null
+          },
+          "good": {
+            "title": "Save the returned text",
+            "code": "public class UppercaseGood {\n    public static void main(String[] args) {\n        String name = \"Ada\";\n        name = name.toUpperCase();\n        System.out.println(name);\n    }\n}",
+            "runnable": true,
+            "output": "ADA",
+            "error": null,
+            "compile_error": null
+          },
+          "note": "Both programs compile and run. Java does not reject the first program: calling a method and ignoring its result is allowed. The mistake shows up when the program runs, because `name` still holds `Ada`. Assigning the result back to `name` fixes it."
+        }
+      ]
+    },
+    {
+      "id": "why-it-happens",
+      "title": "Why it happens",
+      "blocks": [
+        {
+          "type": "text",
+          "text": "A `String` is immutable. That means its text cannot be changed after it is created. A method such as `toUpperCase()` makes and returns a new `String`; it does not edit the old one. If you do not save the returned `String`, it is discarded."
+        },
+        {
+          "type": "diagram",
+          "caption": "What happens when you call name.toUpperCase() without an assignment",
+          "mermaid": "flowchart TD\n  A[ name holds Ada ] --> B[ Call toUpperCase ]\n  B --> C[ Return a new String ADA ]\n  C --> D[ Result is discarded ]\n  A --> E[ name still holds Ada ]"
+        },
+        {
+          "type": "array",
+          "caption": "String[] words = {\"cat\"};",
+          "name": "words",
+          "values": [
+            "\"cat\""
+          ],
+          "highlight": [
+            0
+          ],
+          "outside": null,
+          "note": "The same idea applies to an array element. `words[0].toUpperCase()` returns `CAT`, but does not replace `words[0]`. To update the array, assign the result: `words[0] = words[0].toUpperCase();`."
+        },
+        {
+          "type": "callout",
+          "tone": "tip",
+          "title": "Keep the result",
+          "text": "When a `String` method returns text you want to keep, assign it to a variable. Often that means writing `name = name.methodName();`."
+        }
+      ]
+    },
+    {
+      "id": "trace",
+      "title": "Trace it one step at a time",
+      "blocks": [
+        {
+          "type": "text",
+          "text": "Tracing means following each statement and noting what each variable holds. Watch what happens to `name` in this program."
+        },
+        {
+          "title": "",
+          "code": "String name = \"mira\";\nname.toUpperCase();\nSystem.out.println(name);",
+          "runnable": false,
+          "output": null,
+          "error": null,
+          "compile_error": null,
+          "type": "code"
+        },
+        {
+          "type": "table",
+          "caption": "Tracing the ignored result",
+          "columns": [
+            "Step",
+            "What happens",
+            "Value held by `name`"
+          ],
+          "rows": [
+            [
+              "1",
+              "Create a `String` and assign it to `name`.",
+              "`mira`"
+            ],
+            [
+              "2",
+              "`toUpperCase()` returns a new `String` containing `MIRA`.",
+              "`mira`"
+            ],
+            [
+              "3",
+              "The returned `String` is not saved, so it is discarded.",
+              "`mira`"
+            ],
+            [
+              "4",
+              "`println` prints the value held by `name`.",
+              "`mira`"
+            ]
+          ],
+          "highlight": [
+            2
+          ]
+        },
+        {
+          "type": "text",
+          "text": "The key question is: where is the returned text stored? In this code, nowhere. With `name = name.toUpperCase();`, the new text is assigned to `name`, so the next print uses `MIRA`."
+        }
+      ]
+    },
+    {
+      "id": "worked-examples",
+      "title": "Two worked examples",
+      "blocks": [
+        {
+          "type": "text",
+          "text": "The fix is to save the result of the method call. Here are two methods that return new `String` values."
+        },
+        {
+          "type": "compare",
+          "bad": {
+            "title": "Uppercase call with no saved result",
+            "code": "public class UppercaseAgainBad {\n    public static void main(String[] args) {\n        String name = \"Lin\";\n        name.toUpperCase();\n        System.out.println(name);\n    }\n}",
+            "runnable": true,
+            "output": "Lin",
+            "error": null,
+            "compile_error": null
+          },
+          "good": {
+            "title": "Assign the uppercase result",
+            "code": "public class UppercaseAgainGood {\n    public static void main(String[] args) {\n        String name = \"Lin\";\n        name = name.toUpperCase();\n        System.out.println(name);\n    }\n}",
+            "runnable": true,
+            "output": "LIN",
+            "error": null,
+            "compile_error": null
+          },
+          "note": "The bad program prints `Lin` because the method does not edit `name`. The good program stores the returned text in `name`, so it prints `LIN`."
+        },
+        {
+          "type": "compare",
+          "bad": {
+            "title": "The trimmed result is ignored",
+            "code": "public class TrimBad {\n    public static void main(String[] args) {\n        String label = \"  Ada  \";\n        label.trim();\n        System.out.println(label.length());\n    }\n}",
+            "runnable": true,
+            "output": "7",
+            "error": null,
+            "compile_error": null
+          },
+          "good": {
+            "title": "Assign the trimmed result",
+            "code": "public class TrimGood {\n    public static void main(String[] args) {\n        String label = \"  Ada  \";\n        label = label.trim();\n        System.out.println(label.length());\n    }\n}",
+            "runnable": true,
+            "output": "3",
+            "error": null,
+            "compile_error": null
+          },
+          "note": "`trim()` returns text with the outside spaces removed. It does not change `label` itself. The bad program therefore prints the original length, `7`; the good program saves the trimmed text and prints `3`."
+        }
+      ]
+    },
+    {
+      "id": "in-disguise",
+      "title": "The same bug in disguise",
+      "blocks": [
+        {
+          "type": "text",
+          "text": "The method name changes, but the reasoning stays the same. If a `String` method returns new text, a bare call does not update the old `String`."
+        },
+        {
+          "type": "compare",
+          "bad": {
+            "title": "The replacement is discarded",
+            "code": "String message = \"red car\";\nmessage.replace(\"red\", \"blue\");",
+            "runnable": false,
+            "output": null,
+            "error": null,
+            "compile_error": null
+          },
+          "good": {
+            "title": "Save the replaced text",
+            "code": "String message = \"red car\";\nmessage = message.replace(\"red\", \"blue\");",
+            "runnable": false,
+            "output": null,
+            "error": null,
+            "compile_error": null
+          },
+          "note": "`replace()` returns new text. Without the assignment, `message` still holds `red car`."
+        },
+        {
+          "type": "compare",
+          "bad": {
+            "title": "The selected part is discarded",
+            "code": "String word = \"planet\";\nword.substring(0, 3);",
+            "runnable": false,
+            "output": null,
+            "error": null,
+            "compile_error": null
+          },
+          "good": {
+            "title": "Save the selected part",
+            "code": "String word = \"planet\";\nword = word.substring(0, 3);",
+            "runnable": false,
+            "output": null,
+            "error": null,
+            "compile_error": null
+          },
+          "note": "`substring()` returns a new `String` containing the selected part. Save that result if you want `word` to hold it."
+        },
+        {
+          "type": "compare",
+          "bad": {
+            "title": "The joined text is discarded",
+            "code": "String greeting = \"Hello\";\ngreeting.concat(\" there\");",
+            "runnable": false,
+            "output": null,
+            "error": null,
+            "compile_error": null
+          },
+          "good": {
+            "title": "Save the joined text",
+            "code": "String greeting = \"Hello\";\ngreeting = greeting.concat(\" there\");",
+            "runnable": false,
+            "output": null,
+            "error": null,
+            "compile_error": null
+          },
+          "note": "`concat()` returns a new `String`; it does not add text to the existing `greeting`."
+        }
+      ]
+    },
+    {
+      "id": "check-yourself",
+      "title": "Check yourself",
+      "blocks": [
+        {
+          "type": "check",
+          "question": "What does this program print?",
+          "code": "String city = \"oslo\";\ncity.toUpperCase();\nSystem.out.println(city);",
+          "options": [
+            "`OSLO`",
+            "`oslo`",
+            "Nothing",
+            "It does not compile"
+          ],
+          "answer": 1,
+          "explanation": "The program compiles. `toUpperCase()` returns a new `String`, but the code does not save it. So `city` still holds `oslo`."
+        },
+        {
+          "type": "check",
+          "question": "Which line saves the result of removing outside spaces?",
+          "code": "String title = \"  Guide  \";",
+          "options": [
+            "`title.trim();`",
+            "`title = title.trim();`",
+            "`trim() = title;`",
+            "`title.equals(title.trim());`"
+          ],
+          "answer": 1,
+          "explanation": "`trim()` returns a new `String`. Assigning it back with `title = title.trim();` makes `title` hold the trimmed text."
+        },
+        {
+          "type": "check",
+          "question": "After this code runs, what text does `word` hold?",
+          "code": "String word = \"sun\";\nword.replace(\"s\", \"f\");",
+          "options": [
+            "`fun`",
+            "`sun`",
+            "`s`",
+            "An empty `String`"
+          ],
+          "answer": 1,
+          "explanation": "`replace()` returns `fun`, but the result is not assigned. The variable `word` still holds `sun`."
+        }
+      ]
+    },
+    {
+      "id": "key-points",
+      "title": "Key points",
+      "blocks": [
+        {
+          "type": "keypoints",
+          "items": [
+            "A Java `String` is immutable: its text cannot be changed after it is created.",
+            "Methods such as `toUpperCase()` and `trim()` return new `String` values.",
+            "A method call such as `name.toUpperCase();` compiles, but its returned text is discarded if you do not save it.",
+            "Assign a result back when you want the variable to hold the new text: `name = name.toUpperCase();`.",
+            "Use the same reasoning for `replace()`, `substring()` and `concat()`."
+          ]
+        }
+      ]
+    }
+  ],
+  "sources": [
+    "immutable_strings.txt"
+  ]
+}

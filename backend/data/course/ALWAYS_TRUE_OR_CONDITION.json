@@ -1,0 +1,327 @@
+{
+  "id": "ALWAYS_TRUE_OR_CONDITION",
+  "concept": "boolean_logic",
+  "title": "An OR that is always true",
+  "summary": "Learn why `||` can make a range check true for every value, how to trace it, and when to use `&&` instead.",
+  "minutes": 15,
+  "status": "published",
+  "objectives": [
+    "Explain what `||` means in Java.",
+    "Trace a condition that uses `||` and identify why it is always true.",
+    "Choose between `||` and `&&` when checking whether a value is inside a range.",
+    "Recognize the same logic mistake in different range checks."
+  ],
+  "sections": [
+    {
+      "id": "the-mistake",
+      "title": "The mistake",
+      "blocks": [
+        {
+          "type": "text",
+          "text": "Suppose a program should accept ages from 18 through 65. A beginner might write `age >= 18 || age <= 65`. This condition uses `||`, which means “or.” It is true when at least one side is true. For any age, at least one side is true, so the program accepts every age."
+        },
+        {
+          "type": "compare",
+          "bad": {
+            "title": "Wrong: accepts every age",
+            "code": "age >= 18 || age <= 65",
+            "runnable": false,
+            "output": null,
+            "error": null,
+            "compile_error": null
+          },
+          "good": {
+            "title": "Right: accepts ages from 18 through 65",
+            "code": "age >= 18 && age <= 65",
+            "runnable": false,
+            "output": null,
+            "error": null,
+            "compile_error": null
+          },
+          "note": "For a value to be inside the range, it must be at least 18 and at most 65 at the same time. Use `&&` because both comparisons must be true. The wrong version compiles, but its logic goes wrong when the program runs. Java does not reject it or warn you about this mistake."
+        }
+      ]
+    },
+    {
+      "id": "why-it-happens",
+      "title": "Why it happens",
+      "blocks": [
+        {
+          "type": "text",
+          "text": "The key is to ask what happens when the first comparison is false. If `age >= 18` is false, then `age` is less than 18. That means `age <= 65` is true. So the `||` condition still accepts the age. If the first comparison is true, `||` already makes the whole condition true."
+        },
+        {
+          "type": "diagram",
+          "caption": "Follow the two comparisons in the wrong condition",
+          "mermaid": "flowchart TD\n  A[Start with an age] --> B{age >= 18}\n  B -- yes --> C[Accept age]\n  B -- no --> D{age <= 65}\n  D -- yes --> C\n  D -- no --> E[Reject age]"
+        },
+        {
+          "type": "callout",
+          "tone": "tip",
+          "title": "A useful question",
+          "text": "When you use `||`, ask: could either side be true for values outside the range? For this check, the answer is yes, so `||` is the wrong choice."
+        }
+      ]
+    },
+    {
+      "id": "trace",
+      "title": "Trace it, one value at a time",
+      "blocks": [
+        {
+          "type": "text",
+          "text": "A trace means checking each part of an expression with a particular value. For `age >= 18 || age <= 65`, check the left comparison first. If it is true, `||` already has its answer. If it is false, check the right comparison."
+        },
+        {
+          "type": "table",
+          "caption": "Tracing `age >= 18 || age <= 65`",
+          "columns": [
+            "`age`",
+            "`age >= 18`",
+            "`age <= 65`",
+            "Whole condition",
+            "Result"
+          ],
+          "rows": [
+            [
+              "10",
+              "`false`",
+              "`true`",
+              "`false || true` is `true`",
+              "Accepts age"
+            ],
+            [
+              "18",
+              "`true`",
+              "Not evaluated",
+              "`true || ...` is `true`",
+              "Accepts age"
+            ],
+            [
+              "40",
+              "`true`",
+              "Not evaluated",
+              "`true || ...` is `true`",
+              "Accepts age"
+            ],
+            [
+              "65",
+              "`true`",
+              "Not evaluated",
+              "`true || ...` is `true`",
+              "Accepts age"
+            ],
+            [
+              "70",
+              "`true`",
+              "Not evaluated",
+              "`true || ...` is `true`",
+              "Accepts age"
+            ]
+          ],
+          "highlight": [
+            0,
+            4
+          ]
+        },
+        {
+          "type": "text",
+          "text": "Java short-circuits `||`: when the left side is true, Java does not evaluate the right side. When the left side is false, Java checks the right side. In this example, every age makes at least one comparison true."
+        }
+      ]
+    },
+    {
+      "id": "worked-examples",
+      "title": "Two worked examples",
+      "blocks": [
+        {
+          "type": "text",
+          "text": "First, test ages. The bad program uses `||`. The fixed program uses `&&`, so it accepts an age only when both comparisons are true."
+        },
+        {
+          "type": "compare",
+          "bad": {
+            "title": "Bad age check",
+            "code": "public class AgeCheck {\n    public static void main(String[] args) {\n        int[] ages = {10, 40, 70};\n        for (int age : ages) {\n            if (age >= 18 || age <= 65) {\n                System.out.println(\"accepted \" + age);\n            }\n        }\n    }\n}",
+            "runnable": true,
+            "output": "accepted 10\naccepted 40\naccepted 70",
+            "error": null,
+            "compile_error": null
+          },
+          "good": {
+            "title": "Fixed age check",
+            "code": "public class AgeCheck {\n    public static void main(String[] args) {\n        int[] ages = {10, 40, 70};\n        for (int age : ages) {\n            if (age >= 18 && age <= 65) {\n                System.out.println(\"accepted \" + age);\n            }\n        }\n    }\n}",
+            "runnable": true,
+            "output": "accepted 40",
+            "error": null,
+            "compile_error": null
+          },
+          "note": "Both programs compile. The difference appears when they run: the wrong condition accepts all three ages, while the fixed condition accepts only 40."
+        },
+        {
+          "type": "text",
+          "text": "Now check scores from 0 through 100. A score must be at least 0 and at most 100. That means both comparisons must be true."
+        },
+        {
+          "type": "compare",
+          "bad": {
+            "title": "Bad score check",
+            "code": "public class ScoreCheck {\n    public static void main(String[] args) {\n        int[] scores = {-5, 50, 120};\n        for (int score : scores) {\n            if (score >= 0 || score <= 100) {\n                System.out.println(\"valid \" + score);\n            }\n        }\n    }\n}",
+            "runnable": true,
+            "output": "valid -5\nvalid 50\nvalid 120",
+            "error": null,
+            "compile_error": null
+          },
+          "good": {
+            "title": "Fixed score check",
+            "code": "public class ScoreCheck {\n    public static void main(String[] args) {\n        int[] scores = {-5, 50, 120};\n        for (int score : scores) {\n            if (score >= 0 && score <= 100) {\n                System.out.println(\"valid \" + score);\n            }\n        }\n    }\n}",
+            "runnable": true,
+            "output": "valid 50",
+            "error": null,
+            "compile_error": null
+          },
+          "note": "The bad score check has the same mistake as the age check. A score below 0 makes `score <= 100` true. A score above 100 makes `score >= 0` true. The fixed condition rejects both."
+        },
+        {
+          "type": "chart",
+          "caption": "How many test values pass each score check",
+          "x_label": "Condition",
+          "y_label": "Number of scores accepted",
+          "categories": [
+            "Wrong OR check",
+            "Fixed AND check"
+          ],
+          "series": [
+            {
+              "name": "Scores accepted out of 3",
+              "values": [
+                3.0,
+                1.0
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "in-disguise",
+      "title": "The same bug in disguise",
+      "blocks": [
+        {
+          "type": "text",
+          "text": "The same mistake appears whenever a value must stay between a lower limit and an upper limit. Translate the meaning into words first: if both limits must be met, use `&&`."
+        },
+        {
+          "type": "compare",
+          "bad": {
+            "title": "Wrong: temperature from 10 through 30",
+            "code": "temperature >= 10 || temperature <= 30",
+            "runnable": false,
+            "output": null,
+            "error": null,
+            "compile_error": null
+          },
+          "good": {
+            "title": "Right: temperature from 10 through 30",
+            "code": "temperature >= 10 && temperature <= 30",
+            "runnable": false,
+            "output": null,
+            "error": null,
+            "compile_error": null
+          },
+          "note": "A temperature inside the range must be at least 10 and at most 30. Both comparisons must be true."
+        },
+        {
+          "type": "compare",
+          "bad": {
+            "title": "Wrong: mark from 0 through 100",
+            "code": "mark >= 0 || mark <= 100",
+            "runnable": false,
+            "output": null,
+            "error": null,
+            "compile_error": null
+          },
+          "good": {
+            "title": "Right: mark from 0 through 100",
+            "code": "mark >= 0 && mark <= 100",
+            "runnable": false,
+            "output": null,
+            "error": null,
+            "compile_error": null
+          },
+          "note": "Changing the variable names does not change the logic. For a value inside a range, check that it is not below the lower limit and not above the upper limit."
+        },
+        {
+          "type": "callout",
+          "tone": "info",
+          "title": "When `||` is right",
+          "text": "Use `||` when either condition is enough. For example, `age < 18 || age > 65` correctly checks whether an age is outside the range from 18 through 65."
+        }
+      ]
+    },
+    {
+      "id": "check-yourself",
+      "title": "Check yourself",
+      "blocks": [
+        {
+          "type": "check",
+          "question": "You want `n` to be from 3 through 9, including both limits. Which condition is correct?",
+          "code": "",
+          "options": [
+            "`n >= 3 || n <= 9`",
+            "`n >= 3 && n <= 9`",
+            "`n > 3 && n < 9`",
+            "`n < 3 && n > 9`"
+          ],
+          "answer": 1,
+          "explanation": "The value must be at least 3 and at most 9. Both comparisons must be true, so use `&&`. The comparisons include both limits."
+        },
+        {
+          "type": "check",
+          "question": "For `n = 2`, what is the result of `n >= 3 || n <= 9`?",
+          "code": "",
+          "options": [
+            "`false`, because the first comparison is false",
+            "`true`, because the second comparison is true",
+            "`false`, because both comparisons are false",
+            "It does not compile"
+          ],
+          "answer": 1,
+          "explanation": "For `n = 2`, `n >= 3` is false and `n <= 9` is true. With `||`, one true side makes the whole condition true. The expression compiles."
+        },
+        {
+          "type": "check",
+          "question": "A program should accept values outside the range from 5 through 12. Which condition checks that?",
+          "code": "",
+          "options": [
+            "`value >= 5 && value <= 12`",
+            "`value < 5 || value > 12`",
+            "`value < 5 && value > 12`",
+            "`value >= 5 || value <= 12`"
+          ],
+          "answer": 1,
+          "explanation": "A value outside the range is either below 5 or above 12. Either comparison is enough to show it is outside, so use `||`."
+        }
+      ]
+    },
+    {
+      "id": "key-points",
+      "title": "Key points",
+      "blocks": [
+        {
+          "type": "keypoints",
+          "items": [
+            "`||` means or: at least one side must be true.",
+            "`&&` means and: both sides must be true.",
+            "To check that a value is inside a range, compare it with both limits using `&&`.",
+            "A condition such as `age >= 18 || age <= 65` is true for every age.",
+            "This logic mistake compiles. Trace test values to find the problem before running the program."
+          ]
+        }
+      ]
+    }
+  ],
+  "sources": [
+    "boolean_logic.txt",
+    "assignment_logic.txt"
+  ]
+}

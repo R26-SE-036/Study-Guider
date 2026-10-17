@@ -1,0 +1,276 @@
+{
+  "id": "STRING_EQUALITY_WITH_OPERATOR",
+  "concept": "string_comparison",
+  "title": "Comparing Strings with ==",
+  "summary": "Why == can say two equal words are different, and how equals compares what Strings actually say.",
+  "minutes": 14,
+  "status": "published",
+  "objectives": [
+    "Explain the difference between two Strings having the same text and being the same object.",
+    "Predict when `==` gives false for two Strings that look identical.",
+    "Compare Strings correctly with `equals` and `equalsIgnoreCase`.",
+    "Write comparisons that do not crash when a String is null."
+  ],
+  "sources": [
+    "string_comparison.txt",
+    "boolean_logic.txt"
+  ],
+  "sections": [
+    {
+      "id": "the-mistake",
+      "title": "The mistake",
+      "blocks": [
+        {
+          "type": "text",
+          "text": "A program asks a question and checks the answer. The student typed yes, the program compared it with `\"yes\"`, and still said it did not recognise it. The comparison used `==`."
+        },
+        {
+          "type": "compare",
+          "bad": {
+            "title": "Compares objects",
+            "code": "public class Answer {\n    public static void main(String[] args) {\n        String typed = new String(\"yes\");\n        if (typed == \"yes\") {\n            System.out.println(\"Thanks!\");\n        } else {\n            System.out.println(\"Not recognised\");\n        }\n    }\n}",
+            "runnable": true,
+            "output": "Not recognised"
+          },
+          "good": {
+            "title": "Compares text",
+            "code": "public class Answer {\n    public static void main(String[] args) {\n        String typed = new String(\"yes\");\n        if (typed.equals(\"yes\")) {\n            System.out.println(\"Thanks!\");\n        } else {\n            System.out.println(\"Not recognised\");\n        }\n    }\n}",
+            "runnable": true,
+            "output": "Thanks!"
+          },
+          "note": "`new String(\"yes\")` stands in for text that arrives while the program runs, such as input from a Scanner. Both versions hold the same three letters; only `equals` looks at the letters."
+        }
+      ]
+    },
+    {
+      "id": "what-equals-compares",
+      "title": "What == really compares",
+      "blocks": [
+        {
+          "type": "text",
+          "text": "A String variable does not hold the text itself. It holds a reference: directions to a String object somewhere in memory. For objects, `==` asks whether two references point to the same object. `equals` asks whether the two objects contain the same characters."
+        },
+        {
+          "type": "memory",
+          "caption": "typed and the literal \"yes\" after String typed = new String(\"yes\");",
+          "variables": [
+            {
+              "name": "typed",
+              "target": "a"
+            },
+            {
+              "name": "\"yes\" literal",
+              "target": "b"
+            }
+          ],
+          "objects": [
+            {
+              "id": "a",
+              "text": "\"yes\""
+            },
+            {
+              "id": "b",
+              "text": "\"yes\""
+            }
+          ],
+          "note": "Two objects with the same text. `==` compares the arrows, so it says false. `equals` compares the text, so it says true."
+        },
+        {
+          "type": "table",
+          "caption": "Two ways of asking \"is it the same?\"",
+          "columns": [
+            "Question",
+            "Java",
+            "Looks at"
+          ],
+          "rows": [
+            [
+              "Same object?",
+              "`a == b`",
+              "the references, the arrows"
+            ],
+            [
+              "Same text?",
+              "`a.equals(b)`",
+              "the characters inside"
+            ],
+            [
+              "Same text, ignoring case?",
+              "`a.equalsIgnoreCase(b)`",
+              "the characters, with YES the same as yes"
+            ]
+          ],
+          "highlight": []
+        }
+      ]
+    },
+    {
+      "id": "why-it-sometimes-works",
+      "title": "Why it sometimes seems to work",
+      "blocks": [
+        {
+          "type": "text",
+          "text": "What makes this mistake dangerous is that `==` often gives the right answer while you test. Java keeps one shared copy of each string literal written in your code, so two variables set from the same literal point to the same object. Text that is built or read while the program runs is a new object."
+        },
+        {
+          "type": "code",
+          "title": "The same word, three answers",
+          "code": "public class Pool {\n    public static void main(String[] args) {\n        String a = \"yes\";\n        String b = \"yes\";\n        String c = new String(\"yes\");\n        System.out.println(a == b);\n        System.out.println(a == c);\n        System.out.println(a.equals(c));\n    }\n}",
+          "runnable": true,
+          "output": "true\nfalse\ntrue"
+        },
+        {
+          "type": "table",
+          "caption": "Reading the three lines",
+          "columns": [
+            "Expression",
+            "Same object?",
+            "Same text?",
+            "Prints"
+          ],
+          "rows": [
+            [
+              "`a == b`",
+              "yes, the shared literal",
+              "yes",
+              "true"
+            ],
+            [
+              "`a == c`",
+              "no, c is a new object",
+              "yes",
+              "false"
+            ],
+            [
+              "`a.equals(c)`",
+              "not asked",
+              "yes",
+              "true"
+            ]
+          ],
+          "highlight": [
+            1
+          ]
+        },
+        {
+          "type": "callout",
+          "tone": "warn",
+          "title": "Tests that pass for the wrong reason",
+          "text": "If you only test with literals typed into your code, `==` passes. The same program fails as soon as the text comes from a user, a file or a calculation. Use `equals` every time you mean the same text."
+        }
+      ]
+    },
+    {
+      "id": "how-it-decides",
+      "title": "Picking the right comparison",
+      "blocks": [
+        {
+          "type": "diagram",
+          "caption": "Which comparison to use",
+          "mermaid": "flowchart TD\n  A([Comparing two values]) --> B{Are they Strings or other objects?}\n  B -- no, int, char or boolean --> C[Use ==]\n  B -- yes --> D{Should upper and lower case count as different?}\n  D -- yes --> E[Use equals]\n  D -- no --> F[Use equalsIgnoreCase]"
+        },
+        {
+          "type": "callout",
+          "tone": "tip",
+          "title": "Put the literal first",
+          "text": "`\"yes\".equals(typed)` gives false when `typed` is null. `typed.equals(\"yes\")` crashes with a `NullPointerException`, because there is no object to call equals on. Starting with the literal is a habit that removes a whole class of crashes."
+        }
+      ]
+    },
+    {
+      "id": "in-disguise",
+      "title": "The same bug in disguise",
+      "blocks": [
+        {
+          "type": "compare",
+          "bad": {
+            "title": "Never sees quit",
+            "code": "while (command != \"quit\") {\n    command = input.nextLine();\n}",
+            "runnable": false
+          },
+          "good": {
+            "title": "Stops on quit",
+            "code": "while (!command.equals(\"quit\")) {\n    command = input.nextLine();\n}",
+            "runnable": false
+          },
+          "note": "`!=` is just `==` turned around, so it has the same problem: every line read is a new object, so the loop never ends."
+        },
+        {
+          "type": "compare",
+          "bad": {
+            "title": "Compares objects",
+            "code": "if (grade == \"A\") {",
+            "runnable": false
+          },
+          "good": {
+            "title": "Compares text",
+            "code": "if (grade.equals(\"A\")) {",
+            "runnable": false
+          },
+          "note": "A single letter is still a String when it is in double quotes. A `char` in single quotes, `'A'`, is a primitive and `==` is right for it."
+        }
+      ]
+    },
+    {
+      "id": "check-yourself",
+      "title": "Check yourself",
+      "blocks": [
+        {
+          "type": "check",
+          "question": "What does this print?",
+          "code": "String name = new String(\"Ana\");\nSystem.out.println(name == \"Ana\");",
+          "options": [
+            "true",
+            "false",
+            "It does not compile",
+            "It crashes"
+          ],
+          "answer": 1,
+          "explanation": "`name` is a new object, so `==` compares two different objects and gives false, even though the text matches."
+        },
+        {
+          "type": "check",
+          "question": "answer might be null. Which check is safe and correct?",
+          "code": "",
+          "options": [
+            "answer == \"yes\"",
+            "answer.equals(\"yes\")",
+            "\"yes\".equals(answer)",
+            "answer.equals(null)"
+          ],
+          "answer": 2,
+          "explanation": "`\"yes\".equals(answer)` compares the text and gives false for null instead of crashing."
+        },
+        {
+          "type": "check",
+          "question": "Why can a == b be true when a and b were both set to \"yes\" in the code?",
+          "code": "",
+          "options": [
+            "== always compares text",
+            "Java shares one object for identical literals",
+            "Strings are primitives",
+            "Because yes is a short word"
+          ],
+          "answer": 1,
+          "explanation": "Identical string literals share a single object, so both variables point to it. Text made while the program runs does not."
+        }
+      ]
+    },
+    {
+      "id": "key-points",
+      "title": "Key points",
+      "blocks": [
+        {
+          "type": "keypoints",
+          "items": [
+            "`==` on Strings asks whether they are the same object, not whether they say the same thing.",
+            "Use `equals` to compare text, and `equalsIgnoreCase` when case should not matter.",
+            "`==` may pass with literals and then fail with real input, so tests can hide this bug.",
+            "Write `\"literal\".equals(variable)` to stay safe when the variable might be null.",
+            "`==` is right for primitives: `int`, `double`, `char` and `boolean`."
+          ]
+        }
+      ]
+    }
+  ]
+}

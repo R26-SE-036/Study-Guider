@@ -162,18 +162,28 @@ def index_knowledge_base() -> dict:
         chunk_size=CHUNK_SIZE, chunk_overlap=CHUNK_OVERLAP
     )
 
-    indexed = 0
+    # The course notes, then the published course units. A unit is written
+    # from the notes but goes much further - worked examples, traces, the same
+    # bug in disguise - so a micro-lesson retrieving for its concept now finds
+    # that material too. Drafts are not indexed: nothing unreviewed is cited.
+    from app.services import course_service
+
+    documents = []
     for filename in sorted(os.listdir(settings.DATA_DIR)):
         if not filename.endswith(".txt"):
             continue
-
         with open(os.path.join(settings.DATA_DIR, filename), encoding="utf-8") as handle:
             text = handle.read()
-
         concept = normalise_concept(
             SOURCE_FILE_CONCEPTS.get(filename, os.path.splitext(filename)[0])
         )
+        documents.append((filename, text, concept))
 
+    for unit in course_service.published_units():
+        documents.append((f"course/{unit.id}", course_service.unit_text(unit), unit.concept))
+
+    indexed = 0
+    for filename, text, concept in documents:
         for position, chunk in enumerate(splitter.split_text(text)):
             vector = embeddings.embed_query(chunk)
 

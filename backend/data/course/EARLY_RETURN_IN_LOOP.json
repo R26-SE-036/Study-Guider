@@ -1,0 +1,303 @@
+{
+  "id": "EARLY_RETURN_IN_LOOP",
+  "concept": "control_flow",
+  "title": "Returning on the first pass",
+  "summary": "Why a search can stop after checking one array element, and how to return only when the whole search is finished.",
+  "minutes": 15,
+  "status": "published",
+  "objectives": [
+    "Explain why `return` inside a loop leaves the method immediately.",
+    "Trace what happens when the first array element does not match the target.",
+    "Move `return false` outside the loop so every element can be checked.",
+    "Recognize the same early-return mistake in other search loops."
+  ],
+  "sections": [
+    {
+      "id": "the-mistake",
+      "title": "The mistake",
+      "blocks": [
+        {
+          "type": "text",
+          "text": "Code Coach flags this pattern: the method returns an answer on the first pass through the loop. If the first value is not the target, it returns `false` before checking the rest of the array."
+        },
+        {
+          "title": "",
+          "code": "static boolean contains(int[] values, int target) {\n    for (int i = 0; i < values.length; i++) {\n        if (values[i] == target) return true;\n        else return false; // decides on the first element\n    }\n    return false;\n}",
+          "runnable": false,
+          "output": null,
+          "error": null,
+          "compile_error": null,
+          "type": "code"
+        },
+        {
+          "type": "callout",
+          "tone": "warn",
+          "title": "It compiles, but it can answer incorrectly",
+          "text": "This code is valid Java. The compiler does not reject it or warn that the search is wrong. The mistake appears when the program runs and the target is not the first value."
+        }
+      ]
+    },
+    {
+      "id": "why-it-happens",
+      "title": "Why it happens",
+      "blocks": [
+        {
+          "type": "text",
+          "text": "A loop repeats its body. But `return` does not mean “go to the next pass.” It leaves the method immediately. So either branch in the loop ends the search as soon as the first value is checked."
+        },
+        {
+          "type": "diagram",
+          "caption": "What the broken method does on its first pass",
+          "mermaid": "flowchart TD\n  A([Start]) --> B{More values?}\n  B -- no --> E[Return false after the loop]\n  B -- yes --> C{Current value equals target?}\n  C -- yes --> F[Return true now]\n  C -- no --> G[Return false now]\n  G --> H[The method has ended]"
+        },
+        {
+          "type": "array",
+          "caption": "`int[] values = {4, 9, 12};` and `target = 12`",
+          "name": "values",
+          "values": [
+            "4",
+            "9",
+            "12"
+          ],
+          "highlight": [
+            0
+          ],
+          "outside": 3,
+          "note": "The first check compares `values[0]`, which is 4, with `target`, which is 12. The broken method returns `false` there. It never reaches `values[1]` or `values[2]`."
+        },
+        {
+          "type": "text",
+          "text": "The reasoning for the fix is to separate the two answers. Return `true` as soon as a match is found. If the loop finishes with no match, then return `false` after the loop."
+        }
+      ]
+    },
+    {
+      "id": "trace",
+      "title": "Trace it, one pass at a time",
+      "blocks": [
+        {
+          "type": "text",
+          "text": "Trace the broken method with `values` equal to `{4, 9, 12}` and `target` equal to `12`. Write down the current index, check the condition, and follow the statement that runs."
+        },
+        {
+          "type": "table",
+          "caption": "Tracing the broken method",
+          "columns": [
+            "Step",
+            "`i`",
+            "Check",
+            "What happens"
+          ],
+          "rows": [
+            [
+              "1",
+              "`0`",
+              "`0 < values.length` is `true`",
+              "The loop starts its first pass."
+            ],
+            [
+              "2",
+              "`0`",
+              "`values[0] == target` is `false`",
+              "`values[0]` is `4`, not `12`, so the `else` branch runs."
+            ],
+            [
+              "3",
+              "—",
+              "`return false`",
+              "The method ends. The loop update never runs."
+            ],
+            [
+              "4",
+              "—",
+              "`values[1]` and `values[2]` are not checked",
+              "The method gives the wrong answer: the target is in the array."
+            ]
+          ],
+          "highlight": [
+            2,
+            3
+          ]
+        },
+        {
+          "type": "text",
+          "text": "A normal loop would run its update and check the next index after a pass. Here, `return false` ends the method before that can happen. After moving `return false` below the loop, a failed comparison can reach the next pass."
+        }
+      ]
+    },
+    {
+      "id": "worked-examples",
+      "title": "Worked examples",
+      "blocks": [
+        {
+          "type": "text",
+          "text": "First, test a target that is already at the beginning. The broken method appears to work, because its first check finds a match. This test alone would not reveal the mistake."
+        },
+        {
+          "type": "compare",
+          "bad": {
+            "title": "Broken method: this test passes by luck",
+            "code": "public class FirstMatchBad {\n    static boolean contains(int[] values, int target) {\n        for (int i = 0; i < values.length; i++) {\n            if (values[i] == target) return true;\n            else return false;\n        }\n        return false;\n    }\n\n    public static void main(String[] args) {\n        int[] values = {7, 9, 12};\n        System.out.println(contains(values, 7));\n    }\n}",
+            "runnable": true,
+            "output": "true",
+            "error": null,
+            "compile_error": null
+          },
+          "good": {
+            "title": "Fixed method: the first value is found",
+            "code": "public class FirstMatchGood {\n    static boolean contains(int[] values, int target) {\n        for (int i = 0; i < values.length; i++) {\n            if (values[i] == target) return true;\n        }\n        return false;\n    }\n\n    public static void main(String[] args) {\n        int[] values = {7, 9, 12};\n        System.out.println(contains(values, 7));\n    }\n}",
+            "runnable": true,
+            "output": "true",
+            "error": null,
+            "compile_error": null
+          },
+          "note": "Both programs print `true` because the first value matches. A useful test must also put the target later in the array."
+        },
+        {
+          "type": "text",
+          "text": "Now move the target to the third position. The broken method returns `false` after comparing only the first value. The fixed method continues until it finds the target."
+        },
+        {
+          "type": "compare",
+          "bad": {
+            "title": "Broken method: stops before the target",
+            "code": "public class LaterMatchBad {\n    static boolean contains(int[] values, int target) {\n        for (int i = 0; i < values.length; i++) {\n            if (values[i] == target) return true;\n            else return false;\n        }\n        return false;\n    }\n\n    public static void main(String[] args) {\n        int[] values = {4, 9, 12};\n        System.out.println(contains(values, 12));\n    }\n}",
+            "runnable": true,
+            "output": "false",
+            "error": null,
+            "compile_error": null
+          },
+          "good": {
+            "title": "Fixed method: checks every value until it finds a match",
+            "code": "public class LaterMatchGood {\n    static boolean contains(int[] values, int target) {\n        for (int i = 0; i < values.length; i++) {\n            if (values[i] == target) return true;\n        }\n        return false;\n    }\n\n    public static void main(String[] args) {\n        int[] values = {4, 9, 12};\n        System.out.println(contains(values, 12));\n    }\n}",
+            "runnable": true,
+            "output": "true",
+            "error": null,
+            "compile_error": null
+          },
+          "note": "In the fixed method, a non-matching value does not return an answer. The loop continues. `return false` runs only after the loop has checked every value without finding a match."
+        }
+      ]
+    },
+    {
+      "id": "in-disguise",
+      "title": "The same bug in disguise",
+      "blocks": [
+        {
+          "type": "text",
+          "text": "The bug is not limited to an `else` branch. Any `return false` inside the loop can end a search after the first non-match. These short versions have the same problem."
+        },
+        {
+          "type": "compare",
+          "bad": {
+            "title": "Return false inside the loop",
+            "code": "for (int i = 0; i < values.length; i++) {\n    if (values[i] == target) return true;\n    return false;\n}",
+            "runnable": false,
+            "output": null,
+            "error": null,
+            "compile_error": null
+          },
+          "good": {
+            "title": "Return false after the loop",
+            "code": "for (int i = 0; i < values.length; i++) {\n    if (values[i] == target) return true;\n}\nreturn false;",
+            "runnable": false,
+            "output": null,
+            "error": null,
+            "compile_error": null
+          },
+          "note": "Removing `else` does not fix the problem if `return false` is still inside the loop. The loop must be allowed to continue after a non-match."
+        },
+        {
+          "type": "compare",
+          "bad": {
+            "title": "A name search stops on the first different name",
+            "code": "for (int i = 0; i < names.length; i++) {\n    if (names[i].equals(wanted)) return true;\n    return false;\n}",
+            "runnable": false,
+            "output": null,
+            "error": null,
+            "compile_error": null
+          },
+          "good": {
+            "title": "A name search checks each name",
+            "code": "for (int i = 0; i < names.length; i++) {\n    if (names[i].equals(wanted)) return true;\n}\nreturn false;",
+            "runnable": false,
+            "output": null,
+            "error": null,
+            "compile_error": null
+          },
+          "note": "The values being searched can change, but the control-flow reasoning stays the same. A failed check should continue the loop, not leave the method."
+        },
+        {
+          "type": "callout",
+          "tone": "tip",
+          "title": "Ask what should happen after a failed check",
+          "text": "If more values still need checking, do not return `false` yet. Let the loop move to the next value."
+        }
+      ]
+    },
+    {
+      "id": "check-yourself",
+      "title": "Check yourself",
+      "blocks": [
+        {
+          "type": "check",
+          "question": "In the broken method, `values` is `{3, 8}` and `target` is `8`. What does the method return?",
+          "code": "if (values[i] == target) return true;\nelse return false;",
+          "options": [
+            "`true`, because 8 is somewhere in the array",
+            "`false`, because the first value is 3",
+            "It checks both values and then returns `true`",
+            "The code does not compile"
+          ],
+          "answer": 1,
+          "explanation": "The first pass checks `values[0]`, which is 3. The condition is false, so `return false` ends the method before index 1 is checked. The code compiles; the problem is its run-time behavior."
+        },
+        {
+          "type": "check",
+          "question": "Where should `return false` go in a method that searches every array value?",
+          "code": "static boolean contains(int[] values, int target) { ... }",
+          "options": [
+            "Inside the `if` block",
+            "Inside the loop after the `if`",
+            "After the loop",
+            "Before the loop"
+          ],
+          "answer": 2,
+          "explanation": "A failed comparison means there may be another value to check. Put `return false` after the loop so it runs only when the loop has finished without finding a match."
+        },
+        {
+          "type": "check",
+          "question": "What does `return true` do when a matching value is found inside the loop?",
+          "code": "if (values[i] == target) return true;",
+          "options": [
+            "It ends the method immediately",
+            "It moves to the next loop pass",
+            "It changes the value of `target`",
+            "It ends only the `if` statement"
+          ],
+          "answer": 0,
+          "explanation": "`return` leaves the method immediately. That is useful here: once a matching value is found, the search is finished and the method can return `true`."
+        }
+      ]
+    },
+    {
+      "id": "key-points",
+      "title": "Key points",
+      "blocks": [
+        {
+          "type": "keypoints",
+          "items": [
+            "`return` leaves the method immediately. It does not continue to the next loop pass.",
+            "In the flagged pattern, `else return false` ends the search after the first value does not match.",
+            "The mistake compiles without a warning, but can give the wrong answer when the method runs.",
+            "Return `true` when a match is found. Return `false` after the loop if no match was found.",
+            "Test a match at the first position and a match later in the array. The first test alone can hide this bug."
+          ]
+        }
+      ]
+    }
+  ],
+  "sources": [
+    "control_flow.txt"
+  ]
+}

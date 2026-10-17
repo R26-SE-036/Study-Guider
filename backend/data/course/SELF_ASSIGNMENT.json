@@ -1,0 +1,314 @@
+{
+  "id": "SELF_ASSIGNMENT",
+  "concept": "assignment_logic",
+  "title": "Assigning a variable to itself",
+  "summary": "Why `name = name` can leave a field unchanged, and how to tell which variable an assignment uses.",
+  "minutes": 15,
+  "status": "published",
+  "objectives": [
+    "Explain what `=` does and which way a value is copied.",
+    "Explain how a constructor parameter can hide a field with the same name.",
+    "Trace what changes and what stays the same in `name = name`.",
+    "Fix the bug by assigning the parameter to the field."
+  ],
+  "sections": [
+    {
+      "id": "the-mistake",
+      "title": "The mistake",
+      "blocks": [
+        {
+          "type": "text",
+          "text": "Code Coach flags this constructor:"
+        },
+        {
+          "type": "compare",
+          "bad": {
+            "title": "Assigns the parameter to itself",
+            "code": "public class Student {\n    private String name;\n\n    public Student(String name) {\n        // assigns the parameter to itself; the field stays null\n        name = name;\n    }\n}",
+            "runnable": false,
+            "output": null,
+            "error": null,
+            "compile_error": null
+          },
+          "good": {
+            "title": "Assigns the parameter to the field",
+            "code": "public class Student {\n    private String name;\n\n    public Student(String name) {\n        this.name = name;\n    }\n}",
+            "runnable": false,
+            "output": null,
+            "error": null,
+            "compile_error": null
+          },
+          "note": "In the first version, both uses of `name` refer to the constructor parameter. The field does not get the parameter's value. In the fixed version, `this.name` means the field belonging to this object."
+        },
+        {
+          "type": "callout",
+          "tone": "warn",
+          "title": "This is a run-time bug",
+          "text": "Both versions are valid Java, so `javac` accepts them. The mistake usually has no compiler warning. The bad value becomes visible when the program runs and reads the field."
+        }
+      ]
+    },
+    {
+      "id": "why-it-happens",
+      "title": "Why it happens",
+      "blocks": [
+        {
+          "type": "text",
+          "text": "A constructor parameter is a local variable: it belongs to the constructor call. A field belongs to an object. When a parameter and a field have the same name, using just `name` inside the constructor refers to the parameter. The field begins as `null`, Java's default value for a field whose type is `String`."
+        },
+        {
+          "type": "diagram",
+          "caption": "What `name = name` refers to",
+          "mermaid": "flowchart TD\n  A[Constructor begins] --> B[Parameter name holds Ava]\n  B --> C[Read parameter name on the right]\n  C --> D[Write parameter name on the left]\n  D --> E[Field name stays null]\n  E --> F[Use this.name to name the field]"
+        },
+        {
+          "type": "callout",
+          "tone": "tip",
+          "title": "Read an assignment from right to left",
+          "text": "In `left = right`, Java copies the value on the right into the variable on the left. So `name = name` copies the parameter's value back into that same parameter. It does not copy anything into the field."
+        }
+      ]
+    },
+    {
+      "id": "trace",
+      "title": "Trace it step by step",
+      "blocks": [
+        {
+          "type": "text",
+          "text": "Suppose the constructor receives `\"Ava\"`. Follow each name in the broken assignment. The parameter and field are separate places, even though they have the same name."
+        },
+        {
+          "type": "table",
+          "caption": "Tracing `name = name` when the constructor receives `\"Ava\"`",
+          "columns": [
+            "Step",
+            "Parameter `name`",
+            "Field `this.name`",
+            "What happens"
+          ],
+          "rows": [
+            [
+              "Before the assignment",
+              "`\"Ava\"`",
+              "`null`",
+              "The field has its default value."
+            ],
+            [
+              "Read the right side",
+              "`\"Ava\"`",
+              "`null`",
+              "The right-side `name` is the parameter."
+            ],
+            [
+              "Write the left side",
+              "`\"Ava\"`",
+              "`null`",
+              "The left-side `name` is also the parameter."
+            ],
+            [
+              "After the assignment",
+              "`\"Ava\"`",
+              "`null`",
+              "The field was never changed."
+            ]
+          ],
+          "highlight": [
+            2,
+            3
+          ]
+        },
+        {
+          "type": "text",
+          "text": "The assignment leaves the parameter with the same value it already had. It never mentions `this.name`, so the field stays `null`."
+        }
+      ]
+    },
+    {
+      "id": "worked-examples",
+      "title": "Worked examples",
+      "blocks": [
+        {
+          "type": "text",
+          "text": "Here is a complete program using the student's pattern. The getter returns the field so we can see what the constructor stored."
+        },
+        {
+          "type": "compare",
+          "bad": {
+            "title": "Broken constructor prints null",
+            "code": "public class Student {\n    private String name;\n\n    public Student(String name) {\n        name = name;\n    }\n\n    public String getName() {\n        return name;\n    }\n\n    public static void main(String[] args) {\n        Student student = new Student(\"Ava\");\n        System.out.println(student.getName());\n    }\n}",
+            "runnable": true,
+            "output": "null",
+            "error": null,
+            "compile_error": null
+          },
+          "good": {
+            "title": "Fixed constructor prints Ava",
+            "code": "public class Student {\n    private String name;\n\n    public Student(String name) {\n        this.name = name;\n    }\n\n    public String getName() {\n        return name;\n    }\n\n    public static void main(String[] args) {\n        Student student = new Student(\"Ava\");\n        System.out.println(student.getName());\n    }\n}",
+            "runnable": true,
+            "output": "Ava",
+            "error": null,
+            "compile_error": null
+          },
+          "note": "In the broken program, the getter reads the field, which still holds `null`. In the fixed program, `this.name = name` copies the parameter into the field."
+        },
+        {
+          "type": "text",
+          "text": "The same mistake can happen with a number field. An `int` field starts with the default value `0` if the constructor does not change it."
+        },
+        {
+          "type": "compare",
+          "bad": {
+            "title": "The age field stays 0",
+            "code": "public class AgeRecord {\n    private int age;\n\n    public AgeRecord(int age) {\n        age = age;\n    }\n\n    public int getAge() {\n        return age;\n    }\n\n    public static void main(String[] args) {\n        AgeRecord record = new AgeRecord(19);\n        System.out.println(record.getAge());\n    }\n}",
+            "runnable": true,
+            "output": "0",
+            "error": null,
+            "compile_error": null
+          },
+          "good": {
+            "title": "The age field becomes 19",
+            "code": "public class AgeRecord {\n    private int age;\n\n    public AgeRecord(int age) {\n        this.age = age;\n    }\n\n    public int getAge() {\n        return age;\n    }\n\n    public static void main(String[] args) {\n        AgeRecord record = new AgeRecord(19);\n        System.out.println(record.getAge());\n    }\n}",
+            "runnable": true,
+            "output": "19",
+            "error": null,
+            "compile_error": null
+          },
+          "note": "The parameter receives `19`, but `age = age` only assigns the parameter to itself. The field remains at its default value, `0`. Adding `this.` makes the left side the field."
+        },
+        {
+          "type": "chart",
+          "caption": "Age stored in the field after construction",
+          "x_label": "Constructor assignment",
+          "y_label": "Age value in the field",
+          "categories": [
+            "`age = age`",
+            "`this.age = age`"
+          ],
+          "series": [
+            {
+              "name": "Stored age",
+              "values": [
+                0.0,
+                19.0
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "in-disguise",
+      "title": "The same bug in disguise",
+      "blocks": [
+        {
+          "type": "text",
+          "text": "The key clue is not the word `name`. The bug can use any field and parameter with the same name. Check which variable each side of `=` refers to."
+        },
+        {
+          "type": "compare",
+          "bad": {
+            "title": "A setter changes only its parameter",
+            "code": "void setName(String name) {\n    name = name;\n}",
+            "runnable": false,
+            "output": null,
+            "error": null,
+            "compile_error": null
+          },
+          "good": {
+            "title": "A setter changes the field",
+            "code": "void setName(String name) {\n    this.name = name;\n}",
+            "runnable": false,
+            "output": null,
+            "error": null,
+            "compile_error": null
+          },
+          "note": "A setter is a method meant to change a field. In the bad version, the field is not changed, just as in the constructor."
+        },
+        {
+          "type": "compare",
+          "bad": {
+            "title": "A field and parameter share a name",
+            "code": "private int count;\n\nvoid setCount(int count) {\n    count = count;\n}",
+            "runnable": false,
+            "output": null,
+            "error": null,
+            "compile_error": null
+          },
+          "good": {
+            "title": "Make the field clear on the left",
+            "code": "private int count;\n\nvoid setCount(int count) {\n    this.count = count;\n}",
+            "runnable": false,
+            "output": null,
+            "error": null,
+            "compile_error": null
+          },
+          "note": "The field `count` and parameter `count` are different variables. `this.count` identifies the field. The same issue can occur in methods as well as constructors."
+        }
+      ]
+    },
+    {
+      "id": "check-yourself",
+      "title": "Check yourself",
+      "blocks": [
+        {
+          "type": "check",
+          "question": "In this constructor, which variable does the left-side `name` refer to?",
+          "code": "private String name;\n\npublic Student(String name) {\n    name = name;\n}",
+          "options": [
+            "The field",
+            "The parameter",
+            "Both the field and parameter",
+            "Neither variable"
+          ],
+          "answer": 1,
+          "explanation": "The parameter has the same name as the field, so the unqualified `name` refers to the parameter inside the constructor. Use `this.name` to refer to the field."
+        },
+        {
+          "type": "check",
+          "question": "A field `age` and a parameter `age` both exist. Which assignment stores the parameter's value in the field?",
+          "code": "",
+          "options": [
+            "`age = age;`",
+            "`this.age = age;`",
+            "`age == age;`",
+            "`this.age == age;`"
+          ],
+          "answer": 1,
+          "explanation": "`this.age` is the field, and the unqualified `age` on the right is the parameter. The `=` operator copies the right-side value into the left-side variable."
+        },
+        {
+          "type": "check",
+          "question": "What does the field print after this constructor runs?",
+          "code": "private int count;\n\npublic Counter(int count) {\n    count = count;\n}\n\nSystem.out.println(counter.count);",
+          "options": [
+            "`0`",
+            "The value passed to the constructor",
+            "`null`",
+            "The code cannot compile"
+          ],
+          "answer": 0,
+          "explanation": "The assignment changes only the parameter. The `int` field is never assigned, so it keeps its default value, `0`. The constructor is valid Java and the mistake is not rejected by the compiler."
+        }
+      ]
+    },
+    {
+      "id": "key-points",
+      "title": "Key points",
+      "blocks": [
+        {
+          "type": "keypoints",
+          "items": [
+            "In `left = right`, Java copies the right-side value into the left-side variable.",
+            "A constructor parameter and a field are separate variables, even when they have the same name.",
+            "In `name = name`, both names refer to the parameter, so the field stays unchanged.",
+            "Use `this.name = name` to copy a parameter into the object's `name` field.",
+            "This mistake is valid Java. The wrong field value appears when the program runs, not as a compiler error."
+          ]
+        }
+      ]
+    }
+  ],
+  "sources": [
+    "assignment_logic.txt"
+  ]
+}

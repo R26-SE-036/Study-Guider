@@ -1,0 +1,314 @@
+{
+  "id": "WHILE_VARIABLE_NOT_UPDATED",
+  "concept": "loop_termination",
+  "title": "A while loop that never moves",
+  "summary": "Learn why a while loop can run forever when its condition variable does not move toward making the condition false.",
+  "minutes": 15,
+  "status": "published",
+  "objectives": [
+    "Explain why a `while` loop can keep running when its condition stays `true`.",
+    "Trace a loop to see whether its condition variable changes.",
+    "Update a variable in a way that moves it toward ending the loop.",
+    "Recognise loops that fail to end because a variable moves in the wrong direction or an update is skipped."
+  ],
+  "sections": [
+    {
+      "id": "the-mistake",
+      "title": "The mistake",
+      "blocks": [
+        {
+          "type": "text",
+          "text": "A `while` loop repeats as long as its condition is `true`. This loop tests whether `i` is less than `5`, but never changes `i`:"
+        },
+        {
+          "title": "",
+          "code": "int i = 0;\nwhile (i < 5) {\n    System.out.println(i);\n}",
+          "runnable": false,
+          "output": null,
+          "error": null,
+          "compile_error": null,
+          "type": "code"
+        },
+        {
+          "type": "text",
+          "text": "Because `i` stays at `0`, the condition `i < 5` stays `true`. The loop keeps printing `0` and does not end. This is an infinite loop: a loop that keeps running without stopping."
+        },
+        {
+          "type": "callout",
+          "tone": "warn",
+          "title": "Compile time and run time",
+          "text": "Java accepts this loop when it is inside a valid method. It compiles without a warning about the loop. The problem happens at run time: the program keeps running instead of reaching the code after the loop."
+        }
+      ]
+    },
+    {
+      "id": "why-it-happens",
+      "title": "Why the loop does not stop",
+      "blocks": [
+        {
+          "type": "text",
+          "text": "Before each pass, Java checks the condition. If it is `true`, Java runs the body and checks again. To make this loop stop, the body must change `i` so that it eventually reaches a value where `i < 5` is `false`."
+        },
+        {
+          "type": "diagram",
+          "caption": "A loop checks its condition before each pass",
+          "mermaid": "flowchart TD\n  A([Start with i = 0]) --> B{i < 5?}\n  B -- yes --> C[Run the body]\n  C --> D[Change i to i + 1]\n  D --> B\n  B -- no --> E([Loop ends])"
+        },
+        {
+          "type": "text",
+          "text": "The diagram includes the needed change, `i = i + 1`. Without it, the path returns to the condition with the same value of `i`. The condition remains `true` forever."
+        },
+        {
+          "type": "steps",
+          "title": "Three things to check",
+          "items": [
+            "Which variable does the condition test? Here it is `i`.",
+            "Does the loop body change that variable? Here it needs to change `i`.",
+            "Does the change move the variable toward making the condition `false`? With `i < 5`, adding `1` moves `i` toward `5`."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "trace-the-loop",
+      "title": "Trace it, one pass at a time",
+      "blocks": [
+        {
+          "type": "text",
+          "text": "A trace is a record of what happens in each pass. Follow the broken loop and write down the value of `i` each time Java checks `i < 5`."
+        },
+        {
+          "type": "table",
+          "caption": "Tracing the loop that never updates i",
+          "columns": [
+            "Check",
+            "`i`",
+            "`i < 5?`",
+            "What happens"
+          ],
+          "rows": [
+            [
+              "1",
+              "`0`",
+              "`true`",
+              "Prints `0`; `i` stays `0`"
+            ],
+            [
+              "2",
+              "`0`",
+              "`true`",
+              "Prints `0`; `i` stays `0`"
+            ],
+            [
+              "3",
+              "`0`",
+              "`true`",
+              "Prints `0`; `i` stays `0`"
+            ],
+            [
+              "4",
+              "`0`",
+              "`true`",
+              "Prints `0`; `i` stays `0`"
+            ]
+          ],
+          "highlight": [
+            1
+          ]
+        },
+        {
+          "type": "text",
+          "text": "The same thing happens at every later check. There is no next value for `i`, so the condition never gets a chance to become `false`."
+        }
+      ]
+    },
+    {
+      "id": "worked-examples",
+      "title": "Worked examples: add the right change",
+      "blocks": [
+        {
+          "type": "text",
+          "text": "For a loop to end, its update must move the condition variable toward a value that makes the condition `false`. Here are two complete programs with that update in place."
+        },
+        {
+          "type": "compare",
+          "bad": {
+            "title": "Missing update",
+            "code": "int i = 0;\nwhile (i < 5) {\n    System.out.println(i);\n}",
+            "runnable": false,
+            "output": null,
+            "error": null,
+            "compile_error": null
+          },
+          "good": {
+            "title": "Add 1 on every pass",
+            "code": "public class CountUp {\n    public static void main(String[] args) {\n        int i = 0;\n        while (i < 5) {\n            System.out.println(i);\n            i++;\n        }\n    }\n}",
+            "runnable": true,
+            "output": "0\n1\n2\n3\n4",
+            "error": null,
+            "compile_error": null
+          },
+          "note": "In the complete program, `i++` adds `1` to `i` after each print. The values reach `5`, and then `i < 5` is `false`, so the loop ends."
+        },
+        {
+          "type": "compare",
+          "bad": {
+            "title": "Missing countdown update",
+            "code": "int remaining = 3;\nwhile (remaining > 0) {\n    System.out.println(remaining);\n}",
+            "runnable": false,
+            "output": null,
+            "error": null,
+            "compile_error": null
+          },
+          "good": {
+            "title": "Subtract 1 on every pass",
+            "code": "public class CountDown {\n    public static void main(String[] args) {\n        int remaining = 3;\n        while (remaining > 0) {\n            System.out.println(remaining);\n            remaining--;\n        }\n    }\n}",
+            "runnable": true,
+            "output": "3\n2\n1",
+            "error": null,
+            "compile_error": null
+          },
+          "note": "Here `remaining--` subtracts `1`. The values move from `3` to `2`, then `1`, then `0`. At `0`, the condition `remaining > 0` is `false`."
+        },
+        {
+          "type": "chart",
+          "caption": "Body executions in the two corrected examples",
+          "x_label": "Loop",
+          "y_label": "Number of body executions",
+          "categories": [
+            "Count up",
+            "Count down"
+          ],
+          "series": [
+            {
+              "name": "Body executions",
+              "values": [
+                5.0,
+                3.0
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "same-bug-in-disguise",
+      "title": "The same bug in disguise",
+      "blocks": [
+        {
+          "type": "text",
+          "text": "The update can be present and the loop can still fail to end. Check that the update moves in the right direction and that it actually runs on every pass."
+        },
+        {
+          "type": "compare",
+          "bad": {
+            "title": "Moves away from the exit",
+            "code": "int i = 0;\nwhile (i < 5) {\n    i--;\n}",
+            "runnable": false,
+            "output": null,
+            "error": null,
+            "compile_error": null
+          },
+          "good": {
+            "title": "Moves toward the exit",
+            "code": "int i = 0;\nwhile (i < 5) {\n    i++;\n}",
+            "runnable": false,
+            "output": null,
+            "error": null,
+            "compile_error": null
+          },
+          "note": "In the first loop, `i--` makes `i` smaller, so `i < 5` stays `true`. In the second, `i++` makes `i` larger until the condition becomes `false`."
+        },
+        {
+          "type": "text",
+          "text": "A `continue` statement skips the rest of the current pass and jumps to the next condition check. If the update comes after a `continue`, that pass may skip the update. For example, when `i` reaches `2` in this loop, it never changes again:"
+        },
+        {
+          "title": "",
+          "code": "while (i < 5) {\n    if (i == 2) {\n        continue;\n    }\n    i++;\n}",
+          "runnable": false,
+          "output": null,
+          "error": null,
+          "compile_error": null,
+          "type": "code"
+        },
+        {
+          "type": "text",
+          "text": "Floating-point values can also cause a loop to miss its target. Rounding can make a value step past an exact target, so a condition such as `value != 1.0` may stay `true`. Do not rely on exact floating-point equality to end a loop."
+        },
+        {
+          "type": "callout",
+          "tone": "tip",
+          "title": "Check every route through the body",
+          "text": "Follow the body from top to bottom. Ask whether every route reaches the update before the next condition check. A `continue` can skip an update placed later in the body."
+        }
+      ]
+    },
+    {
+      "id": "check-yourself",
+      "title": "Check yourself",
+      "blocks": [
+        {
+          "type": "check",
+          "question": "What happens when this loop runs?",
+          "code": "int i = 0;\nwhile (i < 3) {\n    System.out.println(i);\n}",
+          "options": [
+            "It prints `0`, `1`, and `2`, then stops.",
+            "It prints `0` once, then stops.",
+            "It keeps printing `0`.",
+            "It does not compile."
+          ],
+          "answer": 2,
+          "explanation": "The body never changes `i`, so `i` stays `0` and `i < 3` stays `true`. The Java compiler accepts the loop, but it keeps running when the program runs."
+        },
+        {
+          "type": "check",
+          "question": "Which update makes this loop end?",
+          "code": "int count = 4;\nwhile (count > 0) {\n    System.out.println(count);\n    // update goes here\n}",
+          "options": [
+            "`count++`",
+            "`count--`",
+            "No update is needed.",
+            "`count = 4`"
+          ],
+          "answer": 1,
+          "explanation": "The condition is `count > 0`. Subtracting `1` moves `count` toward `0`, where the condition becomes `false`."
+        },
+        {
+          "type": "check",
+          "question": "Why can this loop get stuck when `i` reaches `2`?",
+          "code": "while (i < 5) {\n    if (i == 2) {\n        continue;\n    }\n    i++;\n}",
+          "options": [
+            "`continue` skips the condition check.",
+            "`continue` skips `i++`, so `i` stays `2`.",
+            "`i++` subtracts `1`.",
+            "The loop condition is checked only once."
+          ],
+          "answer": 1,
+          "explanation": "`continue` skips the rest of that pass. At `i == 2`, the loop jumps back to its condition without running `i++`, so `i` remains `2` and `i < 5` remains `true`."
+        }
+      ]
+    },
+    {
+      "id": "key-points",
+      "title": "Key points",
+      "blocks": [
+        {
+          "type": "keypoints",
+          "items": [
+            "A `while` loop repeats while its condition is `true`.",
+            "Change the variable tested by the condition inside the loop body.",
+            "Make the change move toward a value that makes the condition `false`.",
+            "A loop can compile without warning and still run forever.",
+            "Check that every route through the body reaches the update; `continue` can skip code later in the body.",
+            "Avoid exact floating-point equality as a loop-ending condition because rounding can step past the target."
+          ]
+        }
+      ]
+    }
+  ],
+  "sources": [
+    "loop_termination.txt",
+    "loop_control.txt"
+  ]
+}

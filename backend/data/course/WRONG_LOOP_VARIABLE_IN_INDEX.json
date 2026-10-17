@@ -1,0 +1,332 @@
+{
+  "id": "WRONG_LOOP_VARIABLE_IN_INDEX",
+  "concept": "array_indexing",
+  "title": "The wrong counter in a nested loop",
+  "summary": "A nested loop can use the row counter twice by mistake. Trace both counters to see why `grid[r][r]` is not the same as `grid[r][c]`.",
+  "minutes": 15,
+  "status": "published",
+  "objectives": [
+    "Explain what the row counter `r` and column counter `c` represent in a nested loop.",
+    "Trace which array element `grid[r][c]` reads on each pass.",
+    "Explain why `grid[r][r]` can silently read the wrong values or fail while the program runs.",
+    "Fix a nested loop by matching each index to the counter that moves through it."
+  ],
+  "sections": [
+    {
+      "id": "the-mistake",
+      "title": "The mistake",
+      "blocks": [
+        {
+          "type": "text",
+          "text": "Code Coach flags this pattern: the inner loop uses `c`, but the array access uses `r` twice. The code compiles. The mistake shows up when the program runs, and it may give a wrong result or crash."
+        },
+        {
+          "title": "The flagged code",
+          "code": "int[][] grid = {{1, 2}, {3, 4}};\nint sum = 0;\nfor (int r = 0; r < grid.length; r++) {\n    for (int c = 0; c < grid[r].length; c++) {\n        // grid[r][r] where grid[r][c] was meant\n        sum += grid[r][r];\n    }\n}",
+          "runnable": false,
+          "output": null,
+          "error": null,
+          "compile_error": null,
+          "type": "code"
+        },
+        {
+          "type": "text",
+          "text": "Here `r` is the row counter. It chooses a row. `c` is the column counter. It moves across that row. The intended access is `grid[r][c]`: row `r`, column `c`. The flagged access, `grid[r][r]`, ignores `c`."
+        }
+      ]
+    },
+    {
+      "id": "why-it-happens",
+      "title": "Why it happens",
+      "blocks": [
+        {
+          "type": "text",
+          "text": "Both loops use counters, so it is easy to type the outer counter twice. But the counters move in different ways: `r` changes after the inner loop finishes, while `c` changes on every inner-loop pass. The second index must follow `c` if you mean to visit each column."
+        },
+        {
+          "type": "diagram",
+          "caption": "The inner loop changes c while r stays on the same row",
+          "mermaid": "flowchart TD\n  A([Start with r at a row]) --> B{More columns in row r?}\n  B -- yes --> C[Read grid r c]\n  C --> D[Increase c]\n  D --> B\n  B -- no --> E[Increase r]\n  E --> F{More rows?}\n  F -- yes --> G[Set c back to zero]\n  G --> B\n  F -- no --> H([Stop])"
+        },
+        {
+          "type": "array",
+          "caption": "The first row has three columns",
+          "name": "grid[0]",
+          "values": [
+            "1",
+            "2",
+            "3"
+          ],
+          "highlight": [
+            0
+          ],
+          "outside": 3,
+          "note": "When `r` is `0`, the correct access moves through `grid[0][0]`, `grid[0][1]` and `grid[0][2]` as `c` changes. Reusing `r` reads `grid[0][0]` every time."
+        },
+        {
+          "type": "callout",
+          "tone": "tip",
+          "title": "Match each index to its counter",
+          "text": "In `grid[r][c]`, the first index selects a row and the second selects a column. Ask which counter is changing before choosing each index."
+        }
+      ]
+    },
+    {
+      "id": "trace",
+      "title": "Trace it, one pass at a time",
+      "blocks": [
+        {
+          "type": "text",
+          "text": "Trace the flagged code with its exact `2` by `2` grid. A `2` by `2` grid has two rows and two columns. The inner loop visits `c` values `0` and `1` for each row."
+        },
+        {
+          "type": "table",
+          "caption": "Tracing the flagged code on the provided grid",
+          "columns": [
+            "Pass",
+            "`r`",
+            "`c`",
+            "Flagged access",
+            "Value added"
+          ],
+          "rows": [
+            [
+              "1",
+              "0",
+              "0",
+              "`grid[0][0]`",
+              "1"
+            ],
+            [
+              "2",
+              "0",
+              "1",
+              "`grid[0][0]`",
+              "1"
+            ],
+            [
+              "3",
+              "1",
+              "0",
+              "`grid[1][1]`",
+              "4"
+            ],
+            [
+              "4",
+              "1",
+              "1",
+              "`grid[1][1]`",
+              "4"
+            ]
+          ],
+          "highlight": [
+            1,
+            3
+          ]
+        },
+        {
+          "type": "text",
+          "text": "The flagged code reads each diagonal value twice and skips the other two values. Its sum is `10`. By coincidence, the correct sum of `1 + 2 + 3 + 4` is also `10`. A matching result in this example does not mean the indexing is correct."
+        }
+      ]
+    },
+    {
+      "id": "worked-examples",
+      "title": "Worked examples",
+      "blocks": [
+        {
+          "type": "text",
+          "text": "First, compare the two accesses on the provided grid. The wrong version compiles and runs, but it reads the diagonal values repeatedly. The fixed version uses `c` for the column and visits every value."
+        },
+        {
+          "type": "compare",
+          "bad": {
+            "title": "Wrong counter repeated",
+            "code": "public class GridSum {\n    public static void main(String[] args) {\n        int[][] grid = {{1, 2}, {3, 4}};\n        int sum = 0;\n        for (int r = 0; r < grid.length; r++) {\n            for (int c = 0; c < grid[r].length; c++) {\n                sum += grid[r][r];\n            }\n        }\n        System.out.println(sum);\n    }\n}",
+            "runnable": true,
+            "output": "10",
+            "error": null,
+            "compile_error": null
+          },
+          "good": {
+            "title": "Use the column counter",
+            "code": "public class GridSum {\n    public static void main(String[] args) {\n        int[][] grid = {{1, 2}, {3, 4}};\n        int sum = 0;\n        for (int r = 0; r < grid.length; r++) {\n            for (int c = 0; c < grid[r].length; c++) {\n                sum += grid[r][c];\n            }\n        }\n        System.out.println(sum);\n    }\n}",
+            "runnable": true,
+            "output": "10",
+            "error": null,
+            "compile_error": null
+          },
+          "note": "Both print `10`, but only the fixed version adds every cell once. Check the accesses, not only the final answer."
+        },
+        {
+          "type": "text",
+          "text": "A rectangular grid makes the mistake easier to see. This grid has two rows and three columns. The wrong access repeats one value in each row. The fixed access visits all six values."
+        },
+        {
+          "type": "compare",
+          "bad": {
+            "title": "Runs, but adds the wrong values",
+            "code": "public class RectangularGrid {\n    public static void main(String[] args) {\n        int[][] grid = {{1, 2, 3}, {4, 5, 6}};\n        int sum = 0;\n        for (int r = 0; r < grid.length; r++) {\n            for (int c = 0; c < grid[r].length; c++) {\n                sum += grid[r][r];\n            }\n        }\n        System.out.println(sum);\n    }\n}",
+            "runnable": true,
+            "output": "18",
+            "error": null,
+            "compile_error": null
+          },
+          "good": {
+            "title": "Adds every cell once",
+            "code": "public class RectangularGrid {\n    public static void main(String[] args) {\n        int[][] grid = {{1, 2, 3}, {4, 5, 6}};\n        int sum = 0;\n        for (int r = 0; r < grid.length; r++) {\n            for (int c = 0; c < grid[r].length; c++) {\n                sum += grid[r][c];\n            }\n        }\n        System.out.println(sum);\n    }\n}",
+            "runnable": true,
+            "output": "21",
+            "error": null,
+            "compile_error": null
+          },
+          "note": "For row `0`, the wrong code adds `1` three times. For row `1`, it adds `5` three times. The correct total is `1 + 2 + 3 + 4 + 5 + 6`, which is `21`."
+        }
+      ]
+    },
+    {
+      "id": "when-it-crashes",
+      "title": "When the same mistake crashes",
+      "blocks": [
+        {
+          "type": "text",
+          "text": "A wrong counter can also make an index too large. This grid has three rows, but each row has only two columns. On row `2`, `grid[r][r]` tries to read column `2`. Valid column indices are `0` and `1`, so the program compiles and then throws an exception while running."
+        },
+        {
+          "title": "A complete program that crashes at run time",
+          "code": "public class GridCrash {\n    public static void main(String[] args) {\n        int[][] grid = {{1, 2}, {3, 4}, {5, 6}};\n        int sum = 0;\n        for (int r = 0; r < grid.length; r++) {\n            for (int c = 0; c < grid[r].length; c++) {\n                sum += grid[r][r];\n            }\n        }\n        System.out.println(sum);\n    }\n}",
+          "runnable": true,
+          "output": "",
+          "error": "ArrayIndexOutOfBoundsException: Index 2 out of bounds for length 2",
+          "compile_error": null,
+          "type": "code"
+        },
+        {
+          "type": "callout",
+          "tone": "info",
+          "title": "Compile time is not run time",
+          "text": "This is valid Java syntax, so `javac` compiles it. Java checks the particular index against the row length when the code runs. An invalid index then causes `ArrayIndexOutOfBoundsException`."
+        }
+      ]
+    },
+    {
+      "id": "in-disguise",
+      "title": "The same bug in disguise",
+      "blocks": [
+        {
+          "type": "text",
+          "text": "Look for the same mismatch even when the loop uses different names or the array has a different shape. The key question is still: which counter is moving through the columns?"
+        },
+        {
+          "type": "compare",
+          "bad": {
+            "title": "Uses the row counter twice",
+            "code": "for (int row = 0; row < grid.length; row++) {\n    for (int col = 0; col < grid[row].length; col++) {\n        total += grid[row][row];\n    }\n}",
+            "runnable": false,
+            "output": null,
+            "error": null,
+            "compile_error": null
+          },
+          "good": {
+            "title": "Uses the column counter for the column",
+            "code": "for (int row = 0; row < grid.length; row++) {\n    for (int col = 0; col < grid[row].length; col++) {\n        total += grid[row][col];\n    }\n}",
+            "runnable": false,
+            "output": null,
+            "error": null,
+            "compile_error": null
+          },
+          "note": "Changing `r` and `c` to `row` and `col` does not change their jobs. The second index must follow `col`."
+        },
+        {
+          "type": "compare",
+          "bad": {
+            "title": "Repeats one column",
+            "code": "for (int r = 0; r < grid.length; r++) {\n    for (int c = 0; c < grid[r].length; c++) {\n        System.out.println(grid[r][0]);\n    }\n}",
+            "runnable": false,
+            "output": null,
+            "error": null,
+            "compile_error": null
+          },
+          "good": {
+            "title": "Moves across the row",
+            "code": "for (int r = 0; r < grid.length; r++) {\n    for (int c = 0; c < grid[r].length; c++) {\n        System.out.println(grid[r][c]);\n    }\n}",
+            "runnable": false,
+            "output": null,
+            "error": null,
+            "compile_error": null
+          },
+          "note": "The inner loop changes `c`, but the bad access keeps using column `0`. It may not crash, but it repeats the first value in each row."
+        },
+        {
+          "type": "text",
+          "text": "A related problem appears when loop bounds and indexes do not match. For example, a loop may use `c` to check a row length but still use `r` as the column index. The code can compile; trace the actual index expression to catch the wrong value or a run-time failure."
+        }
+      ]
+    },
+    {
+      "id": "check-yourself",
+      "title": "Check yourself",
+      "blocks": [
+        {
+          "type": "check",
+          "question": "In the flagged code, what does `grid[r][r]` read on the second inner-loop pass when `r` is `0`?",
+          "code": "for (int c = 0; c < grid[r].length; c++) {\n    sum += grid[r][r];\n}",
+          "options": [
+            "`grid[0][1]`",
+            "`grid[0][0]`",
+            "`grid[1][0]`",
+            "It does not compile"
+          ],
+          "answer": 1,
+          "explanation": "The access uses `r` for both indices. While the inner loop moves `c` to `1`, `r` remains `0`, so it still reads `grid[0][0]`. The code compiles."
+        },
+        {
+          "type": "check",
+          "question": "Which access visits each column as the inner loop changes `c`?",
+          "code": "for (int r = 0; r < grid.length; r++) {\n    for (int c = 0; c < grid[r].length; c++) {\n        // choose the access\n    }\n}",
+          "options": [
+            "`grid[r][r]`",
+            "`grid[c][r]`",
+            "`grid[r][c]`",
+            "`grid[r][grid.length]`"
+          ],
+          "answer": 2,
+          "explanation": "The first index selects the current row using `r`. The second selects the current column using `c`, so `grid[r][c]` visits each cell in that row."
+        },
+        {
+          "type": "check",
+          "question": "Each row has two values. What happens when `r` is `2` and the code tries `grid[r][r]`?",
+          "code": "sum += grid[r][r];",
+          "options": [
+            "It reads column `1`",
+            "It reads column `2` successfully",
+            "It compiles, then throws `ArrayIndexOutOfBoundsException` at run time",
+            "The compiler changes the index to `1`"
+          ],
+          "answer": 2,
+          "explanation": "A row of length `2` has valid column indices `0` and `1`. Column `2` is outside the row. Java allows the code to compile, then throws `ArrayIndexOutOfBoundsException` when that access runs."
+        }
+      ]
+    },
+    {
+      "id": "key-points",
+      "title": "Key points",
+      "blocks": [
+        {
+          "type": "keypoints",
+          "items": [
+            "In `grid[r][c]`, `r` selects the row and `c` selects the column.",
+            "The inner loop changes `c` while `r` stays on the same row.",
+            "The flagged pattern `grid[r][r]` ignores the changing column counter. It can repeat values, silently produce a wrong result, or fail at run time.",
+            "Trace the actual indices on each pass. Do not rely only on a final sum, because a wrong result can match by coincidence.",
+            "A valid index for a row of length `n` is from `0` through `n - 1`. An invalid index causes a run-time exception, not a compile-time rejection."
+          ]
+        }
+      ]
+    }
+  ],
+  "sources": [
+    "array_indexing.txt",
+    "loop_boundaries.txt"
+  ]
+}

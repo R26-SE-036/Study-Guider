@@ -1,0 +1,325 @@
+{
+  "id": "NON_SHORT_CIRCUIT_OPERATOR",
+  "concept": "boolean_logic",
+  "title": "& and | versus && and ||",
+  "summary": "Why `&` and `|` can evaluate code you meant to skip, and how `&&` and `||` can safely stop early.",
+  "minutes": 15,
+  "status": "published",
+  "objectives": [
+    "Explain why `&` evaluates both boolean sides, while `&&` can skip the right side.",
+    "Explain why `|` evaluates both boolean sides, while `||` can skip the right side.",
+    "Trace a condition to predict whether its right side runs.",
+    "Choose a safe operator and order for null checks and array bounds checks."
+  ],
+  "sections": [
+    {
+      "id": "the-mistake",
+      "title": "The mistake",
+      "blocks": [
+        {
+          "type": "text",
+          "text": "This is the exact pattern Code Coach flags:"
+        },
+        {
+          "title": "",
+          "code": "String name = null;\n// & evaluates both sides, so name.length() still runs\nif (name != null & name.length() > 3) {\n    System.out.println(name);\n}",
+          "runnable": false,
+          "output": null,
+          "error": null,
+          "compile_error": null,
+          "type": "code"
+        },
+        {
+          "type": "text",
+          "text": "The first side checks whether `name` is not `null`. The second side calls `name.length()`. Because the operator is `&`, Java evaluates both sides. Calling `length()` on `null` crashes. This code compiles; the problem happens only when it runs."
+        },
+        {
+          "type": "compare",
+          "bad": {
+            "title": "Compiles, then crashes",
+            "code": "public class NameCheck {\n    public static void main(String[] args) {\n        String name = null;\n        // & evaluates both sides, so name.length() still runs\n        if (name != null & name.length() > 3) {\n            System.out.println(name);\n        }\n    }\n}",
+            "runnable": true,
+            "output": "",
+            "error": "Cannot invoke \"String.length()\" because \"<local1>\" is null",
+            "compile_error": null
+          },
+          "good": {
+            "title": "Skips the unsafe check",
+            "code": "public class NameCheck {\n    public static void main(String[] args) {\n        String name = null;\n        if (name != null && name.length() > 3) {\n            System.out.println(name);\n        }\n    }\n}",
+            "runnable": true,
+            "output": "",
+            "error": null,
+            "compile_error": null
+          },
+          "note": "Both programs compile. In the first, `&` evaluates `name.length()` even though `name != null` is false, so the program crashes at run time. In the second, `&&` skips the right side when the left side is false."
+        }
+      ]
+    },
+    {
+      "id": "why-it-happens",
+      "title": "Why it happens",
+      "blocks": [
+        {
+          "type": "text",
+          "text": "A boolean is a value that is either `true` or `false`. The operators `&` and `&&` both combine boolean values with AND: the result is true only when both sides are true. But `&` evaluates both sides, while `&&` skips the right side if the left side is false. This early stop is called short-circuiting."
+        },
+        {
+          "type": "diagram",
+          "caption": "How `&&` protects the call to `name.length()`",
+          "mermaid": "flowchart TD\n  A([Start]) --> B[Check name is not null]\n  B --> C{Is it true?}\n  C -- no --> D[Condition is false]\n  D --> E[Skip the body]\n  C -- yes --> F[Call name length]\n  F --> G{Is length above three?}\n  G -- yes --> H[Print name]\n  G -- no --> E"
+        },
+        {
+          "type": "text",
+          "text": "The same idea applies to OR. The operators `|` and `||` both give true if at least one side is true. But `|` evaluates both sides, while `||` skips the right side if the left side is already true."
+        },
+        {
+          "type": "callout",
+          "tone": "tip",
+          "title": "Check the left side first",
+          "text": "With `&&`, a false left side decides the result, so Java skips the right side. With `||`, a true left side decides the result, so Java skips the right side."
+        }
+      ]
+    },
+    {
+      "id": "trace",
+      "title": "Trace the flagged condition",
+      "blocks": [
+        {
+          "type": "text",
+          "text": "Trace the flagged condition in order. The variable `name` is `null`, so the left side is false. With `&`, Java still evaluates the right side."
+        },
+        {
+          "type": "table",
+          "caption": "Tracing `name != null & name.length() > 3` when `name` is `null`",
+          "columns": [
+            "Step",
+            "Expression",
+            "Result",
+            "What happens"
+          ],
+          "rows": [
+            [
+              "1",
+              "`name != null`",
+              "`false`",
+              "Java continues because `&` evaluates both sides."
+            ],
+            [
+              "2",
+              "`name.length() > 3`",
+              "No boolean result",
+              "Calling `length()` on `null` throws a `NullPointerException`."
+            ],
+            [
+              "3",
+              "Whole condition",
+              "No result",
+              "The program stops before the `if` body can run."
+            ]
+          ],
+          "highlight": [
+            1
+          ]
+        },
+        {
+          "type": "text",
+          "text": "Now change `&` to `&&`. The left side is still false, but now Java skips `name.length() > 3`. The whole condition is false, so the body is skipped without a crash."
+        }
+      ]
+    },
+    {
+      "id": "worked-examples",
+      "title": "Worked examples",
+      "blocks": [
+        {
+          "type": "text",
+          "text": "The flagged code uses `&` with AND. A similar mistake can happen with `|` and OR. Follow what the left side tells Java before deciding whether the right side needs to run."
+        },
+        {
+          "type": "compare",
+          "bad": {
+            "title": "Uses | and still calls length",
+            "code": "public class MissingName {\n    public static void main(String[] args) {\n        String name = null;\n        if (name == null | name.length() == 0) {\n            System.out.println(\"Name is missing\");\n        }\n    }\n}",
+            "runnable": true,
+            "output": "",
+            "error": "Cannot invoke \"String.length()\" because \"<local1>\" is null",
+            "compile_error": null
+          },
+          "good": {
+            "title": "Uses || and skips length",
+            "code": "public class MissingName {\n    public static void main(String[] args) {\n        String name = null;\n        if (name == null || name.length() == 0) {\n            System.out.println(\"Name is missing\");\n        }\n    }\n}",
+            "runnable": true,
+            "output": "Name is missing",
+            "error": null,
+            "compile_error": null
+          },
+          "note": "Here `name == null` is true. With `||`, Java skips `name.length() == 0` and prints the message. With `|`, Java evaluates that call and crashes."
+        },
+        {
+          "type": "text",
+          "text": "The same safety idea helps with arrays. An array stores values in numbered positions called indexes. The first index is 0, and an array of length 3 has indexes 0, 1, and 2."
+        },
+        {
+          "type": "array",
+          "caption": "`int[] values = {4, 7, 9};`",
+          "name": "values",
+          "values": [
+            "4",
+            "7",
+            "9"
+          ],
+          "highlight": [
+            2
+          ],
+          "outside": 3,
+          "note": "`values.length` is 3, but `values[3]` is outside the array. Check that an index is in bounds before reading that position."
+        },
+        {
+          "type": "compare",
+          "bad": {
+            "title": "Uses & and reads an out-of-bounds position",
+            "code": "public class ArrayGuard {\n    public static void main(String[] args) {\n        int[] values = {4, 7, 9};\n        int index = 3;\n        if (index >= 0 & index < values.length & values[index] > 0) {\n            System.out.println(values[index]);\n        }\n    }\n}",
+            "runnable": true,
+            "output": "",
+            "error": "ArrayIndexOutOfBoundsException: Index 3 out of bounds for length 3",
+            "compile_error": null
+          },
+          "good": {
+            "title": "Uses && to stop before the unsafe read",
+            "code": "public class ArrayGuard {\n    public static void main(String[] args) {\n        int[] values = {4, 7, 9};\n        int index = 3;\n        if (index >= 0 && index < values.length && values[index] > 0) {\n            System.out.println(values[index]);\n        } else {\n            System.out.println(\"Index is outside the array\");\n        }\n    }\n}",
+            "runnable": true,
+            "output": "Index is outside the array",
+            "error": null,
+            "compile_error": null
+          },
+          "note": "The first two checks establish that `index` is in bounds. With `&&`, Java skips `values[index] > 0` when `index < values.length` is false. With `&`, it evaluates that array access anyway and crashes."
+        },
+        {
+          "type": "text",
+          "text": "For ordinary boolean values, `&` and `&&` give the same final truth value, as do `|` and `||`. The important difference is whether Java evaluates the right side. That matters when the right side can crash or should only run after a safety check."
+        }
+      ]
+    },
+    {
+      "id": "in-disguise",
+      "title": "The same bug in disguise",
+      "blocks": [
+        {
+          "type": "text",
+          "text": "Using a short-circuit operator is not enough if the checks are in the wrong order. The safe check must come first, so it can stop Java before the unsafe expression runs."
+        },
+        {
+          "type": "compare",
+          "bad": {
+            "title": "Calls length before checking for null",
+            "code": "if (name.length() > 3 && name != null) {\n    System.out.println(name);\n}",
+            "runnable": false,
+            "output": null,
+            "error": null,
+            "compile_error": null
+          },
+          "good": {
+            "title": "Checks for null first",
+            "code": "if (name != null && name.length() > 3) {\n    System.out.println(name);\n}",
+            "runnable": false,
+            "output": null,
+            "error": null,
+            "compile_error": null
+          },
+          "note": "The first version can crash before it reaches `name != null`. The second reaches `name.length()` only if `name != null` is true."
+        },
+        {
+          "type": "compare",
+          "bad": {
+            "title": "Uses | for a null check",
+            "code": "if (name == null | name.length() == 0) {\n    System.out.println(\"Name is missing\");\n}",
+            "runnable": false,
+            "output": null,
+            "error": null,
+            "compile_error": null
+          },
+          "good": {
+            "title": "Uses || to skip the unsafe check",
+            "code": "if (name == null || name.length() == 0) {\n    System.out.println(\"Name is missing\");\n}",
+            "runnable": false,
+            "output": null,
+            "error": null,
+            "compile_error": null
+          },
+          "note": "When `name` is `null`, the left side is true. `||` skips the call to `length()`, but `|` does not."
+        },
+        {
+          "type": "callout",
+          "tone": "info",
+          "title": "Compile time versus run time",
+          "text": "These conditions are valid Java, so the compiler accepts them. The flagged code is not rejected at compile time. The crash happens at run time, when Java tries to call `length()` on `null`."
+        }
+      ]
+    },
+    {
+      "id": "check-yourself",
+      "title": "Check yourself",
+      "blocks": [
+        {
+          "type": "check",
+          "question": "In the flagged condition, what happens after `name != null` is false?",
+          "code": "if (name != null & name.length() > 3) {\n    System.out.println(name);\n}",
+          "options": [
+            "Java skips the right side.",
+            "Java evaluates the right side and can crash.",
+            "The compiler changes `&` to `&&`.",
+            "The condition becomes true."
+          ],
+          "answer": 1,
+          "explanation": "`&` evaluates both boolean sides. Java still calls `name.length()` even though the left side is false."
+        },
+        {
+          "type": "check",
+          "question": "Which condition safely checks that `name` is not `null` and has more than three characters?",
+          "code": "",
+          "options": [
+            "`name != null & name.length() > 3`",
+            "`name.length() > 3 && name != null`",
+            "`name != null && name.length() > 3`",
+            "`name == null && name.length() > 3`"
+          ],
+          "answer": 2,
+          "explanation": "The left side checks for `null` first. If it is false, `&&` skips the call to `length()`."
+        },
+        {
+          "type": "check",
+          "question": "When does `||` skip its right side?",
+          "code": "left || right",
+          "options": [
+            "When `left` is false.",
+            "When `left` is true.",
+            "It never skips the right side.",
+            "Only when both sides are true."
+          ],
+          "answer": 1,
+          "explanation": "When the left side of `||` is true, the whole OR condition is already true. Java skips the right side."
+        }
+      ]
+    },
+    {
+      "id": "key-points",
+      "title": "Key points",
+      "blocks": [
+        {
+          "type": "keypoints",
+          "items": [
+            "`&` evaluates both boolean sides. `&&` can skip the right side when the left side is false.",
+            "`|` evaluates both boolean sides. `||` can skip the right side when the left side is true.",
+            "The flagged code compiles, but crashes at run time because `name.length()` runs when `name` is `null`.",
+            "Put the safety check first: `name != null && name.length() > 3`.",
+            "Use short-circuiting when the right side is only safe after the left side has been checked."
+          ]
+        }
+      ]
+    }
+  ],
+  "sources": [
+    "boolean_logic.txt",
+    "assignment_logic.txt"
+  ]
+}

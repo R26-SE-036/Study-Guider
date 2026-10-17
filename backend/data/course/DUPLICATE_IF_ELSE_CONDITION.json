@@ -1,0 +1,316 @@
+{
+  "id": "DUPLICATE_IF_ELSE_CONDITION",
+  "concept": "conditional_logic",
+  "title": "The same condition twice",
+  "summary": "How a repeated condition in an if and else if chain can compile and run while sending values to the wrong branch.",
+  "minutes": 15,
+  "status": "published",
+  "objectives": [
+    "Explain why an else if condition is checked only after the earlier if condition is false.",
+    "Trace an if and else if chain to predict which branch runs.",
+    "Find a repeated condition that makes a branch impossible to reach.",
+    "Correct a repeated condition by checking what values each branch should handle."
+  ],
+  "sections": [
+    {
+      "id": "the-mistake",
+      "title": "The mistake",
+      "blocks": [
+        {
+          "type": "text",
+          "text": "An if and else if chain checks conditions in order. Each later condition is checked only when the earlier conditions were false. A common copy-and-paste mistake is to repeat a condition instead of changing it. The program can compile and run without a warning, but it can choose the wrong branch."
+        },
+        {
+          "type": "compare",
+          "bad": {
+            "title": "The middle case repeats the first condition",
+            "code": "int score = 72;\nif (score >= 80) {\n    System.out.println(\"Top mark\");\n} else if (score >= 80) {\n    System.out.println(\"Pass\");\n} else {\n    System.out.println(\"Needs more practice\");\n}",
+            "runnable": false,
+            "output": null,
+            "error": null,
+            "compile_error": null
+          },
+          "good": {
+            "title": "Each case checks a different range",
+            "code": "int score = 72;\nif (score >= 80) {\n    System.out.println(\"Top mark\");\n} else if (score >= 60) {\n    System.out.println(\"Pass\");\n} else {\n    System.out.println(\"Needs more practice\");\n}",
+            "runnable": false,
+            "output": null,
+            "error": null,
+            "compile_error": null
+          },
+          "note": "For a score of `72`, the repeated `score >= 80` is false both times, so the bad version prints `Needs more practice`. The corrected condition, `score >= 60`, is true, so it prints `Pass`. Both snippets compile; the mistake appears when they run."
+        }
+      ]
+    },
+    {
+      "id": "why-it-happens",
+      "title": "Why the second condition cannot help",
+      "blocks": [
+        {
+          "type": "text",
+          "text": "A condition is a test that produces `true` or `false`. With the same unchanged `score`, the test `score >= 80` has the same result each time. The second test is reached only if the first one was false. So if the second test is identical, it must be false too."
+        },
+        {
+          "type": "diagram",
+          "caption": "The repeated test is reached only after the first test was false",
+          "mermaid": "flowchart TD\n  A{score >= 80} -->|yes| B[Print Top mark]\n  A -->|no| C{score >= 80 again}\n  C -->|yes| D[Print Pass]\n  C -->|no| E[Print Needs more practice]"
+        },
+        {
+          "type": "callout",
+          "tone": "tip",
+          "title": "Ask what the earlier test already proved",
+          "text": "When the first test `score >= 80` is false, the score is below `80`. Testing `score >= 80` again cannot make it true. The next condition needs to describe a different case."
+        }
+      ]
+    },
+    {
+      "id": "trace",
+      "title": "Trace it one test at a time",
+      "blocks": [
+        {
+          "type": "text",
+          "text": "Trace the bad version with `score = 72`. Write down each test in the order Java checks it. Stop when a branch runs."
+        },
+        {
+          "type": "table",
+          "caption": "Tracing the repeated condition with score = 72",
+          "columns": [
+            "Step",
+            "Test or action",
+            "Result"
+          ],
+          "rows": [
+            [
+              "1",
+              "Check `score >= 80`",
+              "`72 >= 80` is `false`"
+            ],
+            [
+              "2",
+              "Because the first test was false, check the `else if` condition `score >= 80`",
+              "`72 >= 80` is `false` again"
+            ],
+            [
+              "3",
+              "Run the final `else` branch",
+              "Prints `Needs more practice`"
+            ]
+          ],
+          "highlight": [
+            1
+          ]
+        },
+        {
+          "type": "text",
+          "text": "The middle branch is skipped. With the corrected condition `score >= 60`, the second test is true for `72`, and the program prints `Pass`."
+        }
+      ]
+    },
+    {
+      "id": "worked-examples",
+      "title": "Work through two examples",
+      "blocks": [
+        {
+          "type": "text",
+          "text": "In each example, first ask which inputs should reach each branch. Then compare those intended cases with the conditions in the code."
+        },
+        {
+          "type": "compare",
+          "bad": {
+            "title": "Example 1: a repeated score condition",
+            "code": "public class ScoreCheck {\n    public static void main(String[] args) {\n        int score = 72;\n        if (score >= 80) {\n            System.out.println(\"Top mark\");\n        } else if (score >= 80) {\n            System.out.println(\"Pass\");\n        } else {\n            System.out.println(\"Needs more practice\");\n        }\n    }\n}",
+            "runnable": true,
+            "output": "Needs more practice",
+            "error": null,
+            "compile_error": null
+          },
+          "good": {
+            "title": "Fix: use the pass threshold",
+            "code": "public class ScoreCheck {\n    public static void main(String[] args) {\n        int score = 72;\n        if (score >= 80) {\n            System.out.println(\"Top mark\");\n        } else if (score >= 60) {\n            System.out.println(\"Pass\");\n        } else {\n            System.out.println(\"Needs more practice\");\n        }\n    }\n}",
+            "runnable": true,
+            "output": "Pass",
+            "error": null,
+            "compile_error": null
+          },
+          "note": "The first branch handles scores of `80` or more. The second should handle scores below `80` but at least `60`, so its condition is `score >= 60`. Both programs compile; only the corrected one gives the intended result for `72`."
+        },
+        {
+          "type": "compare",
+          "bad": {
+            "title": "Example 2: a repeated menu choice",
+            "code": "public class MenuChoice {\n    public static void main(String[] args) {\n        int choice = 2;\n        if (choice == 1) {\n            System.out.println(\"Start\");\n        } else if (choice == 1) {\n            System.out.println(\"Settings\");\n        } else {\n            System.out.println(\"Unknown choice\");\n        }\n    }\n}",
+            "runnable": true,
+            "output": "Unknown choice",
+            "error": null,
+            "compile_error": null
+          },
+          "good": {
+            "title": "Fix: check for choice 2",
+            "code": "public class MenuChoice {\n    public static void main(String[] args) {\n        int choice = 2;\n        if (choice == 1) {\n            System.out.println(\"Start\");\n        } else if (choice == 2) {\n            System.out.println(\"Settings\");\n        } else {\n            System.out.println(\"Unknown choice\");\n        }\n    }\n}",
+            "runnable": true,
+            "output": "Settings",
+            "error": null,
+            "compile_error": null
+          },
+          "note": "The first branch checks whether `choice == 1`. If that test is false, checking `choice == 1` again cannot select a different choice. The second branch needs to check `choice == 2`."
+        },
+        {
+          "type": "steps",
+          "title": "A quick way to check a branch",
+          "items": [
+            "Name one example value that should reach the branch.",
+            "Check each earlier condition using that value.",
+            "Check the branch condition. If an earlier identical test was false, this one cannot be true."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "same-bug-in-disguise",
+      "title": "The same bug in disguise",
+      "blocks": [
+        {
+          "type": "text",
+          "text": "Repeated conditions can look different in real code. The key question is still the same: can this branch be reached after the earlier conditions have failed?"
+        },
+        {
+          "type": "compare",
+          "bad": {
+            "title": "A repeated equality test",
+            "code": "if (choice == 1) {\n    start();\n} else if (choice == 1) {\n    showSettings();\n}",
+            "runnable": false,
+            "output": null,
+            "error": null,
+            "compile_error": null
+          },
+          "good": {
+            "title": "A different choice for each branch",
+            "code": "if (choice == 1) {\n    start();\n} else if (choice == 2) {\n    showSettings();\n}",
+            "runnable": false,
+            "output": null,
+            "error": null,
+            "compile_error": null
+          },
+          "note": "If `choice == 1` is false, the same test in the `else if` is false too. Use the value meant for the second choice."
+        },
+        {
+          "type": "compare",
+          "bad": {
+            "title": "A repeated boolean test",
+            "code": "if (ready) {\n    begin();\n} else if (ready) {\n    waitMore();\n}",
+            "runnable": false,
+            "output": null,
+            "error": null,
+            "compile_error": null
+          },
+          "good": {
+            "title": "Handle the false case",
+            "code": "if (ready) {\n    begin();\n} else {\n    waitMore();\n}",
+            "runnable": false,
+            "output": null,
+            "error": null,
+            "compile_error": null
+          },
+          "note": "A boolean holds `true` or `false`. If `ready` is false, the second test of `ready` is also false, so that branch never runs. Since there are only two cases here, an `else` handles the false case."
+        },
+        {
+          "type": "chart",
+          "caption": "Branch results for the sample scores 55, 65, 75 and 85",
+          "x_label": "Output category",
+          "y_label": "Number of scores",
+          "categories": [
+            "Needs more practice",
+            "Pass",
+            "Top mark"
+          ],
+          "series": [
+            {
+              "name": "Repeated condition",
+              "values": [
+                3.0,
+                0.0,
+                1.0
+              ]
+            },
+            {
+              "name": "Correct conditions",
+              "values": [
+                1.0,
+                2.0,
+                1.0
+              ]
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "text": "The chart counts the four sample scores in each output category. With the repeated condition, no score reaches `Pass`. The corrected conditions put `65` and `75` in that category."
+        }
+      ]
+    },
+    {
+      "id": "check-yourself",
+      "title": "Check yourself",
+      "blocks": [
+        {
+          "type": "check",
+          "question": "What does this code print when `number` is `4`?",
+          "code": "int number = 4;\nif (number == 4) {\n    System.out.println(\"A\");\n} else if (number == 4) {\n    System.out.println(\"B\");\n} else {\n    System.out.println(\"C\");\n}",
+          "options": [
+            "A",
+            "B",
+            "C",
+            "It does not compile"
+          ],
+          "answer": 0,
+          "explanation": "The first test `number == 4` is true, so Java runs that branch and skips the rest of the chain. The code compiles."
+        },
+        {
+          "type": "check",
+          "question": "The first test `temperature < 0` was false. Can an `else if` with the same test `temperature < 0` be true?",
+          "code": "",
+          "options": [
+            "Yes, every `else if` gets a fresh value",
+            "No, the same test on the unchanged value is false",
+            "Only if the program is compiled again",
+            "The condition is not a boolean"
+          ],
+          "answer": 1,
+          "explanation": "For the same unchanged `temperature`, the same comparison has the same result. If the first test was false, the repeated test is false too."
+        },
+        {
+          "type": "check",
+          "question": "A program should print `Small` for values below `10` and `Large` for values of `10` or more. Which condition belongs in the `else if`?",
+          "code": "if (value < 10) {\n    System.out.println(\"Small\");\n} else if ( ... ) {\n    System.out.println(\"Large\");\n}",
+          "options": [
+            "`value < 10`",
+            "`value >= 10`",
+            "`value == 10`",
+            "`value < 0`"
+          ],
+          "answer": 1,
+          "explanation": "The first branch handles values below `10`. The remaining values are `10` or more, so `value >= 10` describes the second case."
+        }
+      ]
+    },
+    {
+      "id": "key-points",
+      "title": "Key points",
+      "blocks": [
+        {
+          "type": "keypoints",
+          "items": [
+            "An `else if` condition is checked only when earlier conditions were false.",
+            "If an unchanged value failed a condition, repeating that condition cannot make it true.",
+            "A repeated condition can compile and run without a warning but still choose the wrong branch.",
+            "Trace conditions in order and check which branch runs for example values.",
+            "Write each condition to match the values that branch should handle."
+          ]
+        }
+      ]
+    }
+  ],
+  "sources": [
+    "boolean_logic.txt"
+  ]
+}

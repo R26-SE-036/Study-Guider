@@ -1,0 +1,295 @@
+{
+  "id": "LOOP_SKIPS_LAST_ELEMENT",
+  "concept": "loop_boundaries",
+  "title": "A loop that stops one element early",
+  "summary": "Learn why a loop using `i < marks.length - 1` skips the last array element, and how to trace and fix it.",
+  "minutes": 15,
+  "status": "published",
+  "objectives": [
+    "Explain why `i < marks.length - 1` skips the last array element.",
+    "Trace a `for` loop one pass at a time and identify when it stops.",
+    "Fix a loop so it visits every element in an array.",
+    "Recognize the same early-stop bug in other loops."
+  ],
+  "sections": [
+    {
+      "id": "the-mistake",
+      "title": "The mistake",
+      "blocks": [
+        {
+          "title": "",
+          "code": "int[] marks = {60, 72, 85};\nint total = 0;\n// stops before the last mark\nfor (int i = 0; i < marks.length - 1; i++) {\n    total += marks[i];\n}",
+          "runnable": false,
+          "output": null,
+          "error": null,
+          "compile_error": null,
+          "type": "code"
+        },
+        {
+          "type": "text",
+          "text": "This is the pattern Code Coach flags. The loop adds `marks[0]` and `marks[1]`, but it never adds `marks[2]`. The array has three marks, so the total should include all three."
+        },
+        {
+          "type": "callout",
+          "tone": "warn",
+          "title": "This usually compiles",
+          "text": "Java accepts this code. The mistake is in what happens when the program runs: the loop stops before it reaches the last mark. It does not normally cause a crash or a compiler warning."
+        }
+      ]
+    },
+    {
+      "id": "why-it-happens",
+      "title": "Why it happens",
+      "blocks": [
+        {
+          "type": "text",
+          "text": "An array's `length` is the number of values in it. Here, `marks.length` is `3`. The valid indices are `0`, `1` and `2`. But subtracting `1` makes the loop condition `i < 2`. That condition allows `i` to be `0` and `1`, then stops before `i` can be `2`."
+        },
+        {
+          "type": "array",
+          "caption": "`int[] marks = {60, 72, 85};`",
+          "name": "marks",
+          "values": [
+            "60",
+            "72",
+            "85"
+          ],
+          "highlight": [
+            2
+          ],
+          "outside": 3,
+          "note": "The highlighted box is the skipped last mark, at `marks[2]`. The length is `3`, but `3` is not an index of a box."
+        },
+        {
+          "type": "diagram",
+          "caption": "The early-stop loop's decision",
+          "mermaid": "flowchart TD\n  A([Start at i = 0]) --> B{i < marks.length - 1?}\n  B -- yes --> C[Add marks at i to total]\n  C --> D[Increase i by 1]\n  D --> B\n  B -- no --> E([Leave the loop])"
+        },
+        {
+          "type": "callout",
+          "tone": "tip",
+          "title": "Keep the two numbers separate",
+          "text": "The last index is `length - 1`. But when a loop starts at `0` and should visit every array element, use `i < length`. The condition stops at the length, after it has already allowed the last index."
+        }
+      ]
+    },
+    {
+      "id": "trace-the-loop",
+      "title": "Trace it, one pass at a time",
+      "blocks": [
+        {
+          "type": "text",
+          "text": "A trace is a written record of what a program does. Check the condition before each pass, then record the change made by the body and update. Here, `marks.length - 1` is `2`."
+        },
+        {
+          "type": "table",
+          "caption": "Tracing `for (int i = 0; i < marks.length - 1; i++)`",
+          "columns": [
+            "Check",
+            "`i`",
+            "`i < 2`?",
+            "What happens"
+          ],
+          "rows": [
+            [
+              "1",
+              "0",
+              "true",
+              "Adds `marks[0]`, which is `60`; `total` becomes `60`."
+            ],
+            [
+              "2",
+              "1",
+              "true",
+              "Adds `marks[1]`, which is `72`; `total` becomes `132`."
+            ],
+            [
+              "3",
+              "2",
+              "false",
+              "The loop stops. `marks[2]`, which is `85`, is not added."
+            ]
+          ],
+          "highlight": [
+            2
+          ]
+        },
+        {
+          "type": "text",
+          "text": "The loop updates `i` after the second pass, so `i` becomes `2`. It checks `2 < 2`, gets `false`, and stops. The fix is to use `i < marks.length`. Then the check at `i = 2` is `2 < 3`, which is `true`."
+        }
+      ]
+    },
+    {
+      "id": "worked-examples",
+      "title": "Two worked examples",
+      "blocks": [
+        {
+          "type": "text",
+          "text": "Both examples show the same bug as the flagged code. Compare what the program prints with the result after changing the loop condition."
+        },
+        {
+          "type": "compare",
+          "bad": {
+            "title": "Wrong total: the last mark is skipped",
+            "code": "public class TotalMarks {\n    public static void main(String[] args) {\n        int[] marks = {60, 72, 85};\n        int total = 0;\n        for (int i = 0; i < marks.length - 1; i++) {\n            total += marks[i];\n        }\n        System.out.println(total);\n    }\n}",
+            "runnable": true,
+            "output": "132",
+            "error": null,
+            "compile_error": null
+          },
+          "good": {
+            "title": "Correct total: all marks are added",
+            "code": "public class TotalMarks {\n    public static void main(String[] args) {\n        int[] marks = {60, 72, 85};\n        int total = 0;\n        for (int i = 0; i < marks.length; i++) {\n            total += marks[i];\n        }\n        System.out.println(total);\n    }\n}",
+            "runnable": true,
+            "output": "217",
+            "error": null,
+            "compile_error": null
+          },
+          "note": "The bad program compiles and prints `132`, because it adds `60 + 72`. The good program changes the condition to `i < marks.length`, so it also adds `85` and prints `217`."
+        },
+        {
+          "type": "compare",
+          "bad": {
+            "title": "Wrong count: the last mark is not checked",
+            "code": "public class CountPassing {\n    public static void main(String[] args) {\n        int[] marks = {60, 72, 85};\n        int count = 0;\n        for (int i = 0; i < marks.length - 1; i++) {\n            if (marks[i] >= 70) {\n                count++;\n            }\n        }\n        System.out.println(count);\n    }\n}",
+            "runnable": true,
+            "output": "1",
+            "error": null,
+            "compile_error": null
+          },
+          "good": {
+            "title": "Correct count: every mark is checked",
+            "code": "public class CountPassing {\n    public static void main(String[] args) {\n        int[] marks = {60, 72, 85};\n        int count = 0;\n        for (int i = 0; i < marks.length; i++) {\n            if (marks[i] >= 70) {\n                count++;\n            }\n        }\n        System.out.println(count);\n    }\n}",
+            "runnable": true,
+            "output": "2",
+            "error": null,
+            "compile_error": null
+          },
+          "note": "The bad program checks `60` and `72`, so it counts one mark at least `70`. It never checks `85`. With the corrected condition, it checks all three marks and prints `2`."
+        }
+      ]
+    },
+    {
+      "id": "same-bug-in-disguise",
+      "title": "The same bug in disguise",
+      "blocks": [
+        {
+          "type": "text",
+          "text": "The exact flagged pattern is `i < marks.length - 1`. The same early stop can appear with another array name or inside a different task. It can quietly give a wrong answer while the program runs normally."
+        },
+        {
+          "type": "compare",
+          "bad": {
+            "title": "Search skips the final value",
+            "code": "for (int i = 0; i < values.length - 1; i++) {\n    if (values[i] == target) {\n        found = true;\n    }\n}",
+            "runnable": false,
+            "output": null,
+            "error": null,
+            "compile_error": null
+          },
+          "good": {
+            "title": "Search checks every value",
+            "code": "for (int i = 0; i < values.length; i++) {\n    if (values[i] == target) {\n        found = true;\n    }\n}",
+            "runnable": false,
+            "output": null,
+            "error": null,
+            "compile_error": null
+          },
+          "note": "If `target` is in the last box, the bad loop never finds it. The loop condition should allow the index `values.length - 1`."
+        },
+        {
+          "type": "compare",
+          "bad": {
+            "title": "Copy loop leaves the last box alone",
+            "code": "for (int i = 0; i < source.length - 1; i++) {\n    copy[i] = source[i];\n}",
+            "runnable": false,
+            "output": null,
+            "error": null,
+            "compile_error": null
+          },
+          "good": {
+            "title": "Copy loop visits every box",
+            "code": "for (int i = 0; i < source.length; i++) {\n    copy[i] = source[i];\n}",
+            "runnable": false,
+            "output": null,
+            "error": null,
+            "compile_error": null
+          },
+          "note": "The bad version copies every box except the last one. Remember the original pattern: subtracting `1` from the loop limit is what makes it stop early."
+        },
+        {
+          "type": "callout",
+          "tone": "info",
+          "title": "Do not subtract the last index from the limit",
+          "text": "For a loop starting at `0`, the last valid index is `array.length - 1`, but the loop condition should be `i < array.length`. That condition visits the last index and stops before trying to use index `array.length`."
+        }
+      ]
+    },
+    {
+      "id": "check-yourself",
+      "title": "Check yourself",
+      "blocks": [
+        {
+          "type": "check",
+          "question": "With `marks.length` equal to `3`, which indices does this loop visit?",
+          "code": "for (int i = 0; i < marks.length - 1; i++)",
+          "options": [
+            "`0` and `1`",
+            "`0`, `1` and `2`",
+            "`1` and `2`",
+            "It does not run"
+          ],
+          "answer": 0,
+          "explanation": "`marks.length - 1` is `2`, so the condition is `i < 2`. The loop visits `0` and `1`, then stops before `2`."
+        },
+        {
+          "type": "check",
+          "question": "Which condition visits every element in an array named `items` when the loop starts at `0`?",
+          "code": "",
+          "options": [
+            "`i < items.length - 1`",
+            "`i <= items.length`",
+            "`i < items.length`",
+            "`i == items.length`"
+          ],
+          "answer": 2,
+          "explanation": "The condition `i < items.length` allows the loop to reach the last valid index, `items.length - 1`, and stops when `i` reaches the length."
+        },
+        {
+          "type": "check",
+          "question": "The loop adds `marks[0]` and `marks[1]` from `{60, 72, 85}` using the flagged pattern. What total does it print?",
+          "code": "int[] marks = {60, 72, 85};\nint total = 0;\nfor (int i = 0; i < marks.length - 1; i++) {\n    total += marks[i];\n}\nSystem.out.println(total);",
+          "options": [
+            "`132`",
+            "`217`",
+            "`85`",
+            "It crashes before printing"
+          ],
+          "answer": 0,
+          "explanation": "The flagged condition stops before the last mark. It adds `60` and `72`, which gives `132`. This loop compiles and runs; it simply prints the wrong total."
+        }
+      ]
+    },
+    {
+      "id": "key-points",
+      "title": "Key points",
+      "blocks": [
+        {
+          "type": "keypoints",
+          "items": [
+            "The flagged pattern `i < marks.length - 1` stops before the last element.",
+            "Array indices start at `0`; an array of length `3` has indices `0`, `1` and `2`.",
+            "For a loop starting at `0` that should visit every array element, use `i < array.length`.",
+            "Trace the condition after the final intended pass. If it stops while `i` is still the last index, the loop is too short.",
+            "This mistake usually compiles and runs without a crash, but it can produce a wrong answer."
+          ]
+        }
+      ]
+    }
+  ],
+  "sources": [
+    "loop_boundaries.txt",
+    "loop_control.txt"
+  ]
+}

@@ -1,0 +1,310 @@
+{
+  "id": "NESTED_LOOP_WRONG_COUNTER",
+  "concept": "loop_control",
+  "title": "A loop header with the wrong counter",
+  "summary": "Learn why an inner loop can run forever when its update changes the outer loop counter instead of its own.",
+  "minutes": 15,
+  "status": "published",
+  "objectives": [
+    "Identify which counter an inner loop tests and updates.",
+    "Trace what happens when an inner loop updates the wrong counter.",
+    "Explain why the flagged code compiles but does not finish when it runs.",
+    "Fix a nested loop so each loop uses its own counter."
+  ],
+  "sections": [
+    {
+      "id": "the-mistake",
+      "title": "The mistake",
+      "blocks": [
+        {
+          "type": "text",
+          "text": "Code Coach flags this exact pattern. The inner loop tests `j < 3`, but its update is `i++`. So `j` never changes, and the inner loop does not finish."
+        },
+        {
+          "type": "compare",
+          "bad": {
+            "title": "The flagged code",
+            "code": "int cells = 0;\nfor (int i = 0; i < 3; i++) {\n    // the inner loop steps i, not j\n    for (int j = 0; j < 3; i++) {\n        cells++;\n    }\n}",
+            "runnable": false,
+            "output": null,
+            "error": null,
+            "compile_error": null
+          },
+          "good": {
+            "title": "The inner loop updates j",
+            "code": "public class CorrectCounter {\n    public static void main(String[] args) {\n        int cells = 0;\n        for (int i = 0; i < 3; i++) {\n            for (int j = 0; j < 3; j++) {\n                cells++;\n            }\n        }\n        System.out.println(\"cells = \" + cells);\n    }\n}",
+            "runnable": true,
+            "output": "cells = 9",
+            "error": null,
+            "compile_error": null
+          },
+          "note": "In the flagged code, the inner loop starts `j` at 0 and tests `j < 3`. But `i++` changes `i`, not `j`. The flagged code compiles without a warning, then keeps running when it runs. Changing the update to `j++` lets the inner loop finish."
+        }
+      ]
+    },
+    {
+      "id": "why-it-happens",
+      "title": "Why the wrong counter matters",
+      "blocks": [
+        {
+          "type": "text",
+          "text": "A `for` loop has an initial value, a condition, and an update. The condition decides whether the body runs again. In the flagged inner loop, the condition checks `j`, so `j` must change for that condition to become false. Instead, the update changes `i`. The inner loop keeps seeing `j` equal to 0, and `0 < 3` stays true."
+        },
+        {
+          "type": "diagram",
+          "caption": "Why the flagged inner loop does not reach its end",
+          "mermaid": "flowchart TD\n  A[Start outer loop with i at 0] --> B{i less than 3}\n  B -- yes --> C[Start inner loop with j at 0]\n  C --> D{j less than 3}\n  D -- yes --> E[Add one to cells]\n  E --> F[Increase i not j]\n  F --> D\n  D -- no --> G[Leave inner loop]\n  B -- no --> H[Finish outer loop]"
+        },
+        {
+          "type": "callout",
+          "tone": "tip",
+          "title": "Match the counter to the condition",
+          "text": "Read the inner header from left to right: it starts `j`, tests `j < 3`, and should update `j`. If the condition watches one variable but the update changes another, check the loop carefully."
+        }
+      ]
+    },
+    {
+      "id": "trace",
+      "title": "Trace it, one step at a time",
+      "blocks": [
+        {
+          "type": "text",
+          "text": "A trace records the values as the loop runs. Start with `i = 0` and `j = 0`. After each inner pass, `i` increases, but `j` stays at 0. The inner condition therefore stays true."
+        },
+        {
+          "type": "table",
+          "caption": "Tracing the first passes of the flagged code",
+          "columns": [
+            "Step",
+            "`i`",
+            "`j`",
+            "Test or action",
+            "`cells`"
+          ],
+          "rows": [
+            [
+              "Outer loop starts",
+              "0",
+              "not started",
+              "Outer test `i < 3` is true",
+              "0"
+            ],
+            [
+              "Inner pass 1",
+              "0",
+              "0",
+              "Inner test `j < 3` is true; add 1; update `i++`",
+              "1"
+            ],
+            [
+              "Inner pass 2",
+              "1",
+              "0",
+              "Inner test `j < 3` is true; add 1; update `i++`",
+              "2"
+            ],
+            [
+              "Inner pass 3",
+              "2",
+              "0",
+              "Inner test `j < 3` is true; add 1; update `i++`",
+              "3"
+            ],
+            [
+              "Inner pass 4 begins",
+              "3",
+              "0",
+              "Inner test `j < 3` is still true; add 1; update `i++`",
+              "4"
+            ]
+          ],
+          "highlight": [
+            1,
+            2,
+            3
+          ]
+        },
+        {
+          "type": "text",
+          "text": "The inner loop never reaches a false test: `j` remains 0. So the outer loop does not get control back, and its update does not run. The chart shows the first few values of `cells` in the flagged loop, plus the total from the fixed loop. The flagged loop has no final total."
+        },
+        {
+          "type": "chart",
+          "caption": "Cell count at early passes, compared with the fixed total",
+          "x_label": "Moment",
+          "y_label": "Value of cells",
+          "categories": [
+            "Flagged after pass 1",
+            "Flagged after pass 2",
+            "Flagged after pass 3",
+            "Fixed loop when finished"
+          ],
+          "series": [
+            {
+              "name": "Cell count",
+              "values": [
+                1.0,
+                2.0,
+                3.0,
+                9.0
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "worked-examples",
+      "title": "Work through two examples",
+      "blocks": [
+        {
+          "type": "text",
+          "text": "First, give each loop its own counter. In a three by three grid, the outer loop runs three times. For each outer pass, the inner loop runs three times. So the body runs 3 times 3, or 9 times."
+        },
+        {
+          "title": "Example 1: count visits to a three by three grid",
+          "code": "public class GridVisits {\n    public static void main(String[] args) {\n        int visits = 0;\n        for (int i = 0; i < 3; i++) {\n            for (int j = 0; j < 3; j++) {\n                visits++;\n            }\n        }\n        System.out.println(\"visits = \" + visits);\n    }\n}",
+          "runnable": true,
+          "output": "visits = 9",
+          "error": null,
+          "compile_error": null,
+          "type": "code"
+        },
+        {
+          "type": "text",
+          "text": "Now count pairs using two different limits. The outer loop runs twice. The inner loop runs four times during each outer pass. The total is 2 times 4, or 8. The inner update still needs to change `j`, because its condition tests `j`."
+        },
+        {
+          "title": "Example 2: two outer passes and four inner passes",
+          "code": "public class DifferentLimits {\n    public static void main(String[] args) {\n        int pairs = 0;\n        for (int i = 0; i < 2; i++) {\n            for (int j = 0; j < 4; j++) {\n                pairs++;\n            }\n        }\n        System.out.println(\"pairs = \" + pairs);\n    }\n}",
+          "runnable": true,
+          "output": "pairs = 8",
+          "error": null,
+          "compile_error": null,
+          "type": "code"
+        },
+        {
+          "type": "callout",
+          "tone": "info",
+          "title": "Count each loop separately",
+          "text": "Work out the outer count first, then the inner count for each outer pass. Separate counters let the inner loop finish and let the outer loop move on."
+        }
+      ]
+    },
+    {
+      "id": "in-disguise",
+      "title": "The same bug in disguise",
+      "blocks": [
+        {
+          "type": "text",
+          "text": "The same mistake can happen in the condition instead of the update. Check both parts of the inner header. Its condition and update should work together so the inner counter can reach a value that stops the loop."
+        },
+        {
+          "type": "compare",
+          "bad": {
+            "title": "The condition watches i",
+            "code": "for (int j = 0; i < 3; j++) {\n    cells++;\n}",
+            "runnable": false,
+            "output": null,
+            "error": null,
+            "compile_error": null
+          },
+          "good": {
+            "title": "The condition watches j",
+            "code": "for (int j = 0; j < 3; j++) {\n    cells++;\n}",
+            "runnable": false,
+            "output": null,
+            "error": null,
+            "compile_error": null
+          },
+          "note": "In the bad version, `j` changes but the condition checks `i`. If `i` stays below 3 while this loop runs, the condition stays true. The code compiles, but the loop can keep running when the program runs."
+        },
+        {
+          "type": "compare",
+          "bad": {
+            "title": "The update changes i",
+            "code": "for (int j = 0; j < 3; i++) {\n    cells++;\n}",
+            "runnable": false,
+            "output": null,
+            "error": null,
+            "compile_error": null
+          },
+          "good": {
+            "title": "The update changes j",
+            "code": "for (int j = 0; j < 3; j++) {\n    cells++;\n}",
+            "runnable": false,
+            "output": null,
+            "error": null,
+            "compile_error": null
+          },
+          "note": "This is the update mistake from Code Coach's flagged pattern. Since the condition checks `j`, changing only `i` leaves the condition true. The code compiles; the problem appears when the loop runs."
+        }
+      ]
+    },
+    {
+      "id": "check-yourself",
+      "title": "Check yourself",
+      "blocks": [
+        {
+          "type": "check",
+          "question": "In the flagged inner loop, which variable changes after each pass?",
+          "code": "for (int j = 0; j < 3; i++) {\n    cells++;\n}",
+          "options": [
+            "`j`",
+            "`i`",
+            "Both `i` and `j`",
+            "Neither variable"
+          ],
+          "answer": 1,
+          "explanation": "The update is `i++`, so `i` changes. The inner loop starts `j` at 0, but does not update it."
+        },
+        {
+          "type": "check",
+          "question": "Why does the flagged inner loop keep running?",
+          "code": "for (int j = 0; j < 3; i++) {\n    cells++;\n}",
+          "options": [
+            "`j` stays at 0, so `j < 3` stays true",
+            "`i` stays at 0",
+            "`cells` is not initialised",
+            "The compiler rejects the update"
+          ],
+          "answer": 0,
+          "explanation": "The condition tests `j`, but the update changes `i`. Since `j` remains 0, `j < 3` remains true. The code compiles; this problem happens when it runs."
+        },
+        {
+          "type": "check",
+          "question": "Which update lets the inner loop count its own three passes?",
+          "code": "for (int j = 0; j < 3; ___) {\n    cells++;\n}",
+          "options": [
+            "`i++`",
+            "`j++`",
+            "`cells++`",
+            "No update"
+          ],
+          "answer": 1,
+          "explanation": "The condition checks `j < 3`, so the update must change `j`. With `j++`, the loop runs for `j` values 0, 1, and 2, then stops."
+        }
+      ]
+    },
+    {
+      "id": "key-points",
+      "title": "Key points",
+      "blocks": [
+        {
+          "type": "keypoints",
+          "items": [
+            "Each nested loop needs its own counter variable.",
+            "The flagged inner loop tests `j < 3` but updates `i++`, so `j` never changes.",
+            "The flagged code compiles, but the inner loop keeps running when the program runs.",
+            "Match the inner loop's condition and update: for example, `j < 3` with `j++`.",
+            "Trace the values of each counter to check whether each loop can reach a false condition."
+          ]
+        }
+      ]
+    }
+  ],
+  "sources": [
+    "loop_control.txt",
+    "loop_initialization.txt"
+  ]
+}

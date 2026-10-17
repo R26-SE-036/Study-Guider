@@ -1,0 +1,309 @@
+{
+  "id": "INTEGER_DIVISION_IN_DECIMAL_CONTEXT",
+  "concept": "arithmetic_operations",
+  "title": "Integer division into a double",
+  "summary": "Why division can lose its fractional part before the answer reaches a double, and how to get the decimal result you expect.",
+  "minutes": 15,
+  "status": "published",
+  "objectives": [
+    "Explain why dividing two `int` values discards the fractional part, even when the result is stored in a `double`.",
+    "Trace the types and values in an integer division expression.",
+    "Fix integer division by making at least one operand a floating-point value before division.",
+    "Recognize the same mistake in averages, fractions and casts."
+  ],
+  "sections": [
+    {
+      "id": "the-mistake",
+      "title": "The mistake",
+      "blocks": [
+        {
+          "type": "text",
+          "text": "A `double` can hold a decimal value. But putting an integer division result into a `double` does not bring back a fraction that was already discarded. This program compiles, but prints `0.0` instead of the expected `0.5`."
+        },
+        {
+          "type": "compare",
+          "bad": {
+            "title": "The division happens as integer division",
+            "code": "public class Average {\n    public static void main(String[] args) {\n        int sum = 1;\n        int count = 2;\n        double average = sum / count;\n        System.out.println(average);\n    }\n}",
+            "runnable": true,
+            "output": "0.0",
+            "error": null,
+            "compile_error": null
+          },
+          "good": {
+            "title": "Make an operand a double first",
+            "code": "public class Average {\n    public static void main(String[] args) {\n        int sum = 1;\n        int count = 2;\n        double average = (double) sum / count;\n        System.out.println(average);\n    }\n}",
+            "runnable": true,
+            "output": "0.5",
+            "error": null,
+            "compile_error": null
+          },
+          "note": "Both versions compile without a warning. In the first, `sum` and `count` are both `int`, so `sum / count` gives the integer result `0`. Java then stores that `0` in `average` as `0.0`. In the second, `(double) sum` makes the division use a floating-point value, so the result is `0.5`."
+        }
+      ]
+    },
+    {
+      "id": "why-it-happens",
+      "title": "Why it happens",
+      "blocks": [
+        {
+          "type": "text",
+          "text": "Java chooses how division works from the types of the values being divided. When both operands are `int`, the result is an `int`. Java discards the fractional part; it does not round. The type of the variable receiving the answer does not change how the division was done."
+        },
+        {
+          "type": "diagram",
+          "caption": "What happens when two int values are divided and the answer goes into a double",
+          "mermaid": "flowchart TD\n  A[sum is int with value 1] --> C[Divide the two int values]\n  B[count is int with value 2] --> C\n  C --> D[Integer result is 0]\n  D --> E[Store 0 as double value 0.0]"
+        },
+        {
+          "type": "chart",
+          "caption": "Integer division discards the fraction; floating-point division keeps it",
+          "x_label": "Division",
+          "y_label": "Result",
+          "categories": [
+            "1 / 2",
+            "7 / 2",
+            "9 / 10"
+          ],
+          "series": [
+            {
+              "name": "Both operands are int",
+              "values": [
+                0.0,
+                3.0,
+                0.0
+              ]
+            },
+            {
+              "name": "At least one operand is double",
+              "values": [
+                0.5,
+                3.5,
+                0.9
+              ]
+            }
+          ]
+        },
+        {
+          "type": "callout",
+          "tone": "tip",
+          "title": "Change the division, not just the destination",
+          "text": "For a decimal answer, make at least one operand a floating-point value before division. For example, write `7.0 / 2` or `(double) sum / count`."
+        }
+      ]
+    },
+    {
+      "id": "trace",
+      "title": "Trace it one step at a time",
+      "blocks": [
+        {
+          "type": "text",
+          "text": "Follow the expression from its operands to the variable that receives the answer. This makes it clear why the `double` does not rescue the fraction."
+        },
+        {
+          "type": "table",
+          "caption": "Tracing `double average = sum / count;` when `sum` is 1 and `count` is 2",
+          "columns": [
+            "Step",
+            "What happens",
+            "Value or type"
+          ],
+          "rows": [
+            [
+              "1",
+              "`sum` is read",
+              "`int` value `1`"
+            ],
+            [
+              "2",
+              "`count` is read",
+              "`int` value `2`"
+            ],
+            [
+              "3",
+              "`sum / count` is evaluated",
+              "Both operands are `int`, so integer division gives `0`"
+            ],
+            [
+              "4",
+              "The result is assigned to `average`",
+              "`0` is stored as `0.0` in the `double`"
+            ]
+          ],
+          "highlight": [
+            2
+          ]
+        },
+        {
+          "type": "text",
+          "text": "The important step is step 3: the division has already produced `0`. Assignment changes how that value is stored, not how it was calculated. With `(double) sum / count`, the first operand is a `double`, so the division produces `0.5` instead."
+        }
+      ]
+    },
+    {
+      "id": "worked-examples",
+      "title": "Worked examples",
+      "blocks": [
+        {
+          "type": "text",
+          "text": "In each example, ask what types the operands have at the moment `/` runs. That tells you whether Java keeps the fraction."
+        },
+        {
+          "type": "compare",
+          "bad": {
+            "title": "A double destination does not fix 7 / 2",
+            "code": "public class Half {\n    public static void main(String[] args) {\n        double result = 7 / 2;\n        System.out.println(result);\n    }\n}",
+            "runnable": true,
+            "output": "3.0",
+            "error": null,
+            "compile_error": null
+          },
+          "good": {
+            "title": "A double operand keeps the fraction",
+            "code": "public class Half {\n    public static void main(String[] args) {\n        double result = 7.0 / 2;\n        System.out.println(result);\n    }\n}",
+            "runnable": true,
+            "output": "3.5",
+            "error": null,
+            "compile_error": null
+          },
+          "note": "In the first program, `7` and `2` are both `int`, so `7 / 2` gives `3` before it is stored as `3.0`. In the second, `7.0` is a `double`, so division keeps the fractional part and gives `3.5`."
+        },
+        {
+          "type": "compare",
+          "bad": {
+            "title": "Cast after the division: the fraction is already gone",
+            "code": "public class Fraction {\n    public static void main(String[] args) {\n        double part = (double) (1 / 4);\n        System.out.println(part);\n    }\n}",
+            "runnable": true,
+            "output": "0.0",
+            "error": null,
+            "compile_error": null
+          },
+          "good": {
+            "title": "Cast before the division",
+            "code": "public class Fraction {\n    public static void main(String[] args) {\n        double part = (double) 1 / 4;\n        System.out.println(part);\n    }\n}",
+            "runnable": true,
+            "output": "0.25",
+            "error": null,
+            "compile_error": null
+          },
+          "note": "In the first program, the parentheses make `1 / 4` happen first. Both values are `int`, so that gives `0`; casting that result makes it `0.0`. In the second, `(double) 1` makes one operand a `double` before `/` runs."
+        }
+      ]
+    },
+    {
+      "id": "same-bug-in-disguise",
+      "title": "The same bug in disguise",
+      "blocks": [
+        {
+          "type": "text",
+          "text": "The mistake can hide in an average, a fraction or any calculation whose result is meant to be decimal. These short examples are code fragments, not complete programs."
+        },
+        {
+          "type": "compare",
+          "bad": {
+            "title": "Average of two integers loses a fraction",
+            "code": "double average = (a + b) / 2;",
+            "runnable": false,
+            "output": null,
+            "error": null,
+            "compile_error": null
+          },
+          "good": {
+            "title": "Make the division use a double",
+            "code": "double average = (double) (a + b) / 2;",
+            "runnable": false,
+            "output": null,
+            "error": null,
+            "compile_error": null
+          },
+          "note": "If `a` and `b` are `int`, then `(a + b) / 2` uses integer division. Casting the sum before `/` lets an average such as `1.5` stay decimal."
+        },
+        {
+          "type": "compare",
+          "bad": {
+            "title": "A fraction assigned to double still becomes zero",
+            "code": "double quarter = 1 / 4;",
+            "runnable": false,
+            "output": null,
+            "error": null,
+            "compile_error": null
+          },
+          "good": {
+            "title": "Use a floating-point operand",
+            "code": "double quarter = 1.0 / 4;",
+            "runnable": false,
+            "output": null,
+            "error": null,
+            "compile_error": null
+          },
+          "note": "The first line compiles, but the division is between two `int` values, so `quarter` becomes `0.0`. The second line uses a `double` operand and gives `0.25`."
+        }
+      ]
+    },
+    {
+      "id": "check-yourself",
+      "title": "Check yourself",
+      "blocks": [
+        {
+          "type": "check",
+          "question": "What does this program print?",
+          "code": "double result = 9 / 10;\nSystem.out.println(result);",
+          "options": [
+            "0.9",
+            "1.0",
+            "0.0",
+            "It does not compile"
+          ],
+          "answer": 2,
+          "explanation": "`9` and `10` are both `int`, so `9 / 10` gives `0` and discards the fraction. That value is then stored as `0.0` in `result`. The code compiles."
+        },
+        {
+          "type": "check",
+          "question": "Which expression makes the division keep its fractional part?",
+          "code": "",
+          "options": [
+            "`(double) (1 / 2)`",
+            "`1 / 2`",
+            "`1.0 / 2`",
+            "`(int) 1 / 2`"
+          ],
+          "answer": 2,
+          "explanation": "`1.0` is a `double`, so at least one operand is floating-point when `/` runs. The other expressions divide two `int` values first, or explicitly use `int`."
+        },
+        {
+          "type": "check",
+          "question": "What does this expression produce?",
+          "code": "double result = (double) 7 / 2;",
+          "options": [
+            "`3.0`",
+            "`3.5`",
+            "`4.0`",
+            "It does not compile"
+          ],
+          "answer": 1,
+          "explanation": "The cast makes `7` a `double` before division. The division therefore keeps the fraction and produces `3.5`."
+        }
+      ]
+    },
+    {
+      "id": "key-points",
+      "title": "Key points",
+      "blocks": [
+        {
+          "type": "keypoints",
+          "items": [
+            "When both operands of `/` are `int`, Java discards the fractional part. It does not round.",
+            "The result of `int` division is decided before assignment. A `double` destination cannot restore a discarded fraction.",
+            "To get a decimal result, make at least one operand a floating-point value before division, as in `7.0 / 2`.",
+            "A cast must happen before the division: `(double) sum / count` works; `(double) (sum / count)` casts after.",
+            "This mistake compiles. Trace the operand types at `/` to catch it before running the program."
+          ]
+        }
+      ]
+    }
+  ],
+  "sources": [
+    "arithmetic_operations.txt",
+    "assignment_logic.txt"
+  ]
+}

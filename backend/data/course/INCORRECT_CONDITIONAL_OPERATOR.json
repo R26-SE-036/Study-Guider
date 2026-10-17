@@ -1,0 +1,288 @@
+{
+  "id": "INCORRECT_CONDITIONAL_OPERATOR",
+  "concept": "conditional_logic",
+  "title": "The wrong comparison operator",
+  "summary": "How using `=` instead of a comparison can change a boolean and make an `if` branch run unexpectedly.",
+  "minutes": 15,
+  "status": "published",
+  "objectives": [
+    "Explain the difference between `=` and `==` in a condition.",
+    "Trace how assigning a boolean affects the condition and the variable.",
+    "Fix a condition that accidentally assigns a value.",
+    "Recognize the same mistake when assigning `true` or `false`."
+  ],
+  "sections": [
+    {
+      "id": "the-mistake",
+      "title": "The mistake",
+      "blocks": [
+        {
+          "type": "text",
+          "text": "A condition should ask a question, such as whether `ready` is `true`. A common mistake is to write `=` instead of `==`. In Java, `=` assigns a value. In a condition like `if (ready = true)`, it changes `ready` to `true`, then the condition is true. The program compiles, but it does not behave as intended."
+        },
+        {
+          "type": "compare",
+          "bad": {
+            "title": "Assigns true instead of checking ready",
+            "code": "public class ReadyBad {\n    public static void main(String[] args) {\n        boolean ready = false;\n        if (ready = true) {\n            System.out.println(\"Door opens\");\n        } else {\n            System.out.println(\"Door stays closed\");\n        }\n        System.out.println(\"ready is \" + ready);\n    }\n}",
+            "runnable": true,
+            "output": "Door opens\nready is true",
+            "error": null,
+            "compile_error": null
+          },
+          "good": {
+            "title": "Checks ready without changing it",
+            "code": "public class ReadyGood {\n    public static void main(String[] args) {\n        boolean ready = false;\n        if (ready) {\n            System.out.println(\"Door opens\");\n        } else {\n            System.out.println(\"Door stays closed\");\n        }\n        System.out.println(\"ready is \" + ready);\n    }\n}",
+            "runnable": true,
+            "output": "Door stays closed\nready is false",
+            "error": null,
+            "compile_error": null
+          },
+          "note": "The bad program compiles. The assignment `ready = true` is itself a boolean expression, and its value is `true`. So the first branch runs, and `ready` changes. The good program checks the value of `ready` and leaves it unchanged."
+        }
+      ]
+    },
+    {
+      "id": "why-it-happens",
+      "title": "Why it happens",
+      "blocks": [
+        {
+          "type": "text",
+          "text": "The symbols look similar, but they do different jobs. Use `=` to put a value into a variable. Use `==` to ask whether two values are equal. In Java, an `if` condition must be a boolean: either `true` or `false`. Assigning `true` to a boolean variable produces a boolean value, so this mistake is allowed by the compiler."
+        },
+        {
+          "type": "diagram",
+          "caption": "What happens when the condition uses assignment",
+          "mermaid": "flowchart TD\n  A[Start with ready false] --> B{Run ready = true}\n  B --> C[Store true in ready]\n  C --> D{Is the result true}\n  D -- yes --> E[Run the if branch]\n  D -- no --> F[Run the else branch]"
+        },
+        {
+          "type": "callout",
+          "tone": "info",
+          "title": "Compile time and run time",
+          "text": "This mistake is not rejected at compile time. The code compiles, usually without a warning, then changes the variable when it runs. The wrong branch is a run-time behavior problem, not a compile error."
+        }
+      ]
+    },
+    {
+      "id": "trace",
+      "title": "Trace it step by step",
+      "blocks": [
+        {
+          "type": "text",
+          "text": "A trace means following each action in order. Start with `ready` set to `false`. Then follow what the condition `ready = true` does."
+        },
+        {
+          "type": "table",
+          "caption": "Tracing if (ready = true) when ready starts false",
+          "columns": [
+            "Step",
+            "Action",
+            "Value of `ready`",
+            "Result"
+          ],
+          "rows": [
+            [
+              "1",
+              "Start the program",
+              "`false`",
+              "No branch has run"
+            ],
+            [
+              "2",
+              "Evaluate `ready = true`",
+              "`true`",
+              "The assignment stores `true` in `ready`"
+            ],
+            [
+              "3",
+              "Use the condition result",
+              "`true`",
+              "The condition is true"
+            ],
+            [
+              "4",
+              "Run the `if` branch",
+              "`true`",
+              "Prints `Door opens`"
+            ]
+          ],
+          "highlight": [
+            1
+          ]
+        },
+        {
+          "type": "text",
+          "text": "The change happens before Java chooses a branch. With the fixed condition `if (ready)`, Java checks the value without assigning a new one. Since `ready` is `false`, the `else` branch runs."
+        }
+      ]
+    },
+    {
+      "id": "worked-examples",
+      "title": "Two worked examples",
+      "blocks": [
+        {
+          "type": "text",
+          "text": "In the first example, the program should open the door only when `ready` is already `true`. Ask what the condition should do: change the value, or check the value? It should check, so use `if (ready)`."
+        },
+        {
+          "type": "compare",
+          "bad": {
+            "title": "Unexpectedly opens the door",
+            "code": "public class DoorBad {\n    public static void main(String[] args) {\n        boolean ready = false;\n        if (ready = true) {\n            System.out.println(\"Open\");\n        } else {\n            System.out.println(\"Wait\");\n        }\n    }\n}",
+            "runnable": true,
+            "output": "Open",
+            "error": null,
+            "compile_error": null
+          },
+          "good": {
+            "title": "Opens only when ready is true",
+            "code": "public class DoorGood {\n    public static void main(String[] args) {\n        boolean ready = false;\n        if (ready) {\n            System.out.println(\"Open\");\n        } else {\n            System.out.println(\"Wait\");\n        }\n    }\n}",
+            "runnable": true,
+            "output": "Wait",
+            "error": null,
+            "compile_error": null
+          },
+          "note": "The starting value is `false`. The bad condition overwrites it with `true`, so it prints `Open`. The fixed condition reads the existing value, so it prints `Wait`."
+        },
+        {
+          "type": "text",
+          "text": "In the second example, a student with a ticket should be allowed in. The bad condition assigns `false` to `hasTicket`, so the condition is false and the ticket value is lost. Check the existing value with `if (hasTicket)` instead."
+        },
+        {
+          "type": "compare",
+          "bad": {
+            "title": "Assigns false and denies entry",
+            "code": "public class TicketBad {\n    public static void main(String[] args) {\n        boolean hasTicket = true;\n        if (hasTicket = false) {\n            System.out.println(\"Entry allowed\");\n        } else {\n            System.out.println(\"No entry\");\n        }\n        System.out.println(\"hasTicket is \" + hasTicket);\n    }\n}",
+            "runnable": true,
+            "output": "No entry\nhasTicket is false",
+            "error": null,
+            "compile_error": null
+          },
+          "good": {
+            "title": "Checks the ticket value",
+            "code": "public class TicketGood {\n    public static void main(String[] args) {\n        boolean hasTicket = true;\n        if (hasTicket) {\n            System.out.println(\"Entry allowed\");\n        } else {\n            System.out.println(\"No entry\");\n        }\n        System.out.println(\"hasTicket is \" + hasTicket);\n    }\n}",
+            "runnable": true,
+            "output": "Entry allowed\nhasTicket is true",
+            "error": null,
+            "compile_error": null
+          },
+          "note": "The bad assignment evaluates to `false`, so the `else` branch runs. The fixed condition checks the value and keeps `hasTicket` as `true`."
+        }
+      ]
+    },
+    {
+      "id": "in-disguise",
+      "title": "The same bug in disguise",
+      "blocks": [
+        {
+          "type": "text",
+          "text": "The mistake can assign either boolean value. In both cases, the condition changes the variable before the branch is chosen. A quick way to check your code is to ask whether the condition is meant to test a value or set one."
+        },
+        {
+          "type": "compare",
+          "bad": {
+            "title": "Always assigns true",
+            "code": "if (hasPaid = true) {\n    System.out.println(\"Paid\");\n}",
+            "runnable": false,
+            "output": null,
+            "error": null,
+            "compile_error": null
+          },
+          "good": {
+            "title": "Checks whether hasPaid is true",
+            "code": "if (hasPaid) {\n    System.out.println(\"Paid\");\n}",
+            "runnable": false,
+            "output": null,
+            "error": null,
+            "compile_error": null
+          },
+          "note": "The bad version changes `hasPaid` to `true`. The good version checks its current value. For a boolean, `if (hasPaid)` is clearer than `if (hasPaid == true)`."
+        },
+        {
+          "type": "compare",
+          "bad": {
+            "title": "Always assigns false",
+            "code": "if (hasPaid = false) {\n    System.out.println(\"Not paid\");\n}",
+            "runnable": false,
+            "output": null,
+            "error": null,
+            "compile_error": null
+          },
+          "good": {
+            "title": "Checks whether hasPaid is false",
+            "code": "if (!hasPaid) {\n    System.out.println(\"Not paid\");\n}",
+            "runnable": false,
+            "output": null,
+            "error": null,
+            "compile_error": null
+          },
+          "note": "The `!` operator means not. The good version checks for a false value without changing `hasPaid`. The bad version sets it to `false`."
+        }
+      ]
+    },
+    {
+      "id": "check-yourself",
+      "title": "Check yourself",
+      "blocks": [
+        {
+          "type": "check",
+          "question": "What does this condition do when `open` starts as `false`?",
+          "code": "if (open = true) {\n    System.out.println(\"Open\");\n}",
+          "options": [
+            "Checks `open` and prints nothing",
+            "Sets `open` to `true` and prints `Open`",
+            "Does not compile",
+            "Sets `open` to `false`"
+          ],
+          "answer": 1,
+          "explanation": "The assignment stores `true` in `open` and evaluates to `true`. The condition succeeds, so the branch prints `Open`. The code compiles because the condition is boolean."
+        },
+        {
+          "type": "check",
+          "question": "A program should print `Welcome` only when `member` is already true. Which condition should it use?",
+          "code": "",
+          "options": [
+            "`if (member = true)`",
+            "`if (member)`",
+            "`if (member = false)`",
+            "`if (!member)`"
+          ],
+          "answer": 1,
+          "explanation": "The program should check the current value, not assign a new one. `if (member)` checks whether `member` is true."
+        },
+        {
+          "type": "check",
+          "question": "What is the difference between these two operators?",
+          "code": "`=` and `==`",
+          "options": [
+            "`=` compares; `==` assigns",
+            "Both assign values",
+            "`=` assigns; `==` compares for equality",
+            "Both compare for equality"
+          ],
+          "answer": 2,
+          "explanation": "In Java, `=` assigns a value to a variable. `==` compares two values and produces a boolean result."
+        }
+      ]
+    },
+    {
+      "id": "key-points",
+      "title": "Key points",
+      "blocks": [
+        {
+          "type": "keypoints",
+          "items": [
+            "`=` assigns a value. `==` compares two values for equality.",
+            "An assignment to a boolean can be used as an `if` condition because it evaluates to a boolean value.",
+            "`if (ready = true)` changes `ready` before choosing a branch, and it compiles.",
+            "For a boolean variable, write `if (ready)` to check for true and `if (!ready)` to check for false.",
+            "Trace the condition in order: check whether it changes a variable before deciding which branch runs."
+          ]
+        }
+      ]
+    }
+  ],
+  "sources": [
+    "boolean_logic.txt"
+  ]
+}

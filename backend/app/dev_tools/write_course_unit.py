@@ -38,6 +38,7 @@ from app.core.concepts import ERROR_TYPE_TO_CONCEPT, PREREQUISITE_EDGES
 from app.core.config import settings
 from app.dev_tools.course_java import check_unit, jdk_available
 from app.services import course_service
+from app.services.concept_examples import example_for
 from app.services.llm import LLMUnavailable, generate, strip_code_fence
 
 # The published unit shown to the model as the example.
@@ -60,10 +61,21 @@ Standards:
 - Use at least one diagram (Mermaid flowchart, no parentheses or square
   brackets inside node labels), and a chart or an array/memory picture where it
   genuinely helps.
-- Every "runnable": true program must be a complete Java 17 program with one
-  public class, and its "output" must be exactly what it prints. For a program
-  that crashes, put the stdout in "output" and the exception name in "error".
+- Every complete program (one with a main method) MUST have "runnable": true.
+  It will be compiled with javac 17 and run, and the unit is rejected if it
+  does not behave as stated. "output" is exactly what it prints. For a program
+  that crashes, put the stdout in "output" and the exception message in
+  "error". For a program that does not compile, put a phrase from javac's
+  message in "compile_error" (for example "unreachable statement").
+- Be exact about compile time versus run time. Many mistakes compile without
+  any warning and only go wrong when the program runs; say so, and never claim
+  the compiler rejects code unless a program with "compile_error" proves it.
+- Only add a chart when it compares real quantities (counts, results) that
+  help the explanation. No charts of yes/no values.
 - Teach the reasoning, then the fix. Never just state the rule.
+- In prose fields (text, note, question, explanation, items, objectives) and
+  in table cells, wrap code - keywords, operators, expressions, variable names
+  - in backticks, exactly as the example does: `==`, `scores[3]`, `break`.
 - "status" must be "draft". "sources" lists the note files you used.
 - Only use facts from standard Java and the course notes below.
 """
@@ -90,6 +102,12 @@ def prompt_for(unit_id: str) -> str:
         f"{RULES}\n"
         f"The unit to write: id {unit_id}, concept {concept}, "
         f"title \"{course_service.UNIT_TITLES[unit_id]}\".\n\n"
+        # Without this the model teaches whatever the title suggests to it:
+        # "Assigning a variable to itself" came back as a lesson on swapping
+        # two variables, which is not what Code Coach flags.
+        f"THE MISTAKE, exactly as Code Coach flags it in a student's code. The unit "
+        f"must be about this pattern; open with it and keep returning to it.\n"
+        f"{example_for(unit_id)}\n\n"
         f"COURSE NOTES\n{notes}\n\n"
         f"EXAMPLE UNIT (shape and standard only; a different mistake)\n{example}\n"
     )
@@ -101,29 +119,49 @@ def draft(unit_id: str, force: bool = False) -> bool:
         print(f"{unit_id}: a file already exists; use --force to replace it.")
         return False
 
-    try:
-        raw = generate(prompt_for(unit_id))
-    except LLMUnavailable as error:
-        print(f"{unit_id}: the model did not answer ({error}).")
-        return False
-
-    try:
-        data = json.loads(strip_code_fence(raw))
-        data["id"], data["status"] = unit_id, "draft"
-        unit = course_service.Unit.model_validate(data)
-    except (json.JSONDecodeError, ValidationError) as error:
-        print(f"{unit_id}: the answer is not a valid unit:\n{error}")
-        return False
-
-    if jdk_available():
-        problems = check_unit(unit)
-        if problems:
-            print(f"{unit_id}: examples that do not do what the unit says:")
-            for problem in problems:
-                print(f"  {problem.where}: {problem.detail}")
+    prompt = prompt_for(unit_id)
+    unit, complaint = None, ""
+    # One attempt, plus one repair: the model is shown exactly what the schema
+    # or the compiler said and asked to fix only that. A unit that still fails
+    # is not saved.
+    for attempt in range(2):
+        try:
+            raw = generate(prompt if not complaint else (
+                f"{prompt}\n\nYOUR PREVIOUS ANSWER\n{raw}\n\n"
+                f"IT WAS REJECTED FOR THESE REASONS. Return the whole corrected unit.\n{complaint}"
+            ))
+        except LLMUnavailable as error:
+            print(f"{unit_id}: the model did not answer ({error}).")
             return False
-    else:
-        print(f"{unit_id}: no JDK on PATH, so the examples were not compiled. Check them before publishing.")
+
+        try:
+            data = json.loads(strip_code_fence(raw))
+            data["id"], data["status"] = unit_id, "draft"
+            # The model writes "warning" for the "warn" tone often enough to
+            # spend a whole repair attempt on it; it means the same thing.
+            for section in data.get("sections", []):
+                for block in section.get("blocks", []):
+                    if block.get("type") == "callout" and block.get("tone") == "warning":
+                        block["tone"] = "warn"
+            unit = course_service.Unit.model_validate(data)
+        except (json.JSONDecodeError, ValidationError) as error:
+            complaint, unit = f"Not a valid unit: {error}", None
+        else:
+            if not jdk_available():
+                print(f"{unit_id}: no JDK on PATH, so the examples were not compiled. Check them before publishing.")
+                break
+            problems = check_unit(unit)
+            if not problems:
+                break
+            complaint = "Examples that do not do what the unit says:\n" + "\n".join(
+                f"  {p.where}: {p.detail}" for p in problems
+            )
+            unit = None
+        print(f"{unit_id}: attempt {attempt + 1} rejected.\n{complaint}")
+
+    if unit is None:
+        print(f"{unit_id}: not saved.")
+        return False
 
     with open(path, "w", encoding="utf-8") as handle:
         json.dump(unit.model_dump(exclude_defaults=False), handle, indent=2, ensure_ascii=False)
@@ -132,7 +170,20 @@ def draft(unit_id: str, force: bool = False) -> bool:
     return True
 
 
+def allow_long_answers() -> None:
+    """A unit is several times longer than a lesson, and the shared OpenAI
+    client gives up after 40 s to stay inside the web app's proxy limit. This
+    runs offline, so it can wait."""
+    if settings.LLM_PROVIDER == "openai" and settings.OPENAI_API_KEY:
+        from openai import OpenAI
+
+        from app.services import llm
+
+        llm._openai_client = OpenAI(api_key=settings.OPENAI_API_KEY, timeout=600.0, max_retries=1)
+
+
 def main(argv: list[str] | None = None) -> None:
+    allow_long_answers()
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("unit_ids", nargs="*", help="error types to draft")
     parser.add_argument("--all", action="store_true", help="every unit that has no file yet")

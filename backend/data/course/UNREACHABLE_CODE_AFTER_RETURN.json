@@ -1,0 +1,272 @@
+{
+  "id": "UNREACHABLE_CODE_AFTER_RETURN",
+  "concept": "control_flow",
+  "title": "Code after return",
+  "summary": "Learn why Java rejects a statement that must come after return, and how to trace which paths can reach each line.",
+  "minutes": 15,
+  "status": "published",
+  "objectives": [
+    "Explain that `return` leaves the current method immediately.",
+    "Tell the difference between a compile-time unreachable statement and a line skipped at run time.",
+    "Trace a method to decide whether each line can run.",
+    "Fix code that puts a statement after an unconditional `return`."
+  ],
+  "sections": [
+    {
+      "id": "the-mistake",
+      "title": "The mistake",
+      "blocks": [
+        {
+          "type": "text",
+          "text": "A `return` statement leaves the current method immediately. A common mistake is to put a statement after a `return` that always runs first. That later statement can never run. Java detects this before the program runs and reports an unreachable statement."
+        },
+        {
+          "type": "compare",
+          "bad": {
+            "title": "The print can never run",
+            "code": "public class ReturnBug {\n    static int getValue() {\n        return 7;\n        System.out.println(\"This never runs\");\n    }\n\n    public static void main(String[] args) {\n        System.out.println(getValue());\n    }\n}",
+            "runnable": true,
+            "output": null,
+            "error": null,
+            "compile_error": "unreachable statement"
+          },
+          "good": {
+            "title": "Return, then print in the caller",
+            "code": "public class ReturnFixed {\n    static int getValue() {\n        return 7;\n    }\n\n    public static void main(String[] args) {\n        System.out.println(getValue());\n        System.out.println(\"This runs after getValue returns\");\n    }\n}",
+            "runnable": true,
+            "output": "7\nThis runs after getValue returns",
+            "error": null,
+            "compile_error": null
+          },
+          "note": "The first program does not compile, so it never runs. The compiler rejects the print because `return 7;` always leaves `getValue` first. In the fixed version, the caller prints after the method has returned."
+        }
+      ]
+    },
+    {
+      "id": "why-it-happens",
+      "title": "Why it happens",
+      "blocks": [
+        {
+          "type": "text",
+          "text": "Control flow means the order in which statements run. Java normally goes from one statement to the next. But `return` changes that order: it exits the current method. The compiler can see when every path to a line has already returned, so it reports that line as unreachable at compile time. This is not a run-time crash or a warning."
+        },
+        {
+          "type": "diagram",
+          "caption": "A return ends this path through the method",
+          "mermaid": "flowchart TD\n  A([Start]) --> B{stop is true}\n  B -- yes --> C[Return from method]\n  B -- no --> D[Print continued]\n  C --> E([End])\n  D --> E"
+        },
+        {
+          "type": "text",
+          "text": "The diagram shows why a line after an `if` can still be reachable: when `stop` is false, the method skips the `return` and reaches the print. That differs from a `return` that runs unconditionally before the print."
+        },
+        {
+          "type": "callout",
+          "tone": "info",
+          "title": "Compile time and run time",
+          "text": "Compile time is when Java checks and translates your code. Run time is when a compiled program runs. An unconditional `return` followed by another statement is rejected at compile time. A line that is skipped on one run-time path may still be reachable on another path, so it can compile."
+        }
+      ]
+    },
+    {
+      "id": "trace",
+      "title": "Trace it, one step at a time",
+      "blocks": [
+        {
+          "type": "text",
+          "text": "Tracing means following the statements in order and noting what happens. Consider `if (stop) return;` followed by `System.out.println(\"continued\");`. Trace one call with `stop` set to `true`."
+        },
+        {
+          "type": "table",
+          "caption": "Tracing one call when stop is true",
+          "columns": [
+            "Step",
+            "Statement or question",
+            "Result"
+          ],
+          "rows": [
+            [
+              "1",
+              "Call the method with `stop = true`",
+              "The method begins."
+            ],
+            [
+              "2",
+              "Check `if (stop)`",
+              "The condition is true."
+            ],
+            [
+              "3",
+              "Run `return;`",
+              "The method exits immediately."
+            ],
+            [
+              "4",
+              "`System.out.println(\"continued\");`",
+              "Not reached on this call."
+            ]
+          ],
+          "highlight": [
+            3
+          ]
+        },
+        {
+          "type": "text",
+          "text": "Now trace with `stop = false`. The `return` does not run, so the method reaches the print. Since at least one path can reach that line, it is not unreachable to the compiler."
+        }
+      ]
+    },
+    {
+      "id": "worked-examples",
+      "title": "Worked examples",
+      "blocks": [
+        {
+          "type": "text",
+          "text": "First, compare an unconditional return with a conditional one. The first example above fails during compilation. This complete program shows a conditional return that can be skipped."
+        },
+        {
+          "title": "",
+          "code": "public class EarlyExit {\n    static void show(boolean stop) {\n        if (stop) {\n            return;\n        }\n        System.out.println(\"continued\");\n    }\n\n    public static void main(String[] args) {\n        show(true);\n        show(false);\n    }\n}",
+          "runnable": true,
+          "output": "continued",
+          "error": null,
+          "compile_error": null,
+          "type": "code"
+        },
+        {
+          "type": "text",
+          "text": "The first call returns before printing. The second call does not return at the `if`, so it prints `continued`. The `return` only exits `show`; it does not end the whole program."
+        },
+        {
+          "type": "steps",
+          "title": "How to fix an accidental unreachable line",
+          "items": [
+            "Find the `return` that runs before the line you wanted.",
+            "Ask whether the method should return before doing that work.",
+            "If the work must happen first, move it before the `return`.",
+            "If the work belongs after the method returns, put it in the caller, as in the `ReturnFixed` example."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "in-disguise",
+      "title": "The same bug in disguise",
+      "blocks": [
+        {
+          "type": "text",
+          "text": "The mistake can be less obvious when the `return` is inside a branch. Ask whether every possible path to the later statement has already returned."
+        },
+        {
+          "type": "compare",
+          "bad": {
+            "title": "Both branches return before the print",
+            "code": "if (ready) {\n    return 1;\n} else {\n    return 2;\n}\nSystem.out.println(\"done\");",
+            "runnable": false,
+            "output": null,
+            "error": null,
+            "compile_error": null
+          },
+          "good": {
+            "title": "Print before either return",
+            "code": "System.out.println(\"done\");\nif (ready) {\n    return 1;\n} else {\n    return 2;\n}",
+            "runnable": false,
+            "output": null,
+            "error": null,
+            "compile_error": null
+          },
+          "note": "In the bad version, either branch exits the method, so the print cannot be reached and Java reports an unreachable statement. In the good version, the print happens before either branch returns."
+        },
+        {
+          "type": "compare",
+          "bad": {
+            "title": "Return before the needed work",
+            "code": "return total;\ntotal = total + bonus;",
+            "runnable": false,
+            "output": null,
+            "error": null,
+            "compile_error": null
+          },
+          "good": {
+            "title": "Do the work before returning",
+            "code": "total = total + bonus;\nreturn total;",
+            "runnable": false,
+            "output": null,
+            "error": null,
+            "compile_error": null
+          },
+          "note": "The bad order leaves the method before the update. The update is unreachable and cannot change the returned value. Put the work before `return` when the returned value should include it."
+        },
+        {
+          "type": "callout",
+          "tone": "tip",
+          "title": "Check the path, not just the next line",
+          "text": "A line after `if (stop) return;` can run when `stop` is false. A line after an unconditional `return`, or after branches that all return, cannot run."
+        }
+      ]
+    },
+    {
+      "id": "check-yourself",
+      "title": "Check yourself",
+      "blocks": [
+        {
+          "type": "check",
+          "question": "What happens when Java compiles this method?",
+          "code": "static int number() {\n    return 4;\n    System.out.println(\"later\");\n}",
+          "options": [
+            "It compiles, then prints later.",
+            "It compiles, but skips the print at run time.",
+            "The compiler reports an unreachable statement.",
+            "It prints later, then returns 4."
+          ],
+          "answer": 2,
+          "explanation": "`return 4;` always exits the method before the print. Java reports the print as unreachable at compile time, so the method does not compile."
+        },
+        {
+          "type": "check",
+          "question": "Can the print run when `stop` is false?",
+          "code": "if (stop) {\n    return;\n}\nSystem.out.println(\"ready\");",
+          "options": [
+            "Yes. The condition is false, so the method reaches the print.",
+            "No. Any `return` makes all later lines unreachable.",
+            "No. The compiler rejects every line after an `if`.",
+            "Yes, but only after the method has ended."
+          ],
+          "answer": 0,
+          "explanation": "When `stop` is false, the body containing `return` is skipped. The method continues to the print, so that line is reachable."
+        },
+        {
+          "type": "check",
+          "question": "What does `return;` do inside a `void` method?",
+          "code": "static void leaveEarly() {\n    return;\n    System.out.println(\"after\");\n}",
+          "options": [
+            "It returns the value zero.",
+            "It leaves the current method immediately.",
+            "It ends every method in the program.",
+            "It pauses the method and then continues."
+          ],
+          "answer": 1,
+          "explanation": "A `return;` in a `void` method exits that method immediately. The print after it is unreachable, so Java reports an error at compile time."
+        }
+      ]
+    },
+    {
+      "id": "key-points",
+      "title": "Key points",
+      "blocks": [
+        {
+          "type": "keypoints",
+          "items": [
+            "`return` leaves the current method immediately.",
+            "A statement after an unconditional `return` cannot run, and Java reports it as unreachable at compile time.",
+            "A line after a conditional `return` can still be reachable if another path skips the return.",
+            "Trace each path in order. Check whether any path can reach the line.",
+            "Move needed work before the `return`, or put work that belongs after a method call in the caller."
+          ]
+        }
+      ]
+    }
+  ],
+  "sources": [
+    "control_flow.txt"
+  ]
+}

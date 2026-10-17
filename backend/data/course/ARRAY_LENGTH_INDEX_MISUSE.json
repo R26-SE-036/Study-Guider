@@ -1,0 +1,300 @@
+{
+  "id": "ARRAY_LENGTH_INDEX_MISUSE",
+  "concept": "array_indexing",
+  "title": "Using length as an index",
+  "summary": "Why an array's length is not a valid index, how the mistake fails at run time, and how to find the last element safely.",
+  "minutes": 15,
+  "status": "published",
+  "objectives": [
+    "Explain why an array with length `n` has valid indices from `0` through `n - 1`.",
+    "Predict what happens when code uses `array[array.length]`.",
+    "Trace a loop that uses `<=` and find the index that causes a crash.",
+    "Fix an array access or loop by reasoning about the valid indices."
+  ],
+  "sections": [
+    {
+      "id": "the-mistake",
+      "title": "The mistake",
+      "blocks": [
+        {
+          "type": "text",
+          "text": "An array's `length` tells you how many values it holds. It is not an index you can use to get a value. For an array of length `3`, the valid indices are `0`, `1` and `2`. This mistake often appears when someone tries to get the last value with `values[values.length]`."
+        },
+        {
+          "type": "compare",
+          "bad": {
+            "title": "One past the final value",
+            "code": "int last = values[values.length];",
+            "runnable": false,
+            "output": null,
+            "error": null,
+            "compile_error": null
+          },
+          "good": {
+            "title": "Use the final valid index",
+            "code": "int last = values[values.length - 1];",
+            "runnable": false,
+            "output": null,
+            "error": null,
+            "compile_error": null
+          },
+          "note": "The bad line compiles, but it always fails when it runs: the index is one past the end, whatever the array holds. The good line subtracts `1` because indices start at `0`."
+        }
+      ]
+    },
+    {
+      "id": "why-it-happens",
+      "title": "Why it happens",
+      "blocks": [
+        {
+          "type": "text",
+          "text": "It is easy to mix up a count and a position. A length is a count of boxes. An index is the number on one box, starting at `0`. With three boxes, the count is `3`, but the last box is at index `2`."
+        },
+        {
+          "type": "array",
+          "caption": "`int[] values = {4, 7, 9};`",
+          "name": "values",
+          "values": [
+            "4",
+            "7",
+            "9"
+          ],
+          "highlight": [
+            2
+          ],
+          "outside": 3,
+          "note": "There are `3` boxes. The last box is `values[2]`. The index `3` points to the gap after the final box, not to a value."
+        },
+        {
+          "type": "diagram",
+          "caption": "How length 3 relates to the valid indices",
+          "mermaid": "flowchart TD\n  A[Length is 3] --> B[Valid indices are 0 1 and 2]\n  B --> C[The final box is at index 2]\n  A --> D[Index 3 is after the final box]\n  D --> E[Accessing index 3 fails at run time]"
+        },
+        {
+          "type": "callout",
+          "tone": "tip",
+          "title": "Keep count and position separate",
+          "text": "`length` counts the boxes. An index names a box. The last index is always `length - 1`."
+        }
+      ]
+    },
+    {
+      "id": "trace",
+      "title": "Trace it one step at a time",
+      "blocks": [
+        {
+          "type": "text",
+          "text": "A loop can hide the same mistake. Trace each value of `i` and check whether the condition is true. This loop uses `<=`, so it still runs when `i` equals `values.length`."
+        },
+        {
+          "type": "table",
+          "caption": "Tracing `for (int i = 0; i <= values.length; i++)` when `values.length` is `3`",
+          "columns": [
+            "Pass",
+            "`i`",
+            "`i <= 3?`",
+            "What the body tries to do"
+          ],
+          "rows": [
+            [
+              "1",
+              "0",
+              "true",
+              "Read `values[0]`"
+            ],
+            [
+              "2",
+              "1",
+              "true",
+              "Read `values[1]`"
+            ],
+            [
+              "3",
+              "2",
+              "true",
+              "Read `values[2]`"
+            ],
+            [
+              "4",
+              "3",
+              "true",
+              "Read `values[3]`: this index is invalid"
+            ]
+          ],
+          "highlight": [
+            3
+          ]
+        },
+        {
+          "type": "text",
+          "text": "The fourth pass causes the error. The code compiles, then throws `ArrayIndexOutOfBoundsException` while it runs. Changing the condition to `i < values.length` makes it stop before the invalid index."
+        }
+      ]
+    },
+    {
+      "id": "worked-examples",
+      "title": "Two worked examples",
+      "blocks": [
+        {
+          "type": "text",
+          "text": "In each example, first identify the array's length. Then list its valid indices. This lets you check the access before running the program."
+        },
+        {
+          "type": "compare",
+          "bad": {
+            "title": "Example 1: length used as the last index",
+            "code": "public class LastValue {\n    public static void main(String[] args) {\n        int[] values = {4, 7, 9};\n        System.out.println(values[values.length]);\n    }\n}",
+            "runnable": true,
+            "output": "",
+            "error": "ArrayIndexOutOfBoundsException: Index 3 out of bounds for length 3",
+            "compile_error": null
+          },
+          "good": {
+            "title": "Example 1 fixed: subtract one",
+            "code": "public class LastValue {\n    public static void main(String[] args) {\n        int[] values = {4, 7, 9};\n        System.out.println(values[values.length - 1]);\n    }\n}",
+            "runnable": true,
+            "output": "9",
+            "error": null,
+            "compile_error": null
+          },
+          "note": "The array has length `3`, so its valid indices are `0`, `1` and `2`. The bad program compiles but fails at run time when it tries index `3`. The fixed program uses index `3 - 1`, which is `2`."
+        },
+        {
+          "type": "compare",
+          "bad": {
+            "title": "Example 2: loop includes the length",
+            "code": "public class PrintValues {\n    public static void main(String[] args) {\n        int[] values = {10, 20, 30};\n        for (int i = 0; i <= values.length; i++) {\n            System.out.println(values[i]);\n        }\n    }\n}",
+            "runnable": true,
+            "output": "10\n20\n30",
+            "error": "ArrayIndexOutOfBoundsException: Index 3 out of bounds for length 3",
+            "compile_error": null
+          },
+          "good": {
+            "title": "Example 2 fixed: stop before the length",
+            "code": "public class PrintValues {\n    public static void main(String[] args) {\n        int[] values = {10, 20, 30};\n        for (int i = 0; i < values.length; i++) {\n            System.out.println(values[i]);\n        }\n    }\n}",
+            "runnable": true,
+            "output": "10\n20\n30",
+            "error": null,
+            "compile_error": null
+          },
+          "note": "The bad loop prints the three values, then tries to read `values[3]` and crashes. Both programs compile. The strict condition `i < values.length` stops when `i` reaches `3`, before the loop body can use that invalid index."
+        }
+      ]
+    },
+    {
+      "id": "same-bug-in-disguise",
+      "title": "The same bug in disguise",
+      "blocks": [
+        {
+          "type": "text",
+          "text": "The same boundary mistake can appear as a direct access, a loop condition, or a negative index. These examples compile, but an invalid array access fails when it runs."
+        },
+        {
+          "type": "compare",
+          "bad": {
+            "title": "A loop reaches the invalid index",
+            "code": "for (int i = 0; i <= marks.length; i++) {\n    System.out.println(marks[i]);\n}",
+            "runnable": false,
+            "output": null,
+            "error": null,
+            "compile_error": null
+          },
+          "good": {
+            "title": "Visit each array element",
+            "code": "for (int i = 0; i < marks.length; i++) {\n    System.out.println(marks[i]);\n}",
+            "runnable": false,
+            "output": null,
+            "error": null,
+            "compile_error": null
+          },
+          "note": "When `i` becomes `marks.length`, the bad loop tries to use an index that does not exist. The good loop stops before that value."
+        },
+        {
+          "type": "compare",
+          "bad": {
+            "title": "A negative index is not the end",
+            "code": "int last = marks[-1];",
+            "runnable": false,
+            "output": null,
+            "error": null,
+            "compile_error": null
+          },
+          "good": {
+            "title": "Use the last valid index",
+            "code": "int last = marks[marks.length - 1];",
+            "runnable": false,
+            "output": null,
+            "error": null,
+            "compile_error": null
+          },
+          "note": "Java does not use `-1` to mean the final element. For a non-empty array, use `marks.length - 1`."
+        }
+      ]
+    },
+    {
+      "id": "check-yourself",
+      "title": "Check yourself",
+      "blocks": [
+        {
+          "type": "check",
+          "question": "An array has length `4`. What is its last valid index?",
+          "code": "",
+          "options": [
+            "`4`",
+            "`3`",
+            "`5`",
+            "`-1`"
+          ],
+          "answer": 1,
+          "explanation": "The indices start at `0`, so an array of length `4` has indices `0`, `1`, `2` and `3`. The last index is `4 - 1`, or `3`."
+        },
+        {
+          "type": "check",
+          "question": "What happens when this program reaches its final loop pass?",
+          "code": "int[] a = {5, 6};\nfor (int i = 0; i <= a.length; i++) {\n    System.out.println(a[i]);\n}",
+          "options": [
+            "It prints both values and stops normally.",
+            "It fails at run time when it tries `a[2]`.",
+            "It fails to compile because of `<=`.",
+            "It prints the value at index `2`."
+          ],
+          "answer": 1,
+          "explanation": "The array length is `2`, and its valid indices are `0` and `1`. The condition also allows `i` to be `2`, so the program tries an invalid access and throws `ArrayIndexOutOfBoundsException` at run time."
+        },
+        {
+          "type": "check",
+          "question": "Which expression gets the final value from a non-empty array named `items`?",
+          "code": "",
+          "options": [
+            "`items[items.length]`",
+            "`items[items.length - 1]`",
+            "`items[-1]`",
+            "`items[items.length + 1]`"
+          ],
+          "answer": 1,
+          "explanation": "The last valid index is one less than the length. So `items[items.length - 1]` accesses the final value."
+        }
+      ]
+    },
+    {
+      "id": "key-points",
+      "title": "Key points",
+      "blocks": [
+        {
+          "type": "keypoints",
+          "items": [
+            "An array of length `n` has valid indices from `0` through `n - 1`.",
+            "`array.length` is a count, not a valid index for that array.",
+            "For a non-empty array, the last element is `array[array.length - 1]`.",
+            "Use `i < array.length` to loop over every array element from index `0`.",
+            "An invalid index compiles but throws `ArrayIndexOutOfBoundsException` at run time."
+          ]
+        }
+      ]
+    }
+  ],
+  "sources": [
+    "array_indexing.txt",
+    "loop_boundaries.txt"
+  ]
+}

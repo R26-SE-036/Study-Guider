@@ -1,0 +1,291 @@
+{
+  "id": "DIVISION_BY_ZERO_LITERAL",
+  "concept": "arithmetic_operations",
+  "title": "Dividing by zero",
+  "summary": "Why `total / 0` compiles without a warning but crashes when it runs, and how to check the divisor before dividing.",
+  "minutes": 15,
+  "status": "published",
+  "objectives": [
+    "Explain why `int total = 90; int average = total / 0;` compiles but throws an exception when it runs.",
+    "Trace a division expression and identify when the program reaches a zero divisor.",
+    "Check a divisor before dividing and handle the zero case.",
+    "Recognize the same risk when the divisor is a variable or is used with `%`."
+  ],
+  "sections": [
+    {
+      "id": "the-mistake",
+      "title": "The mistake",
+      "blocks": [
+        {
+          "title": "",
+          "code": "int total = 90;\n// dividing an int by 0 throws ArithmeticException\nint average = total / 0;",
+          "runnable": false,
+          "output": null,
+          "error": null,
+          "compile_error": null,
+          "type": "code"
+        },
+        {
+          "type": "text",
+          "text": "This is exactly the mistake Code Coach flags: the program tries to divide an `int` by zero."
+        },
+        {
+          "type": "text",
+          "text": "`javac` accepts this statement without an error or a warning, even though the `0` is written right there in the code. Even `10 / 0` compiles. When the program runs and reaches `total / 0`, Java throws an `ArithmeticException`. This is a run-time error, not a compile-time error."
+        },
+        {
+          "type": "callout",
+          "tone": "warn",
+          "title": "The important detail",
+          "text": "For `int` division, the number on the right of `/` is the divisor. It must not be zero. In the flagged code, the divisor is the literal `0`."
+        }
+      ]
+    },
+    {
+      "id": "why-it-happens",
+      "title": "Why it happens",
+      "blocks": [
+        {
+          "type": "text",
+          "text": "Java evaluates the division when it reaches that statement. It can read the value `90` from `total`, but it cannot calculate an `int` result for `total / 0`. The statement throws an exception instead of storing a value in `average`."
+        },
+        {
+          "type": "diagram",
+          "caption": "Check the divisor before calculating an average",
+          "mermaid": "flowchart TD\n  A[Start with total and count] --> B{Is count zero}\n  B -- yes --> C[Do not divide]\n  C --> D[Handle the missing average]\n  B -- no --> E[Calculate total divided by count]\n  E --> F[Use the average]"
+        },
+        {
+          "type": "text",
+          "text": "For the flagged code, the divisor is the literal `0`, so there is no useful check to perform: the statement itself needs to change. In an average calculation, the divisor is usually a variable such as `count`. Check that variable before using it."
+        },
+        {
+          "type": "chart",
+          "caption": "Integer results for 90 divided by positive counts",
+          "x_label": "Positive divisor count",
+          "y_label": "Integer result",
+          "categories": [
+            "count 1",
+            "count 2",
+            "count 3"
+          ],
+          "series": [
+            {
+              "name": "90 divided by count",
+              "values": [
+                90.0,
+                45.0,
+                30.0
+              ]
+            }
+          ]
+        },
+        {
+          "type": "callout",
+          "tone": "info",
+          "title": "A zero count is a different case",
+          "text": "The chart shows results for positive counts. If `count` is `0`, there is no integer result to put in the chart: the division throws an exception."
+        }
+      ]
+    },
+    {
+      "id": "trace",
+      "title": "Trace it, one step at a time",
+      "blocks": [
+        {
+          "type": "text",
+          "text": "A trace lists what Java does in order. Follow the flagged code from the declaration to the division."
+        },
+        {
+          "type": "table",
+          "caption": "Tracing `int total = 90; int average = total / 0;`",
+          "columns": [
+            "Step",
+            "Statement or expression",
+            "What happens"
+          ],
+          "rows": [
+            [
+              "1",
+              "`int total = 90;`",
+              "Java creates `total` and stores `90` in it."
+            ],
+            [
+              "2",
+              "`int average = total / 0;`",
+              "Java starts evaluating the right side before assigning a value to `average`."
+            ],
+            [
+              "3",
+              "`total / 0`",
+              "Java reads `total` as `90` and finds that the divisor is `0`."
+            ],
+            [
+              "4",
+              "The division fails",
+              "Java throws `ArithmeticException`; the assignment to `average` does not finish."
+            ]
+          ],
+          "highlight": [
+            3
+          ]
+        },
+        {
+          "type": "text",
+          "text": "The error occurs at step 3, when the program runs. The compiler gives no error or warning for it."
+        }
+      ]
+    },
+    {
+      "id": "worked-examples",
+      "title": "Worked examples: check, then divide",
+      "blocks": [
+        {
+          "type": "text",
+          "text": "For an average, the count is the divisor. First decide what the program should do when the count is zero. Only calculate the average in the other case."
+        },
+        {
+          "title": "",
+          "code": "public class SafeAverage {\n    public static void main(String[] args) {\n        int total = 90;\n        int count = 3;\n\n        if (count == 0) {\n            System.out.println(\"Cannot calculate an average: count is zero.\");\n        } else {\n            int average = total / count;\n            System.out.println(\"Average: \" + average);\n        }\n    }\n}",
+          "runnable": true,
+          "output": "Average: 30",
+          "error": null,
+          "compile_error": null,
+          "type": "code"
+        },
+        {
+          "type": "text",
+          "text": "Here `count` is `3`, so the `else` branch runs. Java calculates `90 / 3` and stores `30` in `average`. If `count` were `0`, the first branch would run and the division would be skipped."
+        },
+        {
+          "title": "",
+          "code": "public class DecimalAverage {\n    public static void main(String[] args) {\n        int total = 90;\n        int count = 4;\n\n        if (count == 0) {\n            System.out.println(\"Cannot calculate an average: count is zero.\");\n        } else {\n            double average = (double) total / count;\n            System.out.println(\"Average: \" + average);\n        }\n    }\n}",
+          "runnable": true,
+          "output": "Average: 22.5",
+          "error": null,
+          "compile_error": null,
+          "type": "code"
+        },
+        {
+          "type": "text",
+          "text": "This example still checks for zero first. The cast `(double) total` makes the division produce a decimal result. Without that cast, `90 / 4` would be integer division and give `22`, because Java discards the fractional part when both operands are `int`."
+        }
+      ]
+    },
+    {
+      "id": "same-bug-disguise",
+      "title": "The same bug in disguise",
+      "blocks": [
+        {
+          "type": "text",
+          "text": "The flagged code writes `0` directly. Often the zero comes from a variable instead, so the danger is less obvious. The variable still needs checking before the division."
+        },
+        {
+          "type": "compare",
+          "bad": {
+            "title": "A variable may be zero",
+            "code": "int average = total / count;",
+            "runnable": false,
+            "output": null,
+            "error": null,
+            "compile_error": null
+          },
+          "good": {
+            "title": "Check before dividing",
+            "code": "if (count == 0) {\n    System.out.println(\"Cannot calculate an average: count is zero.\");\n} else {\n    int average = total / count;\n}",
+            "runnable": false,
+            "output": null,
+            "error": null,
+            "compile_error": null
+          },
+          "note": "The first statement compiles, but if `count` is `0` when it runs, it throws `ArithmeticException`. The second version handles that case before evaluating `total / count`."
+        },
+        {
+          "type": "compare",
+          "bad": {
+            "title": "Remainder can also reach zero",
+            "code": "int remainder = total % count;",
+            "runnable": false,
+            "output": null,
+            "error": null,
+            "compile_error": null
+          },
+          "good": {
+            "title": "Check the divisor for remainder too",
+            "code": "if (count != 0) {\n    int remainder = total % count;\n}",
+            "runnable": false,
+            "output": null,
+            "error": null,
+            "compile_error": null
+          },
+          "note": "The `%` operator gives a remainder, but an `int` remainder operation also throws `ArithmeticException` if its divisor is `0`. Check the divisor before using `%`."
+        }
+      ]
+    },
+    {
+      "id": "check-yourself",
+      "title": "Check yourself",
+      "blocks": [
+        {
+          "type": "check",
+          "question": "In the flagged code, when does `total / 0` cause a problem?",
+          "code": "int total = 90;\nint average = total / 0;",
+          "options": [
+            "The compiler rejects the code before it can run.",
+            "The code compiles, then throws an exception when the division runs.",
+            "It stores `0` in `average`.",
+            "It stores `90` in `average`."
+          ],
+          "answer": 1,
+          "explanation": "Java does not check for a zero divisor when it compiles, even a literal `0`, so this compiles. At run time, the `int` division reaches a divisor of `0` and throws `ArithmeticException`."
+        },
+        {
+          "type": "check",
+          "question": "Which version avoids dividing when `count` is zero?",
+          "code": "",
+          "options": [
+            "`int average = total / count;`",
+            "`if (count == 0) { } else { int average = total / count; }`",
+            "`int average = total / 0;`",
+            "`int average = count / total;`"
+          ],
+          "answer": 1,
+          "explanation": "The `else` branch runs only when `count == 0` is false. That means `total / count` is not evaluated when `count` is zero."
+        },
+        {
+          "type": "check",
+          "question": "What does `90 / 4` produce when both values are `int`?",
+          "code": "",
+          "options": [
+            "`22.5`",
+            "`23`",
+            "`22`",
+            "An `ArithmeticException`"
+          ],
+          "answer": 2,
+          "explanation": "Both operands are `int`, so Java discards the fractional part. The result is `22`. This is integer division, not division by zero."
+        }
+      ]
+    },
+    {
+      "id": "key-points",
+      "title": "Key points",
+      "blocks": [
+        {
+          "type": "keypoints",
+          "items": [
+            "The flagged code `int average = total / 0;` compiles without a warning, then throws `ArithmeticException` when the division runs.",
+            "A zero divisor is a run-time problem for this `int` division, not a compile-time warning.",
+            "For an average, check that `count` is not `0` before calculating `total / count`.",
+            "A variable can hold zero even when the code does not show a literal `0`; check its value before dividing.",
+            "Use the same zero-divisor check before an `int` remainder operation with `%`.",
+            "When both operands are `int`, division discards the fractional part. Use a floating-point operand when a decimal result is needed."
+          ]
+        }
+      ]
+    }
+  ],
+  "sources": [
+    "arithmetic_operations.txt",
+    "assignment_logic.txt"
+  ]
+}

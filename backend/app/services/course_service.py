@@ -127,12 +127,16 @@ class Callout(_Block):
 class Program(_Block):
     """A piece of code. `runnable` means it is a whole program: the check
     compiles and runs it and compares `output` (stdout) and `error` (a phrase
-    expected in stderr) with what actually happens."""
+    expected in stderr) with what actually happens. `compile_error` is for a
+    program that is meant NOT to compile: the phrase must appear in javac's
+    message. Every program with a main method must be runnable, so a claim
+    about what Java does is always one the check has tested."""
     title: str = ""
     code: str = Field(min_length=1)
     runnable: bool = False
     output: Optional[str] = None
     error: Optional[str] = None
+    compile_error: Optional[str] = None
 
 
 class Code(Program):

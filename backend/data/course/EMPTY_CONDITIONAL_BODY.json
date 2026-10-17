@@ -1,0 +1,289 @@
+{
+  "id": "EMPTY_CONDITIONAL_BODY",
+  "concept": "statement_structure",
+  "title": "The semicolon after if",
+  "summary": "A stray semicolon can make an if statement do nothing, while the code below it runs every time.",
+  "minutes": 15,
+  "status": "published",
+  "objectives": [
+    "Explain what Java treats as the body of an if statement.",
+    "Trace what happens when a semicolon follows an if condition.",
+    "Recognize how indentation can hide the bug.",
+    "Fix the mistake with braces and check the program's behavior."
+  ],
+  "sections": [
+    {
+      "id": "the-mistake",
+      "title": "The mistake",
+      "blocks": [
+        {
+          "type": "text",
+          "text": "A semicolon ends a statement in Java. That is why this tiny mark can change what an `if` does. In this example, the writer wants the message to appear only when `temperature` is above 30."
+        },
+        {
+          "type": "compare",
+          "bad": {
+            "title": "The semicolon ends the if body",
+            "code": "public class Weather {\n    public static void main(String[] args) {\n        int temperature = 20;\n        if (temperature > 30);\n        {\n            System.out.println(\"It is hot.\");\n        }\n    }\n}",
+            "runnable": true,
+            "output": "It is hot.",
+            "error": null,
+            "compile_error": null
+          },
+          "good": {
+            "title": "The block is the if body",
+            "code": "public class Weather {\n    public static void main(String[] args) {\n        int temperature = 20;\n        if (temperature > 30) {\n            System.out.println(\"It is hot.\");\n        }\n    }\n}",
+            "runnable": true,
+            "output": "",
+            "error": null,
+            "compile_error": null
+          },
+          "note": "Both programs compile. The bad version also runs without a warning, but its condition does not control the message. The semicolon is the entire body of the `if`. The following block is separate, so it runs whether the condition is true or false."
+        }
+      ]
+    },
+    {
+      "id": "why-it-happens",
+      "title": "Why it happens",
+      "blocks": [
+        {
+          "type": "text",
+          "text": "An `if` controls the next statement. A statement can be a single line, a block inside braces, or even an empty statement made by a semicolon. In the bad example, Java sees the semicolon as the statement to control. The braces come after that statement, so they do not belong to the `if`."
+        },
+        {
+          "type": "diagram",
+          "caption": "What Java does with if temperature > 30; followed by a block",
+          "mermaid": "flowchart TD\n  A([Start]) --> B{temperature > 30?}\n  B -- yes --> C[Empty statement]\n  B -- no --> D[Skip empty statement]\n  C --> E[Run following block]\n  D --> E\n  E --> F([End])"
+        },
+        {
+          "type": "text",
+          "text": "The block runs on both paths. Indentation does not change this: Java follows the semicolon and matching braces, not how the code looks on the page."
+        },
+        {
+          "type": "callout",
+          "tone": "tip",
+          "title": "Follow the statement",
+          "text": "After an `if` condition, ask: what is the very next statement? If it is a stray `;`, the `if` controls only an empty statement."
+        }
+      ]
+    },
+    {
+      "id": "trace",
+      "title": "Trace it one step at a time",
+      "blocks": [
+        {
+          "type": "text",
+          "text": "Let `temperature` be 20. Trace the bad version from top to bottom. Notice that the condition decides whether the empty statement runs, but the block comes afterward."
+        },
+        {
+          "type": "table",
+          "caption": "Tracing if (temperature > 30); followed by a block",
+          "columns": [
+            "Step",
+            "What Java checks or runs",
+            "Result"
+          ],
+          "rows": [
+            [
+              "1",
+              "Check `temperature > 30`",
+              "`20 > 30` is `false`"
+            ],
+            [
+              "2",
+              "The `if` body is the semicolon",
+              "Skip the empty statement"
+            ],
+            [
+              "3",
+              "Reach the block after the `if`",
+              "The block runs"
+            ],
+            [
+              "4",
+              "Run `System.out.println(\"It is hot.\")`",
+              "Print `It is hot.`"
+            ]
+          ],
+          "highlight": [
+            2
+          ]
+        },
+        {
+          "type": "text",
+          "text": "The message prints even though the condition is false. Without the semicolon, the block itself is the `if` body, so a false condition skips the block."
+        }
+      ]
+    },
+    {
+      "id": "worked-examples",
+      "title": "Two worked examples",
+      "blocks": [
+        {
+          "type": "text",
+          "text": "In each example, first decide what the condition should control. Then check whether the next statement is the intended one or a semicolon."
+        },
+        {
+          "type": "compare",
+          "bad": {
+            "title": "A welcome prints for every visitor",
+            "code": "public class Welcome {\n    public static void main(String[] args) {\n        boolean isMember = false;\n        if (isMember);\n        {\n            System.out.println(\"Welcome, member.\");\n        }\n    }\n}",
+            "runnable": true,
+            "output": "Welcome, member.",
+            "error": null,
+            "compile_error": null
+          },
+          "good": {
+            "title": "Only a member gets the message",
+            "code": "public class Welcome {\n    public static void main(String[] args) {\n        boolean isMember = false;\n        if (isMember) {\n            System.out.println(\"Welcome, member.\");\n        }\n    }\n}",
+            "runnable": true,
+            "output": "",
+            "error": null,
+            "compile_error": null
+          },
+          "note": "The condition is false because `isMember` is `false`. In the bad version, the semicolon is the `if` body and the message block runs afterward. Removing the semicolon puts the block under the condition."
+        },
+        {
+          "type": "compare",
+          "bad": {
+            "title": "The number prints even when it is not positive",
+            "code": "public class PositiveNumber {\n    public static void main(String[] args) {\n        int number = -2;\n        if (number > 0);\n        {\n            System.out.println(\"Positive\");\n        }\n    }\n}",
+            "runnable": true,
+            "output": "Positive",
+            "error": null,
+            "compile_error": null
+          },
+          "good": {
+            "title": "The message prints only for a positive number",
+            "code": "public class PositiveNumber {\n    public static void main(String[] args) {\n        int number = -2;\n        if (number > 0) {\n            System.out.println(\"Positive\");\n        }\n    }\n}",
+            "runnable": true,
+            "output": "",
+            "error": null,
+            "compile_error": null
+          },
+          "note": "Since `-2 > 0` is false, the fixed version skips the block. The bad version still reaches its separate block and prints the message."
+        }
+      ]
+    },
+    {
+      "id": "same-bug-in-disguise",
+      "title": "The same bug in disguise",
+      "blocks": [
+        {
+          "type": "text",
+          "text": "The same stray semicolon can follow a `for` header. It makes the loop repeat an empty statement, then the block after the loop runs once. Another related trap is leaving out braces: only the first statement belongs to the `if`, even if indentation makes a second line look included."
+        },
+        {
+          "type": "compare",
+          "bad": {
+            "title": "The loop body is empty",
+            "code": "for (int i = 0; i < 3; i++);\n{\n    System.out.println(\"Hello\");\n}",
+            "runnable": false,
+            "output": null,
+            "error": null,
+            "compile_error": null
+          },
+          "good": {
+            "title": "The block is the loop body",
+            "code": "for (int i = 0; i < 3; i++) {\n    System.out.println(\"Hello\");\n}",
+            "runnable": false,
+            "output": null,
+            "error": null,
+            "compile_error": null
+          },
+          "note": "In the bad version, the loop repeats an empty statement three times. The block after it runs once, so it prints `Hello` once, not three times."
+        },
+        {
+          "type": "compare",
+          "bad": {
+            "title": "Indentation makes the second line look conditional",
+            "code": "if (score > 0)\n    System.out.println(\"Positive\");\n    System.out.println(\"Checked\");",
+            "runnable": false,
+            "output": null,
+            "error": null,
+            "compile_error": null
+          },
+          "good": {
+            "title": "Braces make both lines conditional",
+            "code": "if (score > 0) {\n    System.out.println(\"Positive\");\n    System.out.println(\"Checked\");\n}",
+            "runnable": false,
+            "output": null,
+            "error": null,
+            "compile_error": null
+          },
+          "note": "Without braces, only the first print statement belongs to the `if`. The second statement runs regardless of `score`. Java uses braces and statement structure, not indentation, to decide what is inside the `if`."
+        },
+        {
+          "type": "callout",
+          "tone": "tip",
+          "title": "Make the structure visible",
+          "text": "Use braces for every `if` body, even when it contains only one statement. Then a later change is less likely to leave a line outside the condition by accident."
+        }
+      ]
+    },
+    {
+      "id": "check-yourself",
+      "title": "Check yourself",
+      "blocks": [
+        {
+          "type": "check",
+          "question": "What does this program print?",
+          "code": "int count = 0;\nif (count > 0);\n{\n    System.out.println(\"Done\");\n}",
+          "options": [
+            "Nothing",
+            "Done",
+            "It does not compile",
+            "It prints Done only when count is above 0"
+          ],
+          "answer": 1,
+          "explanation": "The semicolon is the complete body of the `if`. The block after it is separate, so it runs and prints `Done`. This code compiles."
+        },
+        {
+          "type": "check",
+          "question": "Which version prints `Ready` only when `isReady` is true?",
+          "code": "",
+          "options": [
+            "if (isReady); { System.out.println(\"Ready\"); }",
+            "if (isReady) { System.out.println(\"Ready\"); }",
+            "if (isReady); System.out.println(\"Ready\");",
+            "All versions do"
+          ],
+          "answer": 1,
+          "explanation": "In the second version, the block is the statement controlled by the `if`. The semicolon in the other versions ends the `if` body early."
+        },
+        {
+          "type": "check",
+          "question": "How many times does `Hello` print?",
+          "code": "for (int i = 0; i < 3; i++);\n{\n    System.out.println(\"Hello\");\n}",
+          "options": [
+            "0",
+            "1",
+            "3",
+            "It never stops"
+          ],
+          "answer": 1,
+          "explanation": "The semicolon makes the loop body empty. The block after the loop runs once, after the loop finishes, so it prints `Hello` once."
+        }
+      ]
+    },
+    {
+      "id": "key-points",
+      "title": "Key points",
+      "blocks": [
+        {
+          "type": "keypoints",
+          "items": [
+            "Java compiles `if (condition);` as an `if` with an empty body. The semicolon is legal, so this mistake usually compiles without a warning.",
+            "A block after that semicolon is separate and runs regardless of the condition.",
+            "Java uses statements and matching braces to decide structure. Indentation does not control execution.",
+            "Use braces around the statements that should depend on an `if`.",
+            "When code runs unexpectedly, trace the statement immediately after the condition and check for a stray `;`."
+          ]
+        }
+      ]
+    }
+  ],
+  "sources": [
+    "statement_structure.txt"
+  ]
+}

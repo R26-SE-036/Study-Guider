@@ -1,0 +1,303 @@
+{
+  "id": "ACCUMULATOR_RESET_INSIDE_LOOP",
+  "concept": "loop_initialization",
+  "title": "Resetting a total inside the loop",
+  "summary": "Why a total that is reset inside a loop keeps only the last value, and how to place its starting value correctly.",
+  "minutes": 15,
+  "status": "published",
+  "objectives": [
+    "Explain why resetting an accumulator inside a loop loses earlier values.",
+    "Trace how a total changes on each loop pass.",
+    "Place an accumulator's initialization before the loop.",
+    "Recognize the same reset mistake in maximum and minimum calculations."
+  ],
+  "sections": [
+    {
+      "id": "the-mistake",
+      "title": "The mistake",
+      "blocks": [
+        {
+          "type": "text",
+          "text": "Here is the exact pattern Code Coach flags:"
+        },
+        {
+          "title": "",
+          "code": "int[] sales = {5, 3, 8};\nint total = 0;\nfor (int i = 0; i < sales.length; i++) {\n    total = 0; // throws the running total away\n    total += sales[i];\n}",
+          "runnable": false,
+          "output": null,
+          "error": null,
+          "compile_error": null,
+          "type": "code"
+        },
+        {
+          "type": "text",
+          "text": "The loop resets `total` to zero on every pass. Then it adds just the current sale. After the loop, `total` is `8`, not the intended sum `16`. This code compiles. Java does not warn that the result may be wrong; the mistake shows when the program runs."
+        },
+        {
+          "type": "callout",
+          "tone": "warn",
+          "title": "The comment is not a Java exception",
+          "text": "The comment says the running total is thrown away. That describes the logic, not a crash. The loop runs normally and leaves the last sale in `total`."
+        }
+      ]
+    },
+    {
+      "id": "why-it-happens",
+      "title": "Why it happens",
+      "blocks": [
+        {
+          "type": "text",
+          "text": "A `for` loop has an initialization part in its header. In `for (int i = 0; i < sales.length; i++)`, `i` is set to zero once, before the first condition check. The loop body runs again for each sale. Any assignment inside that body runs again too."
+        },
+        {
+          "type": "diagram",
+          "caption": "The reset happens again on every pass",
+          "mermaid": "flowchart TD\n  A[Set i to zero once] --> B{i less than sales length}\n  B -- yes --> C[Reset total to zero]\n  C --> D[Add current sale]\n  D --> E[Increase i]\n  E --> B\n  B -- no --> F[Loop ends with total eight]"
+        },
+        {
+          "type": "array",
+          "caption": "int[] sales = {5, 3, 8};",
+          "name": "sales",
+          "values": [
+            "5",
+            "3",
+            "8"
+          ],
+          "highlight": [
+            2
+          ],
+          "outside": 3,
+          "note": "The loop visits `sales[0]`, `sales[1]`, and `sales[2]`. The last visit adds `sales[2]`, which is `8`, after resetting `total`."
+        },
+        {
+          "type": "callout",
+          "tone": "tip",
+          "title": "The fix",
+          "text": "Give `total` its starting value before the loop. Then let each pass add to the value already stored. `total += sales[i]` means `total = total + sales[i]`."
+        }
+      ]
+    },
+    {
+      "id": "trace",
+      "title": "Trace it, one pass at a time",
+      "blocks": [
+        {
+          "type": "text",
+          "text": "A trace table records the important values after each pass. Follow both assignments in the body: first the reset, then the addition."
+        },
+        {
+          "type": "table",
+          "caption": "Tracing the flagged code with sales equal to 5, 3, 8",
+          "columns": [
+            "Pass",
+            "`i`",
+            "`total` after reset",
+            "`total` after addition"
+          ],
+          "rows": [
+            [
+              "1",
+              "`0`",
+              "`0`",
+              "`0 + sales[0] = 5`"
+            ],
+            [
+              "2",
+              "`1`",
+              "`0`",
+              "`0 + sales[1] = 3`"
+            ],
+            [
+              "3",
+              "`2`",
+              "`0`",
+              "`0 + sales[2] = 8`"
+            ],
+            [
+              "Stop",
+              "`3`",
+              "The condition `3 < 3` is false",
+              "`total` stays `8`"
+            ]
+          ],
+          "highlight": [
+            2
+          ]
+        },
+        {
+          "type": "text",
+          "text": "The reset makes each pass forget the previous result. Move `total = 0` before the loop, and the additions become `0 + 5`, then `5 + 3`, then `8 + 8`. The final value is `16`."
+        }
+      ]
+    },
+    {
+      "id": "worked-examples",
+      "title": "Worked examples",
+      "blocks": [
+        {
+          "type": "text",
+          "text": "First, compare complete programs. Both compile and run. The only important change is where `total = 0` appears."
+        },
+        {
+          "type": "compare",
+          "bad": {
+            "title": "Resets on every pass",
+            "code": "public class SalesTotal {\n    public static void main(String[] args) {\n        int[] sales = {5, 3, 8};\n        int total = 0;\n        for (int i = 0; i < sales.length; i++) {\n            total = 0;\n            total += sales[i];\n        }\n        System.out.println(total);\n    }\n}",
+            "runnable": true,
+            "output": "8",
+            "error": null,
+            "compile_error": null
+          },
+          "good": {
+            "title": "Keeps the running total",
+            "code": "public class SalesTotal {\n    public static void main(String[] args) {\n        int[] sales = {5, 3, 8};\n        int total = 0;\n        for (int i = 0; i < sales.length; i++) {\n            total += sales[i];\n        }\n        System.out.println(total);\n    }\n}",
+            "runnable": true,
+            "output": "16",
+            "error": null,
+            "compile_error": null
+          },
+          "note": "In the fixed program, `total` starts at zero before the loop and is not reset inside it. Each `+=` adds the next sale to the amount already stored."
+        },
+        {
+          "type": "text",
+          "text": "The same reasoning applies to a running maximum. Start from the first value, then compare the remaining values. Starting from the first value matters when every value is negative."
+        },
+        {
+          "title": "",
+          "code": "public class HighestSale {\n    public static void main(String[] args) {\n        int[] sales = {-4, -2, -9};\n        int highest = sales[0];\n        for (int i = 1; i < sales.length; i++) {\n            if (sales[i] > highest) {\n                highest = sales[i];\n            }\n        }\n        System.out.println(highest);\n    }\n}",
+          "runnable": true,
+          "output": "-2",
+          "error": null,
+          "compile_error": null,
+          "type": "code"
+        },
+        {
+          "type": "text",
+          "text": "This maximum example assumes the array has at least one value. `highest` is initialized before the loop and updated only when a larger value is found. If you reset `highest` inside the loop, earlier comparisons would be forgotten."
+        }
+      ]
+    },
+    {
+      "id": "in-disguise",
+      "title": "The same bug in disguise",
+      "blocks": [
+        {
+          "type": "text",
+          "text": "The reset can hide among other loop work. Look for a starting assignment such as `sum = 0`, `count = 0`, or `maximum = ...` inside the loop body."
+        },
+        {
+          "type": "compare",
+          "bad": {
+            "title": "A count that restarts each pass",
+            "code": "int count = 0;\nfor (int i = 0; i < items.length; i++) {\n    count = 0;\n    if (items[i] > 0) {\n        count++;\n    }\n}",
+            "runnable": false,
+            "output": null,
+            "error": null,
+            "compile_error": null
+          },
+          "good": {
+            "title": "A count that keeps growing",
+            "code": "int count = 0;\nfor (int i = 0; i < items.length; i++) {\n    if (items[i] > 0) {\n        count++;\n    }\n}",
+            "runnable": false,
+            "output": null,
+            "error": null,
+            "compile_error": null
+          },
+          "note": "The bad version can only leave `count` as zero or one. The fixed version keeps the count from earlier passes."
+        },
+        {
+          "type": "compare",
+          "bad": {
+            "title": "A maximum reset to zero each pass",
+            "code": "int maximum = 0;\nfor (int i = 0; i < values.length; i++) {\n    maximum = 0;\n    if (values[i] > maximum) {\n        maximum = values[i];\n    }\n}",
+            "runnable": false,
+            "output": null,
+            "error": null,
+            "compile_error": null
+          },
+          "good": {
+            "title": "A maximum that remembers earlier values",
+            "code": "int maximum = values[0];\nfor (int i = 1; i < values.length; i++) {\n    if (values[i] > maximum) {\n        maximum = values[i];\n    }\n}",
+            "runnable": false,
+            "output": null,
+            "error": null,
+            "compile_error": null
+          },
+          "note": "For a non-empty array, initializing from `values[0]` gives the maximum a real value to compare with. Resetting it in the body discards the previous maximum."
+        },
+        {
+          "type": "callout",
+          "tone": "info",
+          "title": "A quick check",
+          "text": "Ask: should this value remember earlier loop passes? If yes, initialize it before the loop and update it inside the loop."
+        }
+      ]
+    },
+    {
+      "id": "check-yourself",
+      "title": "Check yourself",
+      "blocks": [
+        {
+          "type": "check",
+          "question": "What does `total` print after this program runs?",
+          "code": "int[] sales = {5, 3, 8};\nint total = 0;\nfor (int i = 0; i < sales.length; i++) {\n    total = 0;\n    total += sales[i];\n}\nSystem.out.println(total);",
+          "options": [
+            "16",
+            "8",
+            "0",
+            "The program does not compile"
+          ],
+          "answer": 1,
+          "explanation": "The code compiles. Each pass resets `total`, so the last pass leaves the final sale, `8`, in `total`."
+        },
+        {
+          "type": "check",
+          "question": "Where should the starting assignment for a running sum go?",
+          "code": "",
+          "options": [
+            "Inside the loop body, before each addition",
+            "Before the loop begins",
+            "After the loop ends",
+            "Inside the loop condition"
+          ],
+          "answer": 1,
+          "explanation": "Initialize the sum before the loop. Then each pass can add to the value from earlier passes."
+        },
+        {
+          "type": "check",
+          "question": "What is the final value of `sum`?",
+          "code": "int[] values = {2, 4};\nint sum = 0;\nfor (int i = 0; i < values.length; i++) {\n    sum += values[i];\n}",
+          "options": [
+            "0",
+            "2",
+            "4",
+            "6"
+          ],
+          "answer": 3,
+          "explanation": "The first pass changes `sum` from `0` to `2`. The second adds `4` to the stored `2`, giving `6`."
+        }
+      ]
+    },
+    {
+      "id": "key-points",
+      "title": "Key points",
+      "blocks": [
+        {
+          "type": "keypoints",
+          "items": [
+            "The initialization part in a `for` header runs once before the first condition check.",
+            "An assignment inside the loop body runs on every pass.",
+            "Resetting `total` inside the loop makes the final result depend only on the last value added.",
+            "Initialize an accumulator before the loop, then update it inside the loop.",
+            "For a running maximum or minimum, usually initialize from the first array value rather than from `0`.",
+            "This mistake usually compiles without a warning. Trace the values to find the run-time logic error."
+          ]
+        }
+      ]
+    }
+  ],
+  "sources": [
+    "loop_initialization.txt",
+    "assignment_logic.txt"
+  ]
+}

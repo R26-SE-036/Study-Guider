@@ -1,0 +1,306 @@
+{
+  "id": "WRONG_EXTREME_INITIAL_VALUE",
+  "concept": "loop_initialization",
+  "title": "Where a max or min search starts",
+  "summary": "Why a maximum or minimum search can give a wrong answer when its starting value does not come from the data.",
+  "minutes": 15,
+  "status": "published",
+  "objectives": [
+    "Explain why starting a maximum at `0` fails when every value is negative.",
+    "Trace how a running maximum changes during a loop.",
+    "Initialize a maximum or minimum from the first array value.",
+    "Recognize the same initialization mistake in related searches."
+  ],
+  "sections": [
+    {
+      "id": "the-mistake",
+      "title": "The mistake",
+      "blocks": [
+        {
+          "type": "compare",
+          "bad": {
+            "title": "Code Coach flags this pattern",
+            "code": "int[] temps = {-4, -9, -2};\nint max = 0; // 0 beats every value here\nfor (int t : temps) {\n    if (t > max) max = t;\n}",
+            "runnable": false,
+            "output": null,
+            "error": null,
+            "compile_error": null
+          },
+          "good": {
+            "title": "Start with a value from the data",
+            "code": "int[] temps = {-4, -9, -2};\nint max = temps[0];\nfor (int t : temps) {\n    if (t > max) max = t;\n}",
+            "runnable": false,
+            "output": null,
+            "error": null,
+            "compile_error": null
+          },
+          "note": "The first version compiles, but its answer is wrong when the loop runs. None of the negative values is greater than `0`, so `max` stays `0`. The largest value in the array is `-2`. The fix is to start with a value that is actually in the array."
+        }
+      ]
+    },
+    {
+      "id": "why-it-happens",
+      "title": "Why the starting value matters",
+      "blocks": [
+        {
+          "type": "text",
+          "text": "A running maximum is a variable that holds the largest value seen so far. The loop compares each new value with that variable. If the starting value is `0`, but every value is negative, no array value can replace it. The loop has no way to know that `0` was not in the array."
+        },
+        {
+          "type": "diagram",
+          "caption": "How the wrong starting value blocks every negative temperature",
+          "mermaid": "flowchart TD\n  A([Start with max as zero]) --> B[Read next temperature]\n  B --> C{Is temperature greater than max?}\n  C -- yes --> D[Replace max with temperature]\n  C -- no --> E[Keep max unchanged]\n  D --> F{More temperatures?}\n  E --> F\n  F -- yes --> B\n  F -- no --> G([Report max])"
+        },
+        {
+          "type": "array",
+          "caption": "The temperatures and the starting value",
+          "name": "temps",
+          "values": [
+            "-4",
+            "-9",
+            "-2"
+          ],
+          "highlight": [
+            2
+          ],
+          "outside": 0,
+          "note": "The highlighted value, `-2`, is the largest value in `temps`. The starting value `0` is outside the array and is larger than every temperature here."
+        },
+        {
+          "type": "callout",
+          "tone": "info",
+          "title": "Compile time or run time?",
+          "text": "This is a logic mistake, not a syntax mistake. Java accepts the code at compile time. It does not give a warning about the wrong starting value. The wrong answer appears when the program runs."
+        }
+      ]
+    },
+    {
+      "id": "trace",
+      "title": "Trace the loop one value at a time",
+      "blocks": [
+        {
+          "type": "text",
+          "text": "A trace is a record of what values variables hold as code runs. Follow `max` through the flagged loop. The test `t > max` asks whether the new temperature is larger than the value currently stored in `max`."
+        },
+        {
+          "type": "table",
+          "caption": "Tracing the flagged loop",
+          "columns": [
+            "Step",
+            "`t`",
+            "`t > max?`",
+            "`max` after the step"
+          ],
+          "rows": [
+            [
+              "Before the loop",
+              "—",
+              "—",
+              "0"
+            ],
+            [
+              "First value",
+              "-4",
+              "`-4 > 0` is false",
+              "0"
+            ],
+            [
+              "Second value",
+              "-9",
+              "`-9 > 0` is false",
+              "0"
+            ],
+            [
+              "Third value",
+              "-2",
+              "`-2 > 0` is false",
+              "0"
+            ]
+          ],
+          "highlight": [
+            3
+          ]
+        },
+        {
+          "type": "text",
+          "text": "The loop checks every temperature, but none can replace `0`. With `max` set to the first temperature, `-4`, the later values can replace it when they are larger. That lets the loop finish with `-2`."
+        }
+      ]
+    },
+    {
+      "id": "worked-maximum",
+      "title": "Worked example: find the maximum",
+      "blocks": [
+        {
+          "type": "text",
+          "text": "This complete program uses the temperatures from the flagged code. It sets `max` to the first temperature, then compares every temperature with it. This example assumes the array has at least one value."
+        },
+        {
+          "title": "",
+          "code": "public class FindMax {\n    public static void main(String[] args) {\n        int[] temps = {-4, -9, -2};\n        int max = temps[0];\n\n        for (int t : temps) {\n            if (t > max) {\n                max = t;\n            }\n        }\n\n        System.out.println(max);\n    }\n}",
+          "runnable": true,
+          "output": "-2",
+          "error": null,
+          "compile_error": null,
+          "type": "code"
+        },
+        {
+          "type": "steps",
+          "title": "Why this gives the right result",
+          "items": [
+            "The first temperature, `-4`, is the best value seen so far.",
+            "The next value, `-9`, is not greater than `-4`, so `max` stays `-4`.",
+            "The last value, `-2`, is greater than `-4`, so `max` becomes `-2`.",
+            "The loop ends with the largest value from the array in `max`."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "worked-minimum",
+      "title": "Worked example: find the minimum",
+      "blocks": [
+        {
+          "type": "text",
+          "text": "The same idea works for a minimum. Starting `min` at `0` fails when all the data is positive: no positive value is less than `0`. Start with the first value, then replace it whenever a smaller value appears."
+        },
+        {
+          "title": "",
+          "code": "public class FindMin {\n    public static void main(String[] args) {\n        int[] scores = {6, 2, 8};\n        int min = scores[0];\n\n        for (int score : scores) {\n            if (score < min) {\n                min = score;\n            }\n        }\n\n        System.out.println(min);\n    }\n}",
+          "runnable": true,
+          "output": "2",
+          "error": null,
+          "compile_error": null,
+          "type": "code"
+        },
+        {
+          "type": "callout",
+          "tone": "tip",
+          "title": "Check the direction",
+          "text": "For a maximum, replace the saved value when the new value is greater: `t > max`. For a minimum, replace it when the new value is smaller: `score < min`."
+        }
+      ]
+    },
+    {
+      "id": "in-disguise",
+      "title": "The same bug in disguise",
+      "blocks": [
+        {
+          "type": "text",
+          "text": "The flagged pattern is `int max = 0` when the data can all be below zero. The reverse mistake is starting a minimum at `0` when the data can all be above zero. Both mistakes let a value that is not in the data affect the answer."
+        },
+        {
+          "type": "compare",
+          "bad": {
+            "title": "Wrong minimum start for positive data",
+            "code": "int[] scores = {6, 2, 8};\nint min = 0;\nfor (int score : scores) {\n    if (score < min) min = score;\n}",
+            "runnable": false,
+            "output": null,
+            "error": null,
+            "compile_error": null
+          },
+          "good": {
+            "title": "Minimum starts with the first score",
+            "code": "int[] scores = {6, 2, 8};\nint min = scores[0];\nfor (int score : scores) {\n    if (score < min) min = score;\n}",
+            "runnable": false,
+            "output": null,
+            "error": null,
+            "compile_error": null
+          },
+          "note": "The bad version leaves `min` at `0`, even though `0` is not a score. Start from `scores[0]` so the saved minimum is a value from the data."
+        },
+        {
+          "type": "compare",
+          "bad": {
+            "title": "A fixed guess can fail on other data",
+            "code": "int max = -100;\nfor (int value : values) {\n    if (value > max) max = value;\n}",
+            "runnable": false,
+            "output": null,
+            "error": null,
+            "compile_error": null
+          },
+          "good": {
+            "title": "Use a value from the array",
+            "code": "int max = values[0];\nfor (int value : values) {\n    if (value > max) max = value;\n}",
+            "runnable": false,
+            "output": null,
+            "error": null,
+            "compile_error": null
+          },
+          "note": "A fixed starting guess such as `-100` only works if you can be sure every value is at least `-100`. Starting from `values[0]` avoids that guess. This version, like the worked examples, assumes the array is not empty."
+        },
+        {
+          "type": "callout",
+          "tone": "warn",
+          "title": "What if the array is empty?",
+          "text": "An empty array has no first value, so `values[0]` cannot be used. Check that the array has at least one value before starting this kind of search. An empty array needs a separate result or a separate rule."
+        }
+      ]
+    },
+    {
+      "id": "check-yourself",
+      "title": "Check yourself",
+      "blocks": [
+        {
+          "type": "check",
+          "question": "What does the flagged code leave in `max` after it checks every value?",
+          "code": "int[] temps = {-4, -9, -2};\nint max = 0;\nfor (int t : temps) {\n    if (t > max) max = t;\n}",
+          "options": [
+            "`-2`",
+            "`0`",
+            "`-4`",
+            "The program does not compile"
+          ],
+          "answer": 1,
+          "explanation": "Every temperature is less than `0`, so every test `t > max` is false. The program compiles, but `max` remains `0` when it runs."
+        },
+        {
+          "type": "check",
+          "question": "Which starting value is suitable for finding the largest value in a non-empty array?",
+          "code": "int[] data = {-8, -3, -5};",
+          "options": [
+            "`int max = 0;`",
+            "`int max = data[0];`",
+            "`int max = -1;`",
+            "`int max = data.length;`"
+          ],
+          "answer": 1,
+          "explanation": "`data[0]` is the first value in the array. It gives the loop a real value to compare with the others, even when every value is negative."
+        },
+        {
+          "type": "check",
+          "question": "You want the smallest value in an array of positive numbers. Which update test and starting value fit that job?",
+          "code": "int[] values = {7, 4, 9};",
+          "options": [
+            "Start with `0` and use `value < min`",
+            "Start with `values[0]` and use `value < min`",
+            "Start with `values[0]` and use `value > min`",
+            "Start with `9` and use `value > min`"
+          ],
+          "answer": 1,
+          "explanation": "Start with a value from the array, then replace it when a smaller value appears. The test `value < min` moves the saved value toward the minimum."
+        }
+      ]
+    },
+    {
+      "id": "key-points",
+      "title": "Key points",
+      "blocks": [
+        {
+          "type": "keypoints",
+          "items": [
+            "The flagged `int max = 0` can compile and still produce a wrong result when all values are negative.",
+            "A running maximum or minimum stores the best value seen so far.",
+            "For a non-empty array, start a maximum or minimum search with the first element, such as `int max = values[0];`.",
+            "For a maximum, update when the new value is greater. For a minimum, update when the new value is smaller.",
+            "Starting from the first element assumes the array is not empty, so handle an empty array separately."
+          ]
+        }
+      ]
+    }
+  ],
+  "sources": [
+    "loop_initialization.txt",
+    "assignment_logic.txt"
+  ]
+}

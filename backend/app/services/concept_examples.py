@@ -19,6 +19,92 @@ code_coach_errors.json).
 """
 
 CONCEPT_EXAMPLES: dict[str, str] = {
+    "LOOP_SKIPS_LAST_ELEMENT": (
+        'int[] marks = {60, 72, 85};\n'
+        'int total = 0;\n'
+        '// stops before the last mark\n'
+        'for (int i = 0; i < marks.length - 1; i++) {\n'
+        '    total += marks[i];\n'
+        '}'
+    ),
+    "INDEX_PLUS_ONE_OUT_OF_BOUNDS": (
+        'int[] temps = {18, 21, 19};\n'
+        'int rises = 0;\n'
+        '// on the last pass, temps[i + 1] is past the end\n'
+        'for (int i = 0; i < temps.length; i++) {\n'
+        '    if (temps[i + 1] > temps[i]) rises++;\n'
+        '}'
+    ),
+    "WRONG_LOOP_VARIABLE_IN_INDEX": (
+        'int[][] grid = {{1, 2}, {3, 4}};\n'
+        'int sum = 0;\n'
+        'for (int r = 0; r < grid.length; r++) {\n'
+        '    for (int c = 0; c < grid[r].length; c++) {\n'
+        '        // grid[r][r] where grid[r][c] was meant\n'
+        '        sum += grid[r][r];\n'
+        '    }\n'
+        '}'
+    ),
+    "NESTED_LOOP_WRONG_COUNTER": (
+        'int cells = 0;\n'
+        'for (int i = 0; i < 3; i++) {\n'
+        '    // the inner loop steps i, not j\n'
+        '    for (int j = 0; j < 3; i++) {\n'
+        '        cells++;\n'
+        '    }\n'
+        '}'
+    ),
+    "LOOP_COUNTER_CHANGED_IN_BODY": (
+        'int[] scores = {4, 7, 9, 2};\n'
+        'int total = 0;\n'
+        'for (int i = 0; i < scores.length; i++) {\n'
+        '    total += scores[i];\n'
+        '    i++; // skips every other score\n'
+        '}'
+    ),
+    "ACCUMULATOR_RESET_INSIDE_LOOP": (
+        'int[] sales = {5, 3, 8};\n'
+        'int total = 0;\n'
+        'for (int i = 0; i < sales.length; i++) {\n'
+        '    total = 0; // throws the running total away\n'
+        '    total += sales[i];\n'
+        '}'
+    ),
+    "WRONG_EXTREME_INITIAL_VALUE": (
+        'int[] temps = {-4, -9, -2};\n'
+        'int max = 0; // 0 beats every value here\n'
+        'for (int t : temps) {\n'
+        '    if (t > max) max = t;\n'
+        '}'
+    ),
+    "EARLY_RETURN_IN_LOOP": (
+        'static boolean contains(int[] values, int target) {\n'
+        '    for (int i = 0; i < values.length; i++) {\n'
+        '        if (values[i] == target) return true;\n'
+        '        else return false; // decides on the first element\n'
+        '    }\n'
+        '    return false;\n'
+        '}'
+    ),
+    "UNREACHABLE_ELSE_IF_ORDER": (
+        'int score = 92;\n'
+        '// 92 is caught by the first test, so "A" is never given\n'
+        'if (score >= 50) grade = "C";\n'
+        'else if (score >= 75) grade = "B";\n'
+        'else if (score >= 90) grade = "A";'
+    ),
+    "MISLEADING_INDENTATION_NO_BRACES": (
+        'if (score > best)\n'
+        '    best = score;\n'
+        '    bestName = name; // runs every time - no braces'
+    ),
+    "NON_SHORT_CIRCUIT_OPERATOR": (
+        'String name = null;\n'
+        '// & evaluates both sides, so name.length() still runs\n'
+        'if (name != null & name.length() > 3) {\n'
+        '    System.out.println(name);\n'
+        '}'
+    ),
     "ARRAY_LENGTH_INDEX_MISUSE": (
         "int[] marks = new int[5];\n"
         "// length is 5, so the last valid index is 4\n"

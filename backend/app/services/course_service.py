@@ -66,18 +66,18 @@ COURSE_ORDER = [
 MODULES = {
     "assignment_logic": ("Variables and assignment", "What `=` really does, and the assignments that change nothing."),
     "arithmetic_operations": ("Arithmetic", "Integer division, decimals and dividing by zero."),
-    "boolean_logic": ("Boolean logic", "How `&&` and `||` combine conditions, and conditions that can never change."),
-    "conditional_logic": ("If and else", "Choosing the right comparison and keeping branches distinct."),
-    "statement_structure": ("Statement structure", "Where a semicolon ends more than you meant it to."),
-    "control_flow": ("Control flow", "Code that can never run, and why the compiler sometimes says so."),
+    "boolean_logic": ("Boolean logic", "How `&&` and `||` combine conditions, why they stop early, and conditions that can never change."),
+    "conditional_logic": ("If and else", "Choosing the right comparison, keeping branches distinct, and putting else-if tests in order."),
+    "statement_structure": ("Statement structure", "Where a semicolon or a missing brace ends more than you meant it to."),
+    "control_flow": ("Control flow", "Code that can never run, and a return that leaves a loop too soon."),
     "switch_statements": ("Switch statements", "How a switch jumps, falls through and stops."),
     "string_comparison": ("Comparing Strings", "Same text versus same object."),
     "immutable_strings": ("Strings that never change", "Why String methods return a new String."),
-    "loop_initialization": ("Starting a loop", "Loops that never begin because their condition starts false."),
-    "loop_control": ("Loop direction", "Counting the right way towards the stop condition."),
+    "loop_initialization": ("Starting a loop", "Loops that never begin, totals reset on every pass, and where a max or min search starts."),
+    "loop_control": ("Loop counters", "Counting the right way, one counter per loop, and leaving the counter to the header."),
     "loop_termination": ("Ending a loop", "While loops whose variable never moves."),
-    "loop_boundaries": ("Loop boundaries", "Off-by-one: one step too many or too few."),
-    "array_indexing": ("Array indexing", "Positions from 0 to length − 1."),
+    "loop_boundaries": ("Loop boundaries", "Off-by-one: one step too many, or one too few."),
+    "array_indexing": ("Array indexing", "Positions from 0 to length − 1, neighbours at i + 1, and the right counter in nested loops."),
 }
 
 # Shown for a unit that is not written yet. Plain words, not the error code.
@@ -101,6 +101,17 @@ UNIT_TITLES = {
     "DECIMAL_EQUALITY_COMPARISON": "Comparing decimals with ==",
     "POSTFIX_INCREMENT_ASSIGNED_BACK": "count = count++",
     "ALWAYS_FALSE_AND_CONDITION": "An AND that is never true",
+    "LOOP_SKIPS_LAST_ELEMENT": "A loop that stops one element early",
+    "INDEX_PLUS_ONE_OUT_OF_BOUNDS": "Reaching for the next element",
+    "WRONG_LOOP_VARIABLE_IN_INDEX": "The wrong counter in a nested loop",
+    "NESTED_LOOP_WRONG_COUNTER": "A loop header with the wrong counter",
+    "LOOP_COUNTER_CHANGED_IN_BODY": "Changing the counter inside a for loop",
+    "ACCUMULATOR_RESET_INSIDE_LOOP": "Resetting a total inside the loop",
+    "WRONG_EXTREME_INITIAL_VALUE": "Where a max or min search starts",
+    "EARLY_RETURN_IN_LOOP": "Returning on the first pass",
+    "UNREACHABLE_ELSE_IF_ORDER": "The order of else-if tests",
+    "MISLEADING_INDENTATION_NO_BRACES": "Indentation is not braces",
+    "NON_SHORT_CIRCUIT_OPERATOR": "& and | versus && and ||",
 }
 
 

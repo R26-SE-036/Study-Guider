@@ -1,0 +1,337 @@
+{
+  "id": "UNREACHABLE_ELSE_IF_ORDER",
+  "concept": "conditional_logic",
+  "title": "The order of else-if tests",
+  "summary": "Why a broad `if` test can take a result before a more specific `else if` test gets a chance.",
+  "minutes": 15,
+  "status": "published",
+  "objectives": [
+    "Explain why an `else if` test is skipped after an earlier test is true.",
+    "Trace which grade a sequence of `if` and `else if` tests gives.",
+    "Put more specific score tests before broader score tests.",
+    "Recognize the same ordering mistake in other conditions."
+  ],
+  "sections": [
+    {
+      "id": "the-mistake",
+      "title": "The mistake",
+      "blocks": [
+        {
+          "type": "text",
+          "text": "Code Coach flags this pattern. The first test is broad: every score of 50 or more passes it, including 92."
+        },
+        {
+          "type": "compare",
+          "bad": {
+            "title": "Code Coach's flagged pattern",
+            "code": "int score = 92;\n// 92 is caught by the first test, so \"A\" is never given\nif (score >= 50) grade = \"C\";\nelse if (score >= 75) grade = \"B\";\nelse if (score >= 90) grade = \"A\";",
+            "runnable": false,
+            "output": null,
+            "error": null,
+            "compile_error": null
+          },
+          "good": {
+            "title": "Test the highest scores first",
+            "code": "int score = 92;\nif (score >= 90) grade = \"A\";\nelse if (score >= 75) grade = \"B\";\nelse if (score >= 50) grade = \"C\";",
+            "runnable": false,
+            "output": null,
+            "error": null,
+            "compile_error": null
+          },
+          "note": "In an `if` and `else if` chain, Java runs the body for the first true test, then skips the rest of the chain. In the flagged pattern, `score >= 50` is already true for 92, so the later tests are skipped. This is a run-time logic mistake, not a compile-time error. Java accepts these tests and does not warn that the later tests will be skipped for this score."
+        }
+      ]
+    },
+    {
+      "id": "why-it-happens",
+      "title": "Why the order matters",
+      "blocks": [
+        {
+          "type": "text",
+          "text": "An `else if` is checked only when every earlier test in the chain was false. So the order controls which test gets the first chance to match. In the flagged pattern, `score >= 50` includes all the scores that would also pass `score >= 75` or `score >= 90`."
+        },
+        {
+          "type": "diagram",
+          "caption": "For a score of 92, the first true test wins",
+          "mermaid": "flowchart TD\n  A([Start with score 92]) --> B{score >= 50}\n  B -- yes --> C[Set grade to C]\n  C --> D[Skip the remaining tests]\n  B -- no --> E{score >= 75}\n  E -- yes --> F[Set grade to B]\n  E -- no --> G{score >= 90}\n  G -- yes --> H[Set grade to A]\n  G -- no --> I[No grade from these tests]"
+        },
+        {
+          "type": "callout",
+          "tone": "tip",
+          "title": "Think about overlap",
+          "text": "Before writing an `else if` chain, ask whether a value could pass two tests. If it could, put the test you want to win first."
+        }
+      ]
+    },
+    {
+      "id": "trace",
+      "title": "Trace the flagged pattern",
+      "blocks": [
+        {
+          "type": "text",
+          "text": "Follow the tests in order for `score = 92`. Stop tracing the tests as soon as one is true. That is what the program does."
+        },
+        {
+          "type": "table",
+          "caption": "Tracing the flagged chain with `score = 92`",
+          "columns": [
+            "Step",
+            "Test or action",
+            "Result"
+          ],
+          "rows": [
+            [
+              "1",
+              "Check `score >= 50`",
+              "`true`, because `92 >= 50`"
+            ],
+            [
+              "2",
+              "Run `grade = \"C\"`",
+              "`grade` becomes `\"C\"`"
+            ],
+            [
+              "3",
+              "Check `score >= 75`",
+              "Skipped because the first test was true"
+            ],
+            [
+              "4",
+              "Check `score >= 90`",
+              "Skipped because the first test was true"
+            ],
+            [
+              "5",
+              "Leave the chain",
+              "The result is `\"C\"`, not `\"A\"`"
+            ]
+          ],
+          "highlight": [
+            0,
+            1
+          ]
+        },
+        {
+          "type": "text",
+          "text": "The problem is not that `92 >= 90` is false. It is true, but Java never checks it in this run. Reordering the tests lets the score of 92 reach the `A` test first."
+        }
+      ]
+    },
+    {
+      "id": "worked-examples",
+      "title": "Work through two examples",
+      "blocks": [
+        {
+          "type": "text",
+          "text": "These complete programs show the run-time result. Each one compiles with Java 17. The broken version runs without a compiler error, but gives the wrong grade."
+        },
+        {
+          "type": "compare",
+          "bad": {
+            "title": "Example 1: the flagged order gives the wrong grade",
+            "code": "public class GradeOrder {\n    public static void main(String[] args) {\n        int score = 92;\n        String grade;\n        if (score >= 50) grade = \"C\";\n        else if (score >= 75) grade = \"B\";\n        else if (score >= 90) grade = \"A\";\n        else grade = \"F\";\n        System.out.println(grade);\n    }\n}",
+            "runnable": true,
+            "output": "C",
+            "error": null,
+            "compile_error": null
+          },
+          "good": {
+            "title": "Example 1 fixed: the highest threshold comes first",
+            "code": "public class GradeOrderFixed {\n    public static void main(String[] args) {\n        int score = 92;\n        String grade;\n        if (score >= 90) grade = \"A\";\n        else if (score >= 75) grade = \"B\";\n        else if (score >= 50) grade = \"C\";\n        else grade = \"F\";\n        System.out.println(grade);\n    }\n}",
+            "runnable": true,
+            "output": "A",
+            "error": null,
+            "compile_error": null
+          },
+          "note": "With the flagged order, the first test passes and sets `grade` to `\"C\"`. With the fixed order, `score >= 90` is true first, so the program prints `A`."
+        },
+        {
+          "type": "compare",
+          "bad": {
+            "title": "Example 2: a score of 78 is also caught too early",
+            "code": "public class GradeSeventyEightBad {\n    public static void main(String[] args) {\n        int score = 78;\n        String grade;\n        if (score >= 50) grade = \"C\";\n        else if (score >= 75) grade = \"B\";\n        else if (score >= 90) grade = \"A\";\n        else grade = \"F\";\n        System.out.println(grade);\n    }\n}",
+            "runnable": true,
+            "output": "C",
+            "error": null,
+            "compile_error": null
+          },
+          "good": {
+            "title": "Example 2 fixed: 78 reaches the B test",
+            "code": "public class GradeSeventyEightFixed {\n    public static void main(String[] args) {\n        int score = 78;\n        String grade;\n        if (score >= 90) grade = \"A\";\n        else if (score >= 75) grade = \"B\";\n        else if (score >= 50) grade = \"C\";\n        else grade = \"F\";\n        System.out.println(grade);\n    }\n}",
+            "runnable": true,
+            "output": "B",
+            "error": null,
+            "compile_error": null
+          },
+          "note": "The first test in the flagged pattern catches 78 too. In the fixed order, `78 >= 90` is false, so Java checks `78 >= 75`, which is true."
+        }
+      ]
+    },
+    {
+      "id": "compare-results",
+      "title": "See how the order changes results",
+      "blocks": [
+        {
+          "type": "text",
+          "text": "Here are the grades for four sample scores. The chart counts how many scores get each grade. In the flagged order, all three passing scores get `C`; in the fixed order, they are separated into `C`, `B` and `A`."
+        },
+        {
+          "type": "chart",
+          "caption": "Grades assigned to the sample scores 40, 60, 80 and 92",
+          "x_label": "Grade",
+          "y_label": "Number of sample scores",
+          "categories": [
+            "F",
+            "C",
+            "B",
+            "A"
+          ],
+          "series": [
+            {
+              "name": "Flagged order",
+              "values": [
+                1.0,
+                3.0,
+                0.0,
+                0.0
+              ]
+            },
+            {
+              "name": "Fixed order",
+              "values": [
+                1.0,
+                1.0,
+                1.0,
+                1.0
+              ]
+            }
+          ]
+        },
+        {
+          "type": "steps",
+          "title": "A quick way to choose the order",
+          "items": [
+            "Write down what each test means. `score >= 50` means 50 or more.",
+            "Check whether a value can pass more than one test. A score of 92 passes all three tests in the flagged pattern.",
+            "Put the narrowest or highest-threshold test first, then the next one, then the broadest test.",
+            "Trace a value that could match several tests and confirm it gets the intended result."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "in-disguise",
+      "title": "The same bug in disguise",
+      "blocks": [
+        {
+          "type": "text",
+          "text": "The same ordering mistake can happen whenever one test includes the values meant for a later test. These short examples show the pattern in other conditions."
+        },
+        {
+          "type": "compare",
+          "bad": {
+            "title": "A broad age test takes the value first",
+            "code": "if (age >= 18) group = \"Adult\";\nelse if (age >= 65) group = \"Senior\";",
+            "runnable": false,
+            "output": null,
+            "error": null,
+            "compile_error": null
+          },
+          "good": {
+            "title": "Check the more specific age range first",
+            "code": "if (age >= 65) group = \"Senior\";\nelse if (age >= 18) group = \"Adult\";",
+            "runnable": false,
+            "output": null,
+            "error": null,
+            "compile_error": null
+          },
+          "note": "Anyone aged 65 or older also passes `age >= 18`. The broad test takes the value first in the bad order."
+        },
+        {
+          "type": "compare",
+          "bad": {
+            "title": "A large number is caught by the small-number test",
+            "code": "if (n > 0) kind = \"Positive\";\nelse if (n > 100) kind = \"Large\";",
+            "runnable": false,
+            "output": null,
+            "error": null,
+            "compile_error": null
+          },
+          "good": {
+            "title": "Check the large-number case first",
+            "code": "if (n > 100) kind = \"Large\";\nelse if (n > 0) kind = \"Positive\";",
+            "runnable": false,
+            "output": null,
+            "error": null,
+            "compile_error": null
+          },
+          "note": "Every number greater than 100 is also greater than 0. The same broad-first order hides the more specific result."
+        }
+      ]
+    },
+    {
+      "id": "check-yourself",
+      "title": "Check yourself",
+      "blocks": [
+        {
+          "type": "check",
+          "question": "In the flagged pattern, what does the program assign when `score` is 92?",
+          "code": "if (score >= 50) grade = \"C\";\nelse if (score >= 75) grade = \"B\";\nelse if (score >= 90) grade = \"A\";",
+          "options": [
+            "`\"A\"`",
+            "`\"B\"`",
+            "`\"C\"`",
+            "The program will not compile"
+          ],
+          "answer": 2,
+          "explanation": "The first test, `score >= 50`, is true for 92. Java assigns `\"C\"` and skips the later tests. This is a run-time logic mistake; the chain itself compiles."
+        },
+        {
+          "type": "check",
+          "question": "Which test should come first if scores of 90 or more should get `\"A\"`?",
+          "code": "int score = 92;",
+          "options": [
+            "`score >= 50`",
+            "`score >= 75`",
+            "`score >= 90`",
+            "The order does not matter"
+          ],
+          "answer": 2,
+          "explanation": "Put the highest threshold first. Then a score of 92 passes `score >= 90` before any broader test can take it."
+        },
+        {
+          "type": "check",
+          "question": "In the corrected order, which test is checked next for a score of 78?",
+          "code": "if (score >= 90) grade = \"A\";\nelse if (score >= 75) grade = \"B\";\nelse if (score >= 50) grade = \"C\";",
+          "options": [
+            "`score >= 90`, then `score >= 75`",
+            "`score >= 50`, then `score >= 75`",
+            "All tests are checked even after one is true",
+            "No tests are checked"
+          ],
+          "answer": 0,
+          "explanation": "`78 >= 90` is false, so Java checks the next test, `78 >= 75`. That test is true, so Java assigns `\"B\"` and skips the remaining test."
+        }
+      ]
+    },
+    {
+      "id": "key-points",
+      "title": "Key points",
+      "blocks": [
+        {
+          "type": "keypoints",
+          "items": [
+            "An `else if` test is checked only if all earlier tests in the chain were false.",
+            "In the flagged pattern, `score >= 50` catches 92 before `score >= 75` or `score >= 90` can be checked.",
+            "Java accepts this ordering. The wrong grade appears when the program runs; the compiler does not reject the logic.",
+            "Put the most specific test first, then broader tests.",
+            "Trace a value that could pass several tests to check that the intended branch wins."
+          ]
+        }
+      ]
+    }
+  ],
+  "sources": [
+    "boolean_logic.txt"
+  ]
+}

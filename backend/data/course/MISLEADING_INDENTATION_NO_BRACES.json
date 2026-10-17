@@ -1,0 +1,295 @@
+{
+  "id": "MISLEADING_INDENTATION_NO_BRACES",
+  "concept": "statement_structure",
+  "title": "Indentation is not braces",
+  "summary": "Why a line that looks indented under an `if` can still run every time, and how braces make the intended structure clear.",
+  "minutes": 15,
+  "status": "published",
+  "objectives": [
+    "Explain why indentation does not decide which statements belong to an `if`.",
+    "Trace which statements run when an `if` has no braces.",
+    "Use braces to keep all intended statements inside an `if`.",
+    "Recognize the same mistake when adding a second line to an `if` or `for`."
+  ],
+  "sections": [
+    {
+      "id": "the-mistake",
+      "title": "The mistake",
+      "blocks": [
+        {
+          "title": "",
+          "code": "if (score > best)\n    best = score;\n    bestName = name; // runs every time - no braces",
+          "runnable": false,
+          "output": null,
+          "error": null,
+          "compile_error": null,
+          "type": "code"
+        },
+        {
+          "type": "text",
+          "text": "This is the exact pattern Code Coach flags. The indentation makes both assignments look like they belong to the `if`. But without braces, only the first statement, `best = score;`, belongs to it. The statement `bestName = name;` runs every time the program reaches it, whether or not `score > best` is true."
+        },
+        {
+          "type": "callout",
+          "tone": "warn",
+          "title": "This is a run-time mistake",
+          "text": "This code compiles. Java does not use indentation to decide what belongs to the `if`, and it does not reject this code. The surprising behavior happens when the program runs."
+        }
+      ]
+    },
+    {
+      "id": "why-it-happens",
+      "title": "Why it happens",
+      "blocks": [
+        {
+          "type": "text",
+          "text": "An `if` without braces controls one statement: the next statement ending in a semicolon. A block is a group of statements inside `{` and `}`. The braces, not the spaces at the start of a line, show which statements are grouped together."
+        },
+        {
+          "type": "diagram",
+          "caption": "The actual path through the unbraced code",
+          "mermaid": "flowchart TD\n  A{score > best?} -- yes --> B[Run best = score]\n  A -- no --> C[Skip best = score]\n  B --> D[Run bestName = name]\n  C --> D\n  D --> E[Continue]"
+        },
+        {
+          "type": "text",
+          "text": "Both paths reach `bestName = name;`. To see how the mistake adds up, imagine checking four candidates. Their scores are not better, not better, better, and not better. The unbraced line runs four times. With braces, it would run only once."
+        },
+        {
+          "type": "chart",
+          "caption": "Name assignments after checking four candidates",
+          "x_label": "Candidates checked",
+          "y_label": "Name assignments so far",
+          "categories": [
+            "1 candidate",
+            "2 candidates",
+            "3 candidates",
+            "4 candidates"
+          ],
+          "series": [
+            {
+              "name": "Unbraced code",
+              "values": [
+                1.0,
+                2.0,
+                3.0,
+                4.0
+              ]
+            },
+            {
+              "name": "With braces",
+              "values": [
+                0.0,
+                0.0,
+                1.0,
+                1.0
+              ]
+            }
+          ]
+        },
+        {
+          "type": "callout",
+          "tone": "tip",
+          "title": "A useful habit",
+          "text": "Use braces for the statements you want controlled by an `if` or a `for`. Then adding another line will not silently leave it outside."
+        }
+      ]
+    },
+    {
+      "id": "trace-the-statements",
+      "title": "Trace it, one statement at a time",
+      "blocks": [
+        {
+          "type": "text",
+          "text": "Trace the flagged pattern with `score` equal to 82, `best` equal to 90, `name` equal to `Ari`, and `bestName` equal to `Mina`. Check the condition first, then follow each statement in order."
+        },
+        {
+          "type": "table",
+          "caption": "Tracing the unbraced pattern when the score is not better",
+          "columns": [
+            "Step",
+            "What Java checks or runs",
+            "Values after the step"
+          ],
+          "rows": [
+            [
+              "1",
+              "Checks `score > best`: `82 > 90` is false",
+              "`best` is 90; `bestName` is Mina"
+            ],
+            [
+              "2",
+              "Skips `best = score;` because it is the one statement controlled by the `if`",
+              "`best` is 90; `bestName` is Mina"
+            ],
+            [
+              "3",
+              "Runs `bestName = name;` because it is outside the `if`",
+              "`best` is 90; `bestName` is Ari"
+            ]
+          ],
+          "highlight": [
+            2
+          ]
+        },
+        {
+          "type": "text",
+          "text": "The name changes even though the score did not beat the best score. The program did not crash or fail to compile. It followed the structure the statements specify, not the structure the indentation suggests."
+        }
+      ]
+    },
+    {
+      "id": "worked-examples",
+      "title": "Worked examples",
+      "blocks": [
+        {
+          "type": "text",
+          "text": "First, run the flagged pattern with a score that is not better. This complete program compiles and runs, but its output shows the bug: `bestName` changes anyway."
+        },
+        {
+          "title": "",
+          "code": "public class BestScore {\n    public static void main(String[] args) {\n        int score = 82;\n        int best = 90;\n        String name = \"Ari\";\n        String bestName = \"Mina\";\n\n        if (score > best)\n            best = score;\n            bestName = name; // runs every time - no braces\n\n        System.out.println(best);\n        System.out.println(bestName);\n    }\n}",
+          "runnable": true,
+          "output": "90\nAri",
+          "error": null,
+          "compile_error": null,
+          "type": "code"
+        },
+        {
+          "type": "text",
+          "text": "The condition is false, so `best` stays 90. But `bestName = name;` is not controlled by the `if`, so the program prints `Ari` as the best name."
+        },
+        {
+          "type": "text",
+          "text": "Now add braces around both assignments. This second complete program uses the same values. Since the condition is false, both assignments are skipped."
+        },
+        {
+          "title": "",
+          "code": "public class BestScoreFixed {\n    public static void main(String[] args) {\n        int score = 82;\n        int best = 90;\n        String name = \"Ari\";\n        String bestName = \"Mina\";\n\n        if (score > best) {\n            best = score;\n            bestName = name;\n        }\n\n        System.out.println(best);\n        System.out.println(bestName);\n    }\n}",
+          "runnable": true,
+          "output": "90\nMina",
+          "error": null,
+          "compile_error": null,
+          "type": "code"
+        },
+        {
+          "type": "text",
+          "text": "With braces, both assignments belong to the `if`. If `score > best` is true, both run. If it is false, neither runs. The braces make the intended grouping explicit."
+        }
+      ]
+    },
+    {
+      "id": "same-bug-in-disguise",
+      "title": "The same bug in disguise",
+      "blocks": [
+        {
+          "type": "text",
+          "text": "The same mistake can appear whenever an `if` or `for` is followed by more than one line. The first line is controlled; the next line is not, unless braces group the lines."
+        },
+        {
+          "type": "compare",
+          "bad": {
+            "title": "Only the total is controlled by the if",
+            "code": "if (passed)\n    passedCount++;\n    message = \"Passed\";",
+            "runnable": false,
+            "output": null,
+            "error": null,
+            "compile_error": null
+          },
+          "good": {
+            "title": "Both statements are controlled",
+            "code": "if (passed) {\n    passedCount++;\n    message = \"Passed\";\n}",
+            "runnable": false,
+            "output": null,
+            "error": null,
+            "compile_error": null
+          },
+          "note": "In the first version, `message = \"Passed\";` runs even when `passed` is false. The indentation does not put it inside the `if`."
+        },
+        {
+          "type": "compare",
+          "bad": {
+            "title": "Only the total is repeated by the for",
+            "code": "for (int i = 0; i < scores.length; i++)\n    total += scores[i];\n    count++;",
+            "runnable": false,
+            "output": null,
+            "error": null,
+            "compile_error": null
+          },
+          "good": {
+            "title": "Both statements are repeated by the for",
+            "code": "for (int i = 0; i < scores.length; i++) {\n    total += scores[i];\n    count++;\n}",
+            "runnable": false,
+            "output": null,
+            "error": null,
+            "compile_error": null
+          },
+          "note": "In the first version, `total += scores[i];` is the one statement repeated by the `for`. The `count++;` statement runs once after the loop. Braces group both statements into the loop body."
+        }
+      ]
+    },
+    {
+      "id": "check-yourself",
+      "title": "Check yourself",
+      "blocks": [
+        {
+          "type": "check",
+          "question": "In the flagged pattern, what happens to `bestName` when `score > best` is false?",
+          "code": "if (score > best)\n    best = score;\n    bestName = name;",
+          "options": [
+            "`bestName` stays the same",
+            "`bestName` becomes `name`",
+            "The program does not compile",
+            "The program crashes"
+          ],
+          "answer": 1,
+          "explanation": "Only `best = score;` is controlled by the `if`. The next statement, `bestName = name;`, runs even when the condition is false."
+        },
+        {
+          "type": "check",
+          "question": "Which version puts both assignments inside the `if`?",
+          "code": "",
+          "options": [
+            "Indent both assignments, but do not add braces",
+            "Put braces around both assignments",
+            "Add a semicolon after the `if`",
+            "Put the second assignment on the same line"
+          ],
+          "answer": 1,
+          "explanation": "Braces make a block that groups both assignments as the body of the `if`. Indentation alone does not change the structure."
+        },
+        {
+          "type": "check",
+          "question": "Does the flagged pattern normally fail to compile because the second line is indented?",
+          "code": "if (score > best)\n    best = score;\n    bestName = name;",
+          "options": [
+            "Yes, indentation is checked by the compiler",
+            "Yes, an if must always have braces",
+            "No, it compiles; the second assignment runs outside the if",
+            "No, but the second assignment never runs"
+          ],
+          "answer": 2,
+          "explanation": "Java allows an `if` to control one statement without braces. The code compiles, and the second assignment runs because it is not part of that one-statement body."
+        }
+      ]
+    },
+    {
+      "id": "key-points",
+      "title": "Key points",
+      "blocks": [
+        {
+          "type": "keypoints",
+          "items": [
+            "In the flagged pattern, only `best = score;` belongs to the `if`. `bestName = name;` runs every time execution reaches it.",
+            "Indentation helps people read code, but it does not define Java structure.",
+            "Without braces, an `if` or `for` controls one statement.",
+            "Use braces to group every statement you intend an `if` or `for` to control.",
+            "This mistake compiles; the unexpected behavior happens when the program runs."
+          ]
+        }
+      ]
+    }
+  ],
+  "sources": [
+    "statement_structure.txt"
+  ]
+}

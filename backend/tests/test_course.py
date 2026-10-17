@@ -102,7 +102,7 @@ def client(monkeypatch):
 def test_the_catalogue_answers_without_the_graph(client):
     response = client.get("/api/course")
     assert response.status_code == 200, response.text
-    assert response.json()["units_total"] == 19
+    assert response.json()["units_total"] == len(course_service.reading_order()) == 30
 
 
 def test_a_unit_answers_without_the_graph_and_links_its_neighbours(client):

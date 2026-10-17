@@ -58,6 +58,20 @@ ERROR_TYPE_TO_CONCEPT = {
     "DECIMAL_EQUALITY_COMPARISON": "arithmetic_operations",
     "POSTFIX_INCREMENT_ASSIGNED_BACK": "assignment_logic",
     "ALWAYS_FALSE_AND_CONDITION": "boolean_logic",
+    # The logic errors Code Coach decides with per-site models (added with
+    # its 30-type catalogue). Each sits under a concept that already exists,
+    # so the prerequisite graph and every join stay as they are.
+    "LOOP_SKIPS_LAST_ELEMENT": "loop_boundaries",
+    "INDEX_PLUS_ONE_OUT_OF_BOUNDS": "array_indexing",
+    "WRONG_LOOP_VARIABLE_IN_INDEX": "array_indexing",
+    "NESTED_LOOP_WRONG_COUNTER": "loop_control",
+    "LOOP_COUNTER_CHANGED_IN_BODY": "loop_control",
+    "ACCUMULATOR_RESET_INSIDE_LOOP": "loop_initialization",
+    "WRONG_EXTREME_INITIAL_VALUE": "loop_initialization",
+    "EARLY_RETURN_IN_LOOP": "control_flow",
+    "UNREACHABLE_ELSE_IF_ORDER": "conditional_logic",
+    "MISLEADING_INDENTATION_NO_BRACES": "statement_structure",
+    "NON_SHORT_CIRCUIT_OPERATOR": "boolean_logic",
 }
 
 # The 14 canonical concept tags - the values above, deduplicated.

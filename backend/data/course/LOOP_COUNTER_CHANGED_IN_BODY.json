@@ -1,0 +1,300 @@
+{
+  "id": "LOOP_COUNTER_CHANGED_IN_BODY",
+  "concept": "loop_control",
+  "title": "Changing the counter inside a for loop",
+  "summary": "Why changing a for-loop counter in its body skips values, how to trace the extra change, and how to fix it.",
+  "minutes": 15,
+  "status": "published",
+  "objectives": [
+    "Explain how a `for` loop's body and update part both affect its counter.",
+    "Trace which array positions the flagged loop visits.",
+    "Fix a loop that accidentally changes its counter twice per pass.",
+    "Recognize other ways of changing a loop counter inside the body."
+  ],
+  "sections": [
+    {
+      "id": "the-mistake",
+      "title": "The mistake",
+      "blocks": [
+        {
+          "type": "text",
+          "text": "Code Coach flags this exact pattern. The counter is `i`. The line `i++` inside the body changes it, and the `for` loop changes it again after the body."
+        },
+        {
+          "type": "compare",
+          "bad": {
+            "title": "The flagged pattern",
+            "code": "int[] scores = {4, 7, 9, 2};\nint total = 0;\nfor (int i = 0; i < scores.length; i++) {\n    total += scores[i];\n    i++; // skips every other score\n}",
+            "runnable": false,
+            "output": null,
+            "error": null,
+            "compile_error": null
+          },
+          "good": {
+            "title": "Let the for loop update i",
+            "code": "int[] scores = {4, 7, 9, 2};\nint total = 0;\nfor (int i = 0; i < scores.length; i++) {\n    total += scores[i];\n}",
+            "runnable": false,
+            "output": null,
+            "error": null,
+            "compile_error": null
+          },
+          "note": "The flagged code is valid Java. The compiler accepts it, normally without a warning. The problem appears when the program runs: `i` moves forward twice per pass, so the loop skips scores. Here, it finishes without a crash but gives the wrong total."
+        }
+      ]
+    },
+    {
+      "id": "why-it-happens",
+      "title": "Why it happens",
+      "blocks": [
+        {
+          "type": "text",
+          "text": "A `for` loop has an initial value, a condition, and an update. The initial value runs once. The condition decides whether the body runs. After each body pass, the update runs before the next condition check. In the flagged loop, both the body and the update add 1 to `i`."
+        },
+        {
+          "type": "array",
+          "caption": "The flagged loop visits scores at positions 0 and 2.",
+          "name": "scores",
+          "values": [
+            "4",
+            "7",
+            "9",
+            "2"
+          ],
+          "highlight": [
+            1,
+            3
+          ],
+          "outside": 4,
+          "note": "The highlighted positions, 1 and 3, are skipped. An array position is also called an index. Array indexes start at 0."
+        },
+        {
+          "type": "diagram",
+          "caption": "The counter changes in the body and again in the for update.",
+          "mermaid": "flowchart TD\n  A([Start with i equal 0]) --> B{Is i less than scores length}\n  B -- yes --> C[Add score at index i]\n  C --> D[Body adds 1 to i]\n  D --> E[For update adds 1 to i]\n  E --> B\n  B -- no --> F([Stop])"
+        },
+        {
+          "type": "callout",
+          "tone": "tip",
+          "title": "One counter change is enough",
+          "text": "For a normal pass through every array position, let the `for` update change `i`. Do not also change `i` in the body."
+        }
+      ]
+    },
+    {
+      "id": "trace",
+      "title": "Trace it, one pass at a time",
+      "blocks": [
+        {
+          "type": "text",
+          "text": "A trace is a record of what happens during each pass. Follow `i` in order: check the condition, run the body, then run the `for` update."
+        },
+        {
+          "type": "table",
+          "caption": "Tracing the flagged loop with scores.length equal to 4",
+          "columns": [
+            "Pass",
+            "`i` at condition",
+            "Body adds",
+            "`i` after body",
+            "`i` after for update"
+          ],
+          "rows": [
+            [
+              "1",
+              "0: true",
+              "`scores[0]`, or 4; total is 4",
+              "1",
+              "2"
+            ],
+            [
+              "2",
+              "2: true",
+              "`scores[2]`, or 9; total is 13",
+              "3",
+              "4"
+            ],
+            [
+              "Stop",
+              "4: false",
+              "Body does not run",
+              "—",
+              "—"
+            ]
+          ],
+          "highlight": [
+            1
+          ]
+        },
+        {
+          "type": "text",
+          "text": "The loop visits indexes 0 and 2, so it misses the values 7 and 2. The total is 13 instead of 22. When `i` becomes 4, the condition `i < scores.length` is false and the loop stops."
+        }
+      ]
+    },
+    {
+      "id": "worked-examples",
+      "title": "Work through two examples",
+      "blocks": [
+        {
+          "type": "text",
+          "text": "Both complete programs below use the same scores. The first keeps the extra `i++`, so its total is wrong. The second removes it and adds every score."
+        },
+        {
+          "type": "compare",
+          "bad": {
+            "title": "Worked example 1: the extra update skips scores",
+            "code": "public class SumScores {\n    public static void main(String[] args) {\n        int[] scores = {4, 7, 9, 2};\n        int total = 0;\n        for (int i = 0; i < scores.length; i++) {\n            total += scores[i];\n            i++;\n        }\n        System.out.println(\"total=\" + total);\n    }\n}",
+            "runnable": true,
+            "output": "total=13",
+            "error": null,
+            "compile_error": null
+          },
+          "good": {
+            "title": "Worked example 2: the for update visits every score",
+            "code": "public class SumScores {\n    public static void main(String[] args) {\n        int[] scores = {4, 7, 9, 2};\n        int total = 0;\n        for (int i = 0; i < scores.length; i++) {\n            total += scores[i];\n        }\n        System.out.println(\"total=\" + total);\n    }\n}",
+            "runnable": true,
+            "output": "total=22",
+            "error": null,
+            "compile_error": null
+          },
+          "note": "In both programs, `total` is an accumulator: a variable that keeps a running result. It starts at 0 before the loop. In the first program, `i` goes from 0 to 2 to 4, so only 4 and 9 are added. In the second, the `for` update moves `i` from 0 to 1 to 2 to 3 to 4, so all four scores are added."
+        }
+      ]
+    },
+    {
+      "id": "in-disguise",
+      "title": "The same bug in disguise",
+      "blocks": [
+        {
+          "type": "text",
+          "text": "The extra change does not have to be written as `i++`. Any extra change to the counter inside the body can make the loop skip positions."
+        },
+        {
+          "type": "compare",
+          "bad": {
+            "title": "A different spelling of the extra change",
+            "code": "for (int i = 0; i < scores.length; i++) {\n    total += scores[i];\n    i = i + 1;\n}",
+            "runnable": false,
+            "output": null,
+            "error": null,
+            "compile_error": null
+          },
+          "good": {
+            "title": "Update the counter only in the for header",
+            "code": "for (int i = 0; i < scores.length; i++) {\n    total += scores[i];\n}",
+            "runnable": false,
+            "output": null,
+            "error": null,
+            "compile_error": null
+          },
+          "note": "`i = i + 1` also adds 1 to `i`. The wording is different, but the counter still changes in the body and again in the `for` update."
+        },
+        {
+          "type": "compare",
+          "bad": {
+            "title": "The extra change happens only on some passes",
+            "code": "for (int i = 0; i < scores.length; i++) {\n    total += scores[i];\n    if (scores[i] > 5) {\n        i++;\n    }\n}",
+            "runnable": false,
+            "output": null,
+            "error": null,
+            "compile_error": null
+          },
+          "good": {
+            "title": "Keep the counter change in one place",
+            "code": "for (int i = 0; i < scores.length; i++) {\n    total += scores[i];\n}",
+            "runnable": false,
+            "output": null,
+            "error": null,
+            "compile_error": null
+          },
+          "note": "Now the loop skips a position only when the current score is greater than 5. That can make the bug harder to spot. Check every path through the body for changes to the counter."
+        },
+        {
+          "type": "compare",
+          "bad": {
+            "title": "Unexpected skips from two updates",
+            "code": "for (int i = 0; i < scores.length; i++) {\n    total += scores[i];\n    i += 2;\n}",
+            "runnable": false,
+            "output": null,
+            "error": null,
+            "compile_error": null
+          },
+          "good": {
+            "title": "Make intentional steps clear in the header",
+            "code": "for (int i = 0; i < scores.length; i += 2) {\n    total += scores[i];\n}",
+            "runnable": false,
+            "output": null,
+            "error": null,
+            "compile_error": null
+          },
+          "note": "If you intentionally want every other score, put the step in the `for` update, such as `i += 2`, and do not also change `i` in the body. The counter then has one clear place where it changes."
+        }
+      ]
+    },
+    {
+      "id": "check-yourself",
+      "title": "Check yourself",
+      "blocks": [
+        {
+          "type": "check",
+          "question": "What total does the flagged loop produce for these scores?",
+          "code": "int[] scores = {4, 7, 9, 2};\nint total = 0;\nfor (int i = 0; i < scores.length; i++) {\n    total += scores[i];\n    i++;\n}",
+          "options": [
+            "13",
+            "22",
+            "18",
+            "The loop never stops"
+          ],
+          "answer": 0,
+          "explanation": "The loop adds `scores[0]`, which is 4, and `scores[2]`, which is 9. The counter changes twice per pass, so the total is 13."
+        },
+        {
+          "type": "check",
+          "question": "After the first body pass and the `for` update, what is `i`?",
+          "code": "for (int i = 0; i < scores.length; i++) {\n    total += scores[i];\n    i++;\n}",
+          "options": [
+            "0",
+            "1",
+            "2",
+            "3"
+          ],
+          "answer": 2,
+          "explanation": "`i` starts at 0. The body changes it to 1, then the `for` update changes it to 2."
+        },
+        {
+          "type": "check",
+          "question": "You want to add every score once. What should you change in the flagged loop?",
+          "code": "for (int i = 0; i < scores.length; i++) {\n    total += scores[i];\n    i++;\n}",
+          "options": [
+            "Remove `i++` from the body",
+            "Change the condition to `i <= scores.length`",
+            "Start `i` at 1",
+            "Add another `i++` in the body"
+          ],
+          "answer": 0,
+          "explanation": "The update in the `for` header already changes `i` after each pass. Removing the body update lets the loop visit indexes 0, 1, 2, and 3."
+        }
+      ]
+    },
+    {
+      "id": "key-points",
+      "title": "Key points",
+      "blocks": [
+        {
+          "type": "keypoints",
+          "items": [
+            "A `for` loop runs its body, then runs its update before checking the condition again.",
+            "In the flagged pattern, `i++` in the body and `i++` in the header make the counter move by 2 per pass.",
+            "That extra change is valid Java: it compiles, but it can make the running program skip values.",
+            "For a normal pass through an array, change the counter in one place: the `for` update.",
+            "Trace the counter after the body and after the update to find skipped positions."
+          ]
+        }
+      ]
+    }
+  ],
+  "sources": [
+    "loop_control.txt",
+    "loop_initialization.txt"
+  ]
+}
